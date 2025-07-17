@@ -1,3 +1,5 @@
+using Statistics
+
 function intensity(u::AbstractArray)
     n = ndims(u)
     if n <= 2

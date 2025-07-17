@@ -2,6 +2,7 @@ module OpticalComponents
 
 using ..Types
 
+export make_fft_plans
 export propagate!, backpropagate!
 
 function propagate!(args...)

@@ -1,7 +1,6 @@
 module FluxOptics
 
 using Requires
-using Statistics
 using LinearAlgebra
 
 export Modes

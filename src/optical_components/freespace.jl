@@ -2,46 +2,44 @@ using AbstractFFTs
 using FFTW
 using EllipsisNotation
 
-function apply_kernel!(prop::AbstractOpticalComponent{U}, u::U, ::Type{Forward}) where {U}
-    u .*= kernel(prop)
+function make_fft_plans(
+        u::U, dims::NTuple{N, Integer}) where {N, U <: AbstractArray{<:Complex}}
+    p_ft = plan_fft!(u, dims, flags = FFTW.MEASURE)
+    p_ift = plan_ifft!(u, dims, flags = FFTW.MEASURE)
+    (; ft = p_ft, ift = p_ift)
 end
 
-function apply_kernel!(prop::AbstractOpticalComponent{U}, u::U, ::Type{Backward}) where {U}
-    u .*= conjugate_kernel(prop)
-end
+abstract type AbstractPropagator{M} <: AbstractOpticalComponent{M} end
 
-struct ASProp{T} <: AbstractOpticalComponent{T}
-    fx_vec
-    fy_vec
-    p_ker
-    p_ft
-    p_ift
-    filter
+struct ASProp{M, T, F, K, V, P} <: AbstractPropagator{M}
+    f_vec::V
+    p_ker::K
+    p_f::P
+    filter::F
 
     function ASProp(
+            U::Type{<:AbstractArray{Complex{T}, N}},
             dims::NTuple{N, Integer},
             dx::Real,
             dy::Real,
             λ::Real,
             z::Real;
-            filter::Union{Nothing, AbstractArray{<:Real, 2}} = nothing,
-            U::Type{<:AbstractArray{<:Complex}} = Array{ComplexF64, N}
-    ) where {N}
+            filter::Union{Nothing, AbstractArray{<:Real, 2}} = nothing
+    ) where {N, T <: Real}
         @assert N >= 2
-        K = adapt_2D(U)
+        K = adapt_dim(U, 2)
         nx, ny = dims
-        fxv = fftfreq(nx, 1/dx)
-        fyv = fftfreq(ny, 1/dy)
-        p_ker = K(exp.(im*(2*π*z) .* sqrt.((1/λ^2 + 0im) .- fxv .^ 2 .- (fyv') .^ 2)))
+        fxv = fftfreq(nx, T(1/dx))
+        fyv = fftfreq(ny, T(1/dy))
+        f_vec = (; x = fxv, y = fyv)
+        p_ker = (@. exp(im*(2*π*z)*sqrt((1/λ^2 + 0im) - fxv^2 - (fyv')^2))) |> K
         A_plan = U(undef, dims)
-        if isa(A_plan, Array)
-            p_ft = plan_fft!(A_plan, (1, 2), flags = FFTW.MEASURE)
-            p_ift = plan_ifft!(A_plan, (1, 2), flags = FFTW.MEASURE)
-        else
-            p_ft = plan_fft!(A_plan, (1, 2))
-            p_ift = plan_ifft!(A_plan, (1, 2))
-        end
-        new{Static}(fxv, fyv, p_ker, p_ft, p_ift, filter)
+        p_f = make_fft_plans(A_plan, (1, 2))
+        filter = isnothing(filter) ? nothing : filter |> K
+        F = typeof(filter)
+        V = typeof(f_vec)
+        P = typeof(p_f)
+        new{Static, T, F, K, V, P}(f_vec, p_ker, p_f, filter)
     end
 
     function ASProp(u::U,
@@ -51,7 +49,7 @@ struct ASProp{T} <: AbstractOpticalComponent{T}
             z::Real;
             filter::Union{Nothing, AbstractArray{<:Real, 2}} = nothing
     ) where {U <: AbstractArray{<:Complex}}
-        ASProp(size(u), dx, dy, λ, z; filter = filter, U = typeof(u))
+        ASProp(typeof(u), size(u), dx, dy, λ, z; filter = filter)
     end
 end
 
@@ -63,70 +61,83 @@ function conjugate_kernel(as_prop::ASProp)
     conj.(as_prop.p_ker)
 end
 
-function apply_kernel!(as_prop::ASProp{Static}, u, λ::Real, z::Real, ::Type{Forward})
-    u .*= exp.(im .* (2*π*z) .*
-               sqrt.((1/λ^2 + 0im) .- as_prop.fx_vec .^ 2 .- (as_prop.fy_vec') .^ 2))
+function apply_kernel!(u, prop::AbstractPropagator, ::Type{Forward})
+    u .*= kernel(prop)
 end
 
-function apply_kernel!(as_prop::ASProp{Static}, u, λ::Real, z::Real, ::Type{Backward})
-    u .*= conj.(exp.(im .* (2*π*z) .*
-                     sqrt.((1/λ^2 + 0im) .- as_prop.fx_vec .^ 2 .- (as_prop.fy_vec') .^ 2)))
+function apply_kernel!(u, prop::AbstractPropagator, ::Type{Backward})
+    u .*= conjugate_kernel(prop)
 end
 
-function propagate!(u, as_prop::ASProp{Static}; direction::Type{<:Direction} = Forward)
-    as_prop.p_ft * u
-    apply_kernel!(as_prop, u, direction)
-    if !isnothing(as_prop.filter)
-        u .*= filter
+function kernel_expr(as_prop::ASProp{M, T}, λ, z) where {M, T}
+    fx, fy = as_prop.f_vec.x, as_prop.f_vec.y'
+    k² = complex(inv(T(λ)^2))
+    im * T(2π*z) .* sqrt.(k² .- fx .* fx .- fy .* fy)
+end
+
+function apply_kernel!(u, as_prop::ASProp, λ, z, ::Type{Forward})
+    u .*= exp.(kernel_expr(as_prop, λ, z))
+end
+
+function apply_kernel!(u, as_prop::ASProp, λ, z, ::Type{Backward})
+    u .*= conj.(exp.(kernel_expr(as_prop, λ, z)))
+end
+
+function mul_filter!(u, as_prop::ASProp{M, T, Nothing}) where {M, T}
+    u
+end
+
+function mul_filter!(u, as_prop::ASProp{M, T, F}) where {M, T, F <: AbstractArray{T}}
+    u .*= as_prop.filter
+end
+
+function _propagate_core!(apply_kernel_fn, u, as_prop::ASProp)
+    as_prop.p_f.ft * u
+    apply_kernel_fn()
+    mul_filter!(u, as_prop)
+    as_prop.p_f.ift * u
+end
+
+function propagate!(u, as_prop::ASProp, direction::Type{<:Direction} = Forward)
+    _propagate_core!(u, as_prop) do
+        apply_kernel!(u, as_prop, direction)
     end
-    as_prop.p_ift * u
 end
 
-function propagate!(u, as_prop::ASProp{Static}, λ::Real, z::Real;
-        direction::Type{<:Direction} = Forward)
-    as_prop.p_ft * u
-    apply_kernel!(as_prop, u, λ, z, direction)
-    if !isnothing(as_prop.filter)
-        u .*= filter
+function propagate!(u, as_prop::ASProp, λ, z, direction::Type{<:Direction} = Forward)
+    _propagate_core!(u, as_prop) do
+        apply_kernel!(u, as_prop, λ, z, direction)
     end
-    as_prop.p_ift * u
 end
 
-struct RSProp{T} <: AbstractOpticalComponent{T}
-    p_ker
-    p_ker_c
-    u_tmp
-    p_ft
-    p_ift
+struct RSProp{M, T, K, U, P} <: AbstractPropagator{M}
+    p_ker::K
+    p_ker_c::K
+    u_tmp::U
+    p_f::P
 
-    function RSProp(dims::NTuple{N, Integer}, dx::Real, dy::Real, λ::Real, z::Real;
-            U::Type{<:AbstractArray{<:Complex, N}} = Array{ComplexF64, N}
-    ) where {N}
+    function RSProp(U::Type{<:AbstractArray{Complex{T}, N}},
+            dims::NTuple{N, Integer}, dx::Real, dy::Real, λ::Real, z::Real;
+    ) where {N, T <: Real}
         @assert N >= 2
-        K = adapt_2D(U)
+        K = adapt_dim(U, 2)
         nx, ny = dims
         Nx, Ny = 2*nx-1, 2*ny-1
-        X_vec = circshift((1 - nx):(nx - 1), nx) .* dx
-        Y_vec = circshift((1 - ny):(ny - 1), ny) .* dy
+        x_vec = circshift((1 - nx):(nx - 1), nx) .* dx
+        y_vec = circshift((1 - ny):(ny - 1), ny) .* dy
         k = 2*π/λ
-        R_vec = sqrt.(X_vec .^ 2 .+ (Y_vec') .^ 2 .+ z^2)
-        p_ker = K((dx*dy/2π)*(exp.(im*k .* R_vec) ./ R_vec) .* (z ./ R_vec) .*
-                  (1.0 ./ R_vec .- im*k))
+        r_vec = @. sqrt(x_vec^2 + (y_vec')^2 + z^2)
+        p_ker = (@. (dx*dy/2π)*(exp(im*k*r_vec)/r_vec)*(z/r_vec)*(1/r_vec-im*k)) |> K
         A_plan = U(undef, (Nx, Ny, dims[3:end]...))
-        if isa(A_plan, Array)
-            p_ft = plan_fft!(A_plan, (1, 2), flags = FFTW.MEASURE)
-            p_ift = plan_ifft!(A_plan, (1, 2), flags = FFTW.MEASURE)
-        else
-            p_ft = plan_fft!(A_plan, (1, 2))
-            p_ift = plan_ifft!(A_plan, (1, 2))
-        end
-        new{Static}(fft(p_ker), fft(conj(p_ker)), A_plan, p_ft, p_ift)
+        p_f = make_fft_plans(A_plan, (1, 2))
+        P = typeof(p_f)
+        new{Static, T, K, U, P}(fft!(p_ker), fft!(conj!(p_ker)), A_plan, p_f)
     end
 
-    function RSProp(
-            u::U, dx::Real, dy::Real, λ::Real, z::Real
+    function RSProp(u::U,
+            dx::Real, dy::Real, λ::Real, z::Real
     ) where {U <: AbstractArray{<:Complex}}
-        RSProp(size(u), dx, dy, λ, z; U = typeof(u))
+        RSProp(typeof(U), size(u), dx, dy, λ, z)
     end
 end
 
@@ -138,13 +149,13 @@ function conjugate_kernel(rs_prop::RSProp)
     rs_prop.p_ker_c
 end
 
-function propagate!(u, rs_prop::RSProp{Static}; direction::Type{<:Direction} = Forward)
+function propagate!(u, rs_prop::RSProp, direction::Type{<:Direction} = Forward)
     nx, ny = size(u)
     rs_prop.u_tmp .= 0
     rs_prop.u_tmp[1:nx, 1:ny, ..] .= u
-    rs_prop.p_ft * rs_prop.u_tmp
-    apply_kernel!(rs_prop, rs_prop.u_tmp, direction)
-    rs_prop.p_ift * rs_prop.u_tmp
+    rs_prop.p_f.ft * rs_prop.u_tmp
+    apply_kernel!(rs_prop.u_tmp, rs_prop, direction)
+    rs_prop.p_f.ift * rs_prop.u_tmp
     @views u .= rs_prop.u_tmp[1:nx, 1:ny, ..]
     u
 end

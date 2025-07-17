@@ -3,8 +3,16 @@ struct Phase{T} <: AbstractOpticalComponent{T}
     ∇ϕ
     u_fwd
 
-    function Phase(ϕ::A, ∇ϕ::A, u_fwd) where {A <: AbstractArray{<:Real, 2}}
+    function Phase(
+            ϕ::A,
+            ∇ϕ::A,
+            u_fwd::U
+    ) where {A <: AbstractArray{<:Real, 2}, U <: AbstractArray{<:Complex{}}}
         new{Trainable}(ϕ, ∇ϕ, u_fwd)
+    end
+
+    function Phase(ϕ::A, ∇ϕ::Nothing, u_fwd::Nothing) where {A <: AbstractArray{<:Real, 2}}
+        new{Static}(ϕ, ∇ϕ, u_fwd)
     end
 
     function Phase(
@@ -28,29 +36,28 @@ struct Phase{T} <: AbstractOpticalComponent{T}
     end
 
     function Phase(
-            u::AbstractArray{<:Complex{<:Real}},
+            u::U,
             dx::Real,
             dy::Real,
             f::Function;
             trainability::Trainability = Static,
             xc::Real = 0,
             yc::Real = 0
-    )
-        Phase(size(u), dx, dy, f; U = typeof(u), trainable = trainable, xc = xc, yc = yc)
+    ) where {U <: AbstractArray{<:Complex}}
+        Phase(size(u), dx, dy, f; U, trainable = trainable, xc = xc, yc = yc)
     end
 
-    function Phase(
-            u::AbstractArray{<:Complex{<:Real}, N},
+    function Phase(u::U,
             ϕ::P;
             trainability::Trainability = Static
-    ) where {N, P <: AbstractArray{<:Real, 2}}
+    ) where {N, U <: AbstractArray{<:Complex, N}, P <: AbstractArray{<:Real, 2}}
         @assert N >= 2
         ∇ϕ = is_trainable(trainability) ? similar(ϕ) : nothing
         u_fwd = is_trainable(trainability) ? similar(u) : nothing
         new{trainability}(ϕ, ∇ϕ, u_fwd)
     end
 
-    function Phase(ϕ::AbstractArray{<:Real, 2})
+    function Phase(ϕ::A) where {A <: AbstractArray{<:Real, 2}}
         new{Static}(ϕ, nothing, nothing)
     end
 end
