@@ -9,8 +9,6 @@ function make_fft_plans(
     (; ft = p_ft, ift = p_ift)
 end
 
-abstract type AbstractPropagator{M} <: AbstractOpticalComponent{M} end
-
 struct ASProp{M, T, F, K, V, P} <: AbstractPropagator{M}
     f_vec::V
     p_ker::K
@@ -53,12 +51,12 @@ struct ASProp{M, T, F, K, V, P} <: AbstractPropagator{M}
     end
 end
 
-function kernel(as_prop::ASProp)
-    as_prop.p_ker
+function kernel(prop::AbstractPropagator)
+    prop.p_ker
 end
 
-function conjugate_kernel(as_prop::ASProp)
-    conj.(as_prop.p_ker)
+function conjugate_kernel(prop::AbstractPropagator)
+    conj.(prop.p_ker)
 end
 
 function apply_kernel!(u, prop::AbstractPropagator, ::Type{Forward})
@@ -112,12 +110,11 @@ end
 
 struct RSProp{M, T, K, U, P} <: AbstractPropagator{M}
     p_ker::K
-    p_ker_c::K
     u_tmp::U
     p_f::P
 
     function RSProp(U::Type{<:AbstractArray{Complex{T}, N}},
-            dims::NTuple{N, Integer}, dx::Real, dy::Real, λ::Real, z::Real;
+            dims::NTuple{N, Integer}, dx::Real, dy::Real, λ::Real, z::Real
     ) where {N, T <: Real}
         @assert N >= 2
         K = adapt_dim(U, 2)
@@ -128,34 +125,32 @@ struct RSProp{M, T, K, U, P} <: AbstractPropagator{M}
         k = 2*π/λ
         r_vec = @. sqrt(x_vec^2 + (y_vec')^2 + z^2)
         p_ker = (@. (dx*dy/2π)*(exp(im*k*r_vec)/r_vec)*(z/r_vec)*(1/r_vec-im*k)) |> K
+        fft!(p_ker)
         A_plan = U(undef, (Nx, Ny, dims[3:end]...))
         p_f = make_fft_plans(A_plan, (1, 2))
         P = typeof(p_f)
-        new{Static, T, K, U, P}(fft!(p_ker), fft!(conj!(p_ker)), A_plan, p_f)
+        new{Static, T, K, U, P}(p_ker, A_plan, p_f)
     end
 
     function RSProp(u::U,
             dx::Real, dy::Real, λ::Real, z::Real
     ) where {U <: AbstractArray{<:Complex}}
-        RSProp(typeof(U), size(u), dx, dy, λ, z)
+        RSProp(U, size(u), dx, dy, λ, z)
     end
-end
-
-function kernel(rs_prop::RSProp)
-    rs_prop.p_ker
-end
-
-function conjugate_kernel(rs_prop::RSProp)
-    rs_prop.p_ker_c
 end
 
 function propagate!(u, rs_prop::RSProp, direction::Type{<:Direction} = Forward)
     nx, ny = size(u)
     rs_prop.u_tmp .= 0
-    rs_prop.u_tmp[1:nx, 1:ny, ..] .= u
+    u_view = @view rs_prop.u_tmp[1:nx, 1:ny, ..]
+    u_view .= u
     rs_prop.p_f.ft * rs_prop.u_tmp
     apply_kernel!(rs_prop.u_tmp, rs_prop, direction)
     rs_prop.p_f.ift * rs_prop.u_tmp
-    @views u .= rs_prop.u_tmp[1:nx, 1:ny, ..]
+    @views u .= u_view
     u
+end
+
+function backpropagate!(u, p::AbstractPropagator, direction::Type{<:Direction})
+    propagate!(u, p, reverse(direction))
 end

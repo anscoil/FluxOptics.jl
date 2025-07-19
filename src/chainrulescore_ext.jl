@@ -1,28 +1,25 @@
 using ChainRulesCore
 
 function ChainRulesCore.rrule(
-        ::typeof(propagate!), u, p::AbstractOpticalComponent{Static};
-        direction::Type{<:Direction} = Forward)
-    v = propagate!(u, p; direction = direction)
+        ::typeof(propagate), u, p::AbstractOpticalComponent{Static},
+        direction::Type{<:Direction})
+    v = propagate(u, p, direction)
 
-    function pullback(Δv)
-        ∂u = propagate!(Δv, p; direction = (direction == Forward ? Backward : Forward))
+    function pullback(∂v)
+        ∂u = backpropagate(∂v, p, direction)
         return (NoTangent(), ∂u, NoTangent())
     end
 
     return v, pullback
 end
 
-function ChainRulesCore.rrule(
-        ::typeof(propagate!), u, phi::Phase{Trainable};
-        direction::Type{<:Direction} = Forward)
-    v = propagate!(u, phi; direction = direction, save_u = true)
-    function pullback(Δv)
-        ∂u = propagate!(Δv, phi; direction = (direction == Forward ? Backward : Forward))
-        sdims = Tuple(3:ndims(Δv))
-        @views phi.∇ϕ .= dropdims(
-            sum(imag.(∂u .* conj.(phi.u_fwd)), dims = sdims), dims = sdims)
-        return (NoTangent(), ∂u, Tangent{Phase}(ϕ = phi.∇ϕ))
+function ChainRulesCore.rrule(::typeof(propagate), u, p::P,
+        direction::Type{<:Direction}
+) where {P <: AbstractOpticalComponent{Trainable}}
+    v = propagate_and_save(u, p, direction)
+    function pullback(∂v)
+        ∂u, ∂p = backpropagate_with_gradients(∂v, p, direction)
+        return (NoTangent(), ∂u, Tangent{P}(; ∂p...))
     end
 
     return v, pullback

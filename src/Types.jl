@@ -10,6 +10,14 @@ abstract type Direction end
 struct Forward <: Direction end
 struct Backward <: Direction end
 
+function Base.reverse(::Type{Forward})
+    Backward
+end
+
+function Base.reverse(::Type{Backward})
+    Forward
+end
+
 abstract type Trainability end
 struct Trainable <: Trainability end
 struct Static <: Trainability end

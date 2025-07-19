@@ -21,7 +21,8 @@ export spatial_vectors
 include("optical_components/OpticalComponents.jl")
 using .OpticalComponents
 export ASProp, RSProp
-export propagate!
+export propagate, propagate!, backpropagate, backpropagate!
+export compute_gradient, compute_gradient!
 export Phase
 
 include("optimisers_ext.jl")

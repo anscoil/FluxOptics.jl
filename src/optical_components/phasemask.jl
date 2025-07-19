@@ -1,18 +1,18 @@
 struct Phase{T} <: AbstractOpticalComponent{T}
     ϕ
     ∇ϕ
-    u_fwd
+    u
 
     function Phase(
             ϕ::A,
             ∇ϕ::A,
-            u_fwd::U
+            u::U
     ) where {A <: AbstractArray{<:Real, 2}, U <: AbstractArray{<:Complex{}}}
-        new{Trainable}(ϕ, ∇ϕ, u_fwd)
+        new{Trainable}(ϕ, ∇ϕ, u)
     end
 
-    function Phase(ϕ::A, ∇ϕ::Nothing, u_fwd::Nothing) where {A <: AbstractArray{<:Real, 2}}
-        new{Static}(ϕ, ∇ϕ, u_fwd)
+    function Phase(ϕ::A, ∇ϕ::Nothing, u::Nothing) where {A <: AbstractArray{<:Real, 2}}
+        new{Static}(ϕ, ∇ϕ, u)
     end
 
     function Phase(
@@ -31,8 +31,8 @@ struct Phase{T} <: AbstractOpticalComponent{T}
         xv, yv = spatial_vectors(nx, ny, dx, dy; xc = xc, yc = xc)
         ϕ = P(f.(xv, yv'))
         ∇ϕ = is_trainable(trainability) ? similar(ϕ) : nothing
-        u_fwd = is_trainable(trainability) ? U(undef, dims) : nothing
-        new{trainability}(ϕ, ∇ϕ, u_fwd)
+        u = is_trainable(trainability) ? U(undef, dims) : nothing
+        new{trainability}(ϕ, ∇ϕ, u)
     end
 
     function Phase(
@@ -53,8 +53,8 @@ struct Phase{T} <: AbstractOpticalComponent{T}
     ) where {N, U <: AbstractArray{<:Complex, N}, P <: AbstractArray{<:Real, 2}}
         @assert N >= 2
         ∇ϕ = is_trainable(trainability) ? similar(ϕ) : nothing
-        u_fwd = is_trainable(trainability) ? similar(u) : nothing
-        new{trainability}(ϕ, ∇ϕ, u_fwd)
+        u = is_trainable(trainability) ? similar(u) : nothing
+        new{trainability}(ϕ, ∇ϕ, u)
     end
 
     function Phase(ϕ::A) where {A <: AbstractArray{<:Real, 2}}
@@ -62,24 +62,54 @@ struct Phase{T} <: AbstractOpticalComponent{T}
     end
 end
 
-function apply_phase(u, phi, ::Type{Forward})
-    u .*= exp.(im .* phi.ϕ)
+trainable(p::Phase{Trainable}) = (; ϕ = p.ϕ)
+
+function apply_phase!(u, p, ::Type{Forward})
+    u .*= exp.(im .* p.ϕ)
 end
 
-function apply_phase(u, phi, ::Type{Backward})
-    u .*= exp.(-im .* phi.ϕ)
+function apply_phase!(u, p, ::Type{Backward})
+    u .*= exp.(-im .* p.ϕ)
 end
 
-function propagate!(u, phi::Phase{Static};
-        direction::Type{<:Direction} = Forward)
-    apply_phase(u, phi, direction)
+function propagate!(u, p::Phase, direction::Type{<:Direction})
+    apply_phase!(u, p, direction)
 end
 
-function propagate!(u, P::Phase{Trainable};
-        direction::Type{<:Direction} = Forward,
-        save_u::Bool = false)
-    if save_u
-        copyto!(P.u_fwd, u)
+function backpropagate!(u, p::Phase, direction::Type{<:Direction})
+    propagate!(u, p, reverse(direction))
+end
+
+function propagate_and_save!(u, p::Phase{Trainable}, direction::Type{<:Direction})
+    copyto!(p.u, u)
+    apply_phase!(u, p, direction)
+end
+
+function compute_phase_gradient!(
+        ∂ϕ::P,
+        ∂u::U,
+        u::U) where {T <: Real,
+        P <: AbstractArray{T, 2},
+        U <: AbstractArray{<:Complex}}
+    nd = ndims(∂u)
+    sdims = 3:nd
+
+    @inbounds for j in axes(∂ϕ, 2), i in axes(∂ϕ, 1)
+
+        acc = zero(T)
+        for idx in size(∂u)[sdims]
+            full_idx = (i, j, idx...)
+            val = imag(∂u[full_idx...] * conj(u[full_idx...]))
+            acc += val
+        end
+        ∂ϕ[i, j] = acc
     end
-    apply_phase(u, P, direction)
+    ∂ϕ
+end
+
+function backpropagate_with_gradients!(∂v, ∂p::NamedTuple, p::Phase{Trainable},
+        direction::Type{<:Direction})
+    ∂u = backpropagate!(∂v, p, direction)
+    compute_phase_gradient!(∂p.ϕ, ∂u, p.u)
+    (∂u, ∂p)
 end
