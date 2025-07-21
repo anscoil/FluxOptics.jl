@@ -4,6 +4,7 @@ export Direction, Forward, Backward
 export Trainability, Trainable, Static
 export AbstractOpticalComponent
 
+export is_trainable, has_prealloc
 export adapt_dim
 
 abstract type Direction end
@@ -19,13 +20,16 @@ function Base.reverse(::Type{Backward})
 end
 
 abstract type Trainability end
-struct Trainable <: Trainability end
 struct Static <: Trainability end
+struct Trainable{A <: Union{Nothing, <:NamedTuple}} <: Trainability end
 
-is_trainable(::Type{Trainable}) = true
+is_trainable(::Type{<:Trainable}) = true
 is_trainable(::Type{Static}) = false
 
-abstract type AbstractOpticalComponent{M} end
+has_prealloc(::Type{Trainable{Nothing}}) = false
+has_prealloc(::Type{Trainable{<:NamedTuple}}) = true
+
+abstract type AbstractOpticalComponent{M <: Trainability} end
 
 function adapt_dim(A::Type{<:AbstractArray{T}}, n::Integer, f = identity) where {T}
     @assert isconcretetype(A)

@@ -6,6 +6,10 @@ using LinearAlgebra
 export Modes
 export OpticalComponents
 
+include("GridUtils.jl")
+using .GridUtils
+export spatial_vectors
+
 include("Types.jl")
 using .Types
 export Forward, Backward
@@ -16,7 +20,6 @@ using .Modes
 export gaussian, hermite_gaussian
 export triangle_positions, gaussian_modes, hermite_gaussian_modes
 export intensity, rms_error, correlation
-export spatial_vectors
 
 include("optical_components/OpticalComponents.jl")
 using .OpticalComponents
@@ -30,5 +33,12 @@ export rules_dict, ProxRule, Fista
 
 include("flux_ext.jl")
 include("chainrulescore_ext.jl")
+
+function __init__()
+    @require CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba" begin
+        include("CUDAExt.jl")
+        using .CUDAExt
+    end
+end
 
 end

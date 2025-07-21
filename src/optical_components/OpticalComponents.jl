@@ -1,51 +1,77 @@
 module OpticalComponents
 
 using Functors
+using ..GridUtils
 using ..Types
 
-export make_fft_plans
-export propagate, propagate!, backpropagate, backpropagate!
+export propagate!, propagate
+export propagate_and_save!, propagate_and_save
+export backpropagate!, backpropagate
+export backpropagate_with_gradient!, backpropagate_with_gradient
 
-abstract type AbstractPropagator{M} <: AbstractOpticalComponent{M} end
+abstract type AbstractPropagator{M <: Trainability} <: AbstractOpticalComponent{M} end
 
 trainable(p::AbstractOpticalComponent{Static}) = NamedTuple{}()
 
-function trainable(p::AbstractOpticalComponent{Trainable})
+function trainable(p::AbstractOpticalComponent{<: Trainable})
     error("Not implemented")
 end
 
-function propagate!(u, args...)
+function get_preallocated_gradient(p::AbstractOpticalComponent{Trainable{<:NamedTuple}})
     error("Not implemented")
 end
 
-function propagate(u, args...)
-    propagate!(copy(u), args...)
-end
-
-function propagate_and_save!(u, p::AbstractOpticalComponent{Trainable}, args...)
+function propagate!(u, p::AbstractOpticalComponent, direction::Type{<:Direction})
     error("Not implemented")
 end
 
-function propagate_and_save(u, p::AbstractOpticalComponent{Trainable}, args...)
-    propagate!(copy(u), p, args...)
-end
-
-function backpropagate!(u, args...)
+function propagate_and_save!(u, p::AbstractOpticalComponent{<:Trainable},
+        direction::Type{<:Direction})
     error("Not implemented")
 end
 
-function backpropagate(u, args...)
-    backpropagate!(copy(u), args...)
-end
-
-function backpropagate_with_gradients!(
-        ∂v, ∂p::NamedTuple, p::AbstractOpticalComponent{Trainable}, args...)
+function backpropagate!(u, p::AbstractOpticalComponent, direction::Type{<:Direction})
     error("Not implemented")
 end
 
-function backpropagate_with_gradients(∂v, p::AbstractOpticalComponent{Trainable}, args...)
+function backpropagate_with_gradient!(
+        ∂v, ∂p::NamedTuple, p::AbstractOpticalComponent{<:Trainable},
+        direction::Type{<:Direction})
+    error("Not implemented")
+end
+
+function propagate(u, p::AbstractOpticalComponent, direction::Type{<:Direction})
+    propagate!(copy(u), p, direction)
+end
+
+function propagate_and_save(u, p::AbstractOpticalComponent{<:Trainable},
+        direction::Type{<:Direction})
+    propagate_and_save!(copy(u), p, direction)
+end
+
+function backpropagate(u, p::AbstractOpticalComponent, direction::Type{<:Direction})
+    backpropagate!(copy(u), p, direction)
+end
+
+function backpropagate_with_gradient!(
+        ∂v, p::AbstractOpticalComponent{Trainable{Nothing}},
+        direction::Type{<:Direction})
     ∂p = fmap(similar, trainable(p))
-    backpropagate_with_gradients!(copy(∂v), ∂p, p, args...)
+    backpropagate_with_gradient!(∂v, ∂p, p, direction)
+end
+
+function backpropagate_with_gradient!(
+        ∂v, p::AbstractOpticalComponent{Trainable{<:NamedTuple}},
+        direction::Type{<:Direction})
+    ∂p = get_preallocated_gradient(p)
+    backpropagate_with_gradient!(∂v, ∂p, p, direction)
+end
+
+function backpropagate_with_gradient(
+        ∂v, p::AbstractOpticalComponent{<:Trainable},
+        direction::Type{<:Direction})
+    ∂p = fmap(similar, trainable(p))
+    backpropagate_with_gradient!(copy(∂v), ∂p, p, direction)
 end
 
 include("freespace.jl")

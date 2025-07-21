@@ -54,7 +54,7 @@ function Optimisers._update!(ℓ::Leaf{<:ProxRule, S}, x; grads, params) where {
 end
 
 struct Fista <: AbstractRule
-    eta
+    eta::Any
 end
 
 function init(o::Fista, x::AbstractArray{T}) where {T}

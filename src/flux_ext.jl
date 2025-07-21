@@ -2,8 +2,8 @@ using Flux
 using Functors
 using AbstractFFTs
 
-function (p::AbstractOpticalComponent)(u)
-    propagate!(u, p, Forward)
+function (p::AbstractOpticalComponent)(u; direction::Type{<:Direction} = Forward)
+    propagate(u, p, direction)
 end
 
 Flux.trainable(p::AbstractOpticalComponent) = OpticalComponents.trainable(p)

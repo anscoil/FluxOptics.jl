@@ -1,7 +1,7 @@
 module CUDAExt
 
 using CUDA
-using .OpticalComponents
+using ..OpticalComponents
 
 function OpticalComponents.make_fft_plans(
         u::U, dims::NTuple{N, Integer}) where {N, U <: CuArray{<:Complex}}

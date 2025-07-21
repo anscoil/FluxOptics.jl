@@ -96,13 +96,13 @@ function _propagate_core!(apply_kernel_fn, u, as_prop::ASProp)
     as_prop.p_f.ift * u
 end
 
-function propagate!(u, as_prop::ASProp, direction::Type{<:Direction} = Forward)
+function propagate!(u, as_prop::ASProp, direction::Type{<:Direction})
     _propagate_core!(u, as_prop) do
         apply_kernel!(u, as_prop, direction)
     end
 end
 
-function propagate!(u, as_prop::ASProp, λ, z, direction::Type{<:Direction} = Forward)
+function propagate!(u, as_prop::ASProp, λ, z, direction::Type{<:Direction})
     _propagate_core!(u, as_prop) do
         apply_kernel!(u, as_prop, λ, z, direction)
     end
@@ -139,7 +139,7 @@ struct RSProp{M, T, K, U, P} <: AbstractPropagator{M}
     end
 end
 
-function propagate!(u, rs_prop::RSProp, direction::Type{<:Direction} = Forward)
+function propagate!(u, rs_prop::RSProp, direction::Type{<:Direction})
     nx, ny = size(u)
     rs_prop.u_tmp .= 0
     u_view = @view rs_prop.u_tmp[1:nx, 1:ny, ..]
