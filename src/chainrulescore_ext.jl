@@ -54,7 +54,7 @@ function ChainRulesCore.rrule(
 end
 
 function ChainRulesCore.rrule(
-        ::typeof(propagate), p::AbstractOpticalComponent{Static},
+        ::typeof(propagate), p::AbstractOpticalSource{Static},
         direction::Type{<:Direction})
     v = propagate(p, direction)
 
@@ -67,7 +67,7 @@ end
 
 function ChainRulesCore.rrule(::typeof(propagate), p::P,
         direction::Type{<:Direction}
-) where {P <: AbstractOpticalComponent{<:Trainable}}
+) where {P <: AbstractOpticalSource{<:Trainable}}
     v = propagate_and_save(p, direction)
 
     function pullback(∂v)

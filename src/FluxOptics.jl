@@ -10,11 +10,6 @@ include("GridUtils.jl")
 using .GridUtils
 export spatial_vectors
 
-include("Types.jl")
-using .Types
-export Forward, Backward
-export Static, Trainable
-
 include("modes/Modes.jl")
 using .Modes
 export gaussian, hermite_gaussian
@@ -23,11 +18,9 @@ export intensity, rms_error, correlation
 
 include("optical_components/OpticalComponents.jl")
 using .OpticalComponents
-export ASProp, RSProp
 export propagate, propagate!, backpropagate, backpropagate!
 export compute_gradient, compute_gradient!
-export Phase
-export Seeder
+export ASProp, RSProp, Phase, Seeder
 
 include("optimisers_ext.jl")
 export rules_dict, ProxRule, Fista

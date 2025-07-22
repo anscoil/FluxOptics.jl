@@ -1,4 +1,4 @@
-struct Seeder{M, U} <: AbstractOpticalComponent{M}
+struct Seeder{M, U} <: AbstractOpticalSource{M}
     u0::U
     uf::U
     ∂p::Union{Nothing, @NamedTuple{u0::U}}
@@ -34,7 +34,7 @@ function propagate_and_save(p::Seeder, direction::Type{<:Direction})
     propagate(p, direction)
 end
 
-function backpropagate_with_gradient(∂v, ∂p::NamedTuple, p::Seeder{<:Trainable},
+function backpropagate_with_gradient!(∂v, ∂p::NamedTuple, p::Seeder{<:Trainable},
         direction::Type{<:Direction})
     copyto!(∂p.u0, ∂v)
     ∂p

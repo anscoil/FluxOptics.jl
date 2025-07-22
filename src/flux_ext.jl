@@ -11,7 +11,7 @@ function (p::AbstractOpticalComponent)(u; direction::Type{<:Direction} = Forward
     end
 end
 
-function (p::AbstractOpticalComponent)(; direction::Type{<:Direction} = Forward)
+function (p::AbstractOpticalSource)(; direction::Type{<:Direction} = Forward)
     propagate(p, direction)
 end
 
