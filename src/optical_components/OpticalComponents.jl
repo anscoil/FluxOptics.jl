@@ -13,11 +13,11 @@ abstract type AbstractPropagator{M <: Trainability} <: AbstractOpticalComponent{
 
 trainable(p::AbstractOpticalComponent{Static}) = NamedTuple{}()
 
-function trainable(p::AbstractOpticalComponent{<: Trainable})
+function trainable(p::AbstractOpticalComponent{<:Trainable})
     error("Not implemented")
 end
 
-function get_preallocated_gradient(p::AbstractOpticalComponent{Trainable{<:NamedTuple}})
+function get_preallocated_gradient(p::AbstractOpticalComponent{<:Trainable{<:NamedTuple}})
     error("Not implemented")
 end
 
@@ -25,7 +25,16 @@ function propagate!(u, p::AbstractOpticalComponent, direction::Type{<:Direction}
     error("Not implemented")
 end
 
+function propagate(p::AbstractOpticalComponent, direction::Type{<:Direction})
+    error("Not implemented")
+end
+
 function propagate_and_save!(u, p::AbstractOpticalComponent{<:Trainable},
+        direction::Type{<:Direction})
+    error("Not implemented")
+end
+
+function propagate_and_save(p::AbstractOpticalComponent{<:Trainable},
         direction::Type{<:Direction})
     error("Not implemented")
 end
@@ -61,7 +70,7 @@ function backpropagate_with_gradient!(
 end
 
 function backpropagate_with_gradient!(
-        ∂v, p::AbstractOpticalComponent{Trainable{<:NamedTuple}},
+        ∂v, p::AbstractOpticalComponent{<:Trainable{<:NamedTuple}},
         direction::Type{<:Direction})
     ∂p = get_preallocated_gradient(p)
     backpropagate_with_gradient!(∂v, ∂p, p, direction)
@@ -70,8 +79,7 @@ end
 function backpropagate_with_gradient(
         ∂v, p::AbstractOpticalComponent{<:Trainable},
         direction::Type{<:Direction})
-    ∂p = fmap(similar, trainable(p))
-    backpropagate_with_gradient!(copy(∂v), ∂p, p, direction)
+    backpropagate_with_gradient!(copy(∂v), p, direction)
 end
 
 include("freespace.jl")
@@ -79,5 +87,8 @@ export ASProp, RSProp
 
 include("phasemask.jl")
 export Phase
+
+include("seeder.jl")
+export Seeder
 
 end

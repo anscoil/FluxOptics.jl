@@ -70,7 +70,8 @@ struct Phase{M, A, U} <: AbstractOpticalComponent{M}
 end
 
 trainable(p::Phase{<:Trainable}) = (; ϕ = p.ϕ)
-get_preallocated_gradient(p::Phase{Trainable{<:NamedTuple}}) = p.∂p
+
+get_preallocated_gradient(p::Phase{<:Trainable{<:NamedTuple}}) = p.∂p
 
 function apply_phase!(u, p, ::Type{Forward})
     u .*= exp.(im .* p.ϕ)
@@ -93,22 +94,22 @@ function propagate_and_save!(u, p::Phase{<:Trainable}, direction::Type{<:Directi
     apply_phase!(u, p, direction)
 end
 
-# function compute_phase_gradient!(
-#         ∂ϕ::P,
-#         ∂u::U,
-#         u::U) where {T <: Real,
-#         P <: AbstractArray{T, 2},
-#         U <: AbstractArray{<:Complex}}
-#     sdims = Tuple(3:ndims(∂u))
-#     @views ∂ϕ .= dropdims(sum(imag.(∂u .* conj.(u)), dims = sdims), dims = sdims)
-# end
-
 function compute_phase_gradient!(
         ∂ϕ::P,
         ∂u::U,
         u::U) where {T <: Real,
         P <: AbstractArray{T, 2},
-        U <: AbstractArray{<:Complex}}
+        U <: AbstractArray{<:Complex{T}}}
+    sdims = Tuple(3:ndims(∂u))
+    @views ∂ϕ .= dropdims(sum(imag.(∂u .* conj.(u)), dims = sdims), dims = sdims)
+end
+
+function compute_phase_gradient!(
+        ∂ϕ::P,
+        ∂u::U,
+        u::U) where {T <: Real,
+        P <: Array{T, 2},
+        U <: Array{<:Complex{T}}}
     sdims = 3:ndims(∂u)
     ∂ϕ .= 0
     @inbounds for idx in CartesianIndices(size(∂u)[sdims])

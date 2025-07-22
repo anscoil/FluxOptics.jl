@@ -27,11 +27,14 @@ export ASProp, RSProp
 export propagate, propagate!, backpropagate, backpropagate!
 export compute_gradient, compute_gradient!
 export Phase
+export Seeder
 
 include("optimisers_ext.jl")
 export rules_dict, ProxRule, Fista
 
 include("flux_ext.jl")
+export OpticalChain
+
 include("chainrulescore_ext.jl")
 
 function __init__()

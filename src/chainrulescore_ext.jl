@@ -52,3 +52,28 @@ function ChainRulesCore.rrule(
 
     return v, pullback
 end
+
+function ChainRulesCore.rrule(
+        ::typeof(propagate), p::AbstractOpticalComponent{Static},
+        direction::Type{<:Direction})
+    v = propagate(p, direction)
+
+    function pullback(∂v)
+        return (NoTangent(), NoTangent(), NoTangent())
+    end
+
+    return v, pullback
+end
+
+function ChainRulesCore.rrule(::typeof(propagate), p::P,
+        direction::Type{<:Direction}
+) where {P <: AbstractOpticalComponent{<:Trainable}}
+    v = propagate_and_save(p, direction)
+
+    function pullback(∂v)
+        ∂p = backpropagate_with_gradient(∂v, p, direction)
+        return (NoTangent(), Tangent{P}(; ∂p...), NoTangent())
+    end
+
+    return v, pullback
+end
