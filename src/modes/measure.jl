@@ -11,6 +11,10 @@ function intensity(u::AbstractArray)
     end
 end
 
+function phase(u::AbstractArray{T, 2}) where {T}
+    angle.(u)
+end
+
 function rms_error(u, v)
     return sqrt(mean(abs.(u .- v) .^ 2))
 end

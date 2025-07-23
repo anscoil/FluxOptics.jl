@@ -100,8 +100,8 @@ function compute_phase_gradient!(
         u::U) where {T <: Real,
         P <: AbstractArray{T, 2},
         U <: AbstractArray{<:Complex{T}}}
-    sdims = Tuple(3:ndims(∂u))
-    @views ∂ϕ .= dropdims(sum(imag.(∂u .* conj.(u)), dims = sdims), dims = sdims)
+    sdims = 3:ndims(∂u)
+    @views ∂ϕ .= sum(imag.(∂u .* conj.(u)), dims = sdims)
 end
 
 function compute_phase_gradient!(
