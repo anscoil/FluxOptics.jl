@@ -8,14 +8,15 @@ export OpticalComponents
 
 include("GridUtils.jl")
 using .GridUtils
-export spatial_vectors, rotate_vectors
+export spatial_vectors
+export Shift2D, Rot2D, Id2D
 
 include("modes/Modes.jl")
 using .Modes
-export Gaussian1D, Gaussian, HermiteGaussian1D, HermiteGaussian
-export gaussian, hermite_gaussian
-export triangle_positions, gaussian_modes, hermite_gaussian_modes
 export intensity, phase, rms_error, correlation
+export Gaussian1D, Gaussian, HermiteGaussian1D, HermiteGaussian
+export hermite_gaussian_groups
+export Layout2D, triangle_layout, generate_mode_stack
 
 include("optical_components/OpticalComponents.jl")
 using .OpticalComponents

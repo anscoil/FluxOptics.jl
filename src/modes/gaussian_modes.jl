@@ -53,6 +53,10 @@ struct Gaussian1D{T, P <: Union{Nothing, <:NamedTuple}} <: Mode{1}
     end
 end
 
+function Base.eltype(m::Gaussian1D{T}) where {T}
+    Complex{T}
+end
+
 function eval_exp_arg(m::Gaussian1D{<:Real, Nothing}, x)
     -(x/m.w0)^2
 end
@@ -98,15 +102,22 @@ struct Gaussian{G <: Gaussian1D} <: Mode{2}
     end
 end
 
-function eval_mode(m::Gaussian{<:Gaussian1D{<:Real, Nothing}}, x, y)
-    Cx, Cy = m.gx.C, m.gy.C
-    sqrt(Cx*Cy) * exp(eval_exp_arg(m.gx, x) + eval_exp_arg(m.gy, y))
+function Base.eltype(m::Gaussian)
+    promote_type(eltype(m.gx), eltype(m.gy))
 end
 
-function eval_mode(m::Gaussian{<:Gaussian1D{<:Real, <:NamedTuple}}, x, y)
-    d_x = m.gx.data
+function eval_constant_phase(m::Gaussian1D{T, Nothing}) where {T <: Real}
+    Complex{T}(1)
+end
+
+function eval_constant_phase(m::Gaussian1D{<:Real, <:NamedTuple})
+    m.data.eikz
+end
+
+function eval_mode(m::Gaussian, x, y)
     Cx, Cy = m.gx.C, m.gy.C
-    sqrt(Cx*Cy) * exp(eval_exp_arg(m.gx, x) + eval_exp_arg(m.gy, y)) * d_x.eikz
+    eikz = eval_constant_phase(m.gx)
+    sqrt(Cx*Cy) * exp(eval_exp_arg(m.gx, x) + eval_exp_arg(m.gy, y)) * eikz
 end
 
 function hermite_polynomial(n::Integer)
@@ -144,12 +155,21 @@ struct HermiteGaussian1D{T, G <: Gaussian1D{T}, P} <: Mode{1}
     end
 end
 
-function eval_mode(m::HermiteGaussian1D{T, <:Gaussian1D{T, Nothing}}, x) where {T}
-    sqrt(m.C) * m.hn(sqrt(2)*x/m.g.w0) * eval_mode(m.g, x)
+function Base.eltype(m::HermiteGaussian1D{T}) where {T}
+    Complex{T}
 end
 
-function eval_mode(m::HermiteGaussian1D{T, <:Gaussian1D{T, <:NamedTuple}}, x) where {T}
-    sqrt(m.C) * m.hn(sqrt(2)*x/m.g.data.wz) * eval_mode(m.g, x)
+function eval_wz(m::HermiteGaussian1D{T, <:Gaussian1D{T, Nothing}}) where {T}
+    m.g.w0
+end
+
+function eval_wz(m::HermiteGaussian1D{T, <:Gaussian1D{T, <:NamedTuple}}) where {T}
+    m.g.data.wz
+end
+
+function eval_mode(m::HermiteGaussian1D, x)
+    wz = eval_wz(m)
+    sqrt(m.C) * m.hn(sqrt(2)*x/wz) * eval_mode(m.g, x)
 end
 
 struct HermiteGaussian{G <: HermiteGaussian1D} <: Mode{2}
@@ -182,220 +202,28 @@ struct HermiteGaussian{G <: HermiteGaussian1D} <: Mode{2}
     end
 end
 
+function Base.eltype(m::HermiteGaussian)
+    promote_type(eltype(m.hgx), eltype(m.hgy))
+end
+
 function eval_mode(m::HermiteGaussian, x, y)
-    eval_mode(m.hgx, x) * eval_mode(m.hgy, y)
+    mx = m.hgx
+    my = m.hgy
+    wz_x = eval_wz(mx)
+    wz_y = eval_wz(my)
+    C = mx.C * mx.g.C * my.C * my.g.C
+    eikz = eval_constant_phase(mx.g)
+    (sqrt(C) * mx.hn(sqrt(2)*x/wz_x) * my.hn(sqrt(2)*y/wz_y)
+     * exp(eval_exp_arg(mx.g, x) + eval_exp_arg(my.g, y)) * eikz)
 end
 
-function hermite_gaussian(
-        w0x,
-        w0y,
-        λ,
-        z,
-        m::Integer,
-        n::Integer;
-        xc = 0.0,
-        yc = 0.0,
-        θ0 = 0.0,
-        constant_phase = true
-)
-    k = 2π/λ
-    q0x = get_q(w0x, λ, 0)
-    q0y = get_q(w0y, λ, 0)
-    qzx = get_q(w0x, λ, z)
-    qzy = get_q(w0y, λ, z)
-    wzx = get_w(w0x, λ, z)
-    wzy = get_w(w0y, λ, z)
-    zRx = get_zR(w0x, λ)
-    zRy = get_zR(w0y, λ)
-    Hm = hermite_polynomial(m)
-    Hn = hermite_polynomial(n)
-    cosθ0 = cos(θ0)
-    sinθ0 = sin(θ0)
-    eiψG = sqrt((-conj(qzx)/qzx)^m) * sqrt((-conj(qzy)/qzy)^n)
-    C = sqrt(sqrt(2/π)/(2^m*factorial(m)*w0x)*sqrt(2/π)/(2^n*factorial(n)*w0y))
-    eic = exp(im*k*z)
-    function f(x, y)
-        x, y = (x-xc)*cosθ0 - (y-yc)*sinθ0, (y-yc)*cosθ0 + (x-xc)*sinθ0
-        x2 = x^2
-        y2 = y^2
-        v = sqrt((q0x*q0y)/(qzx*qzy))*exp(im*k*(x2/(2*qzx) + y2/(2*qzy)))
-        v *= C*Hm(sqrt(2)*x/wzx)*Hn(sqrt(2)*y/wzy)*eiψG
-        if constant_phase
-            v *= eic
-        end
-        v
-    end
-    f
-end
-
-function gaussian(w0x, w0y, λ, z; xc = 0.0, yc = 0.0, θ0 = 0.0, constant_phase = true)
-    hermite_gaussian(
-        w0x,
-        w0y,
-        λ,
-        z,
-        0,
-        0;
-        xc = xc,
-        yc = yc,
-        θ0 = θ0,
-        constant_phase = constant_phase
-    )
-end
-
-function gaussian(w0, λ, z; xc = 0.0, yc = 0.0, θ0 = 0.0, constant_phase = true)
-    gaussian(w0, w0, λ, z; xc = xc, yc = yc, θ0 = θ0, constant_phase = constant_phase)
-end
-
-function hermite_gaussian(
-        w0,
-        λ,
-        z,
-        m::Integer,
-        n::Integer;
-        xc = 0.0,
-        yc = 0.0,
-        θ0 = 0.0,
-        constant_phase = true
-)
-    hermite_gaussian(
-        w0,
-        w0,
-        λ,
-        z,
-        m,
-        n;
-        xc = xc,
-        yc = yc,
-        θ0 = θ0,
-        constant_phase = constant_phase
-    )
-end
-
-function hermite_gaussian(w0x, w0y, m::Integer, n::Integer; xc = 0.0, yc = 0.0, θ0 = 0.0)
-    Hm = hermite_polynomial(m)
-    Hn = hermite_polynomial(n)
-    cosθ0 = cos(θ0)
-    sinθ0 = sin(θ0)
-    C = sqrt(sqrt(2/π)/(2^m*factorial(m)*w0x)*sqrt(2/π)/(2^n*factorial(n)*w0y))
-    function f(x, y)
-        x, y = (x-xc)*cosθ0 - (y-yc)*sinθ0, (y-yc)*cosθ0 + (x-xc)*sinθ0
-        x2 = x^2
-        y2 = y^2
-        C*Hm(sqrt(2)*x/w0x)*Hn(sqrt(2)*y/w0y)*exp(-(x2/w0x^2 + y2/w0y^2))
-    end
-    f
-end
-
-function gaussian(w0x, w0y; xc = 0.0, yc = 0.0, θ0 = 0.0)
-    hermite_gaussian(w0x, w0y, 0, 0; xc = xc, yc = yc, θ0 = θ0)
-end
-
-function gaussian(w0; xc = 0.0, yc = 0.0)
-    gaussian(w0, w0; xc = xc, yc = yc)
-end
-
-function hermite_gaussian(w0, m::Integer, n::Integer; xc = 0.0, yc = 0.0, θ0 = 0.0)
-    hermite_gaussian(w0, w0, m, n; xc = xc, yc = yc, θ0 = θ0)
-end
-
-function triangle_positions(np::Integer, px, py; θ0 = 0.0, xc = 0.0, yc = 0.0)
-    xypvec = Tuple{Float64, Float64}[]
-    cosθ = cos(θ0)
-    sinθ = sin(θ0)
-    for i in np:-1:1
-        for j in 1:i
-            xp = ((i-1)-(np-1)/2)*px
-            yp = ((j-1)-(np-1)/2)*py
-            push!(xypvec, (xp*cosθ-yp*sinθ+xc, xp*sinθ+yp*cosθ+yc))
-        end
-    end
-    xypvec
-end
-
-function gaussian_modes(
-        ::Type{T},
-        w0,
-        nx,
-        ny,
-        dx,
-        dy,
-        xycvec::AbstractVector{<:Tuple{<:Number, <:Number}};
-        normalize = true
-) where {T <: Number}
-    n_modes = length(xycvec)
-    modes = zeros(T, (nx, ny, n_modes))
-    xvec, yvec = spatial_vectors(nx, ny, dx, dy)
-    for (k, (xc, yc)) in enumerate(xycvec)
-        mode = gaussian(w0; xc = xc, yc = yc).(xvec, yvec')
-        if normalize
-            mode ./= norm(mode)
-        end
-        modes[:, :, k] .= mode
-    end
-    modes
-end
-
-function gaussian_modes(
-        w0,
-        nx,
-        ny,
-        dx,
-        dy,
-        xycvec::AbstractVector{<:Tuple{<:Number, <:Number}};
-        normalize = true
-)
-    gaussian_modes(ComplexF64, w0, nx, ny, dx, dy, xycvec; normalize = normalize)
-end
-
-function hermite_gaussian_modes(
-        ::Type{T},
-        w0,
-        nx,
-        ny,
-        dx,
-        dy,
-        n_groups::Integer;
-        θ0 = 0.0,
-        normalize = true
-) where {T <: Number}
+function hermite_gaussian_groups(w0, n_groups::Int)
     @assert n_groups >= 0
-    n_modes = div((n_groups*(n_groups+1)), 2)
-    modes = zeros(T, (nx, ny, n_modes))
-    xvec, yvec = spatial_vectors(nx, ny, dx, dy)
-    k = 0
+    l = HermiteGaussian[]
     for m in 0:(n_groups - 1)
         for n in 0:(n_groups - m - 1)
-            mode = hermite_gaussian(w0, m, n; θ0 = θ0).(xvec, yvec')
-            if normalize
-                mode ./= norm(mode)
-            end
-            k = k+1
-            modes[:, :, k] .= mode
+            push!(l, HermiteGaussian(w0, m, n))
         end
     end
-    modes
-end
-
-function hermite_gaussian_modes(
-        w0,
-        nx,
-        ny,
-        dx,
-        dy,
-        n_groups::Integer;
-        θ0 = 0.0,
-        normalize = true
-)
-    hermite_gaussian_modes(
-        ComplexF64,
-        w0,
-        nx,
-        ny,
-        dx,
-        dt,
-        n_groups;
-        θ0 = θ0,
-        normalize = normalize
-    )
+    l
 end

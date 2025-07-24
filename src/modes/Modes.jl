@@ -4,6 +4,10 @@ using ..GridUtils
 
 abstract type Mode{N} end
 
+function Base.eltype(m::Mode)
+    error("Not implemented for $(typeof(m))")
+end
+
 function eval_mode(m::Mode{1}, x)
     error("Not implemented for $(typeof(m))")
 end
@@ -19,36 +23,36 @@ function (m::Mode{1})(x_vec::AbstractVector; xc = 0.0)
     [eval_mode(m, x) for x in x_vec]
 end
 
-function (m::Mode{2})(
-        x_vec::AbstractVector, y_vec::AbstractVector; θ = 0.0, xc = 0.0, yc = 0.0)
-    if !iszero(xc)
-        x_vec = x_vec .+ xc
+function (m::Mode{2})(u::AbstractArray{T, 2},
+        x_vec::AbstractVector,
+        y_vec::AbstractVector,
+        t::AbstractAffineMap = Id2D()) where {T}
+    @assert size(u, 1) == length(x_vec)
+    @assert size(u, 2) == length(y_vec)
+    @inbounds for (j, y) in enumerate(y_vec)
+        for (i, x) in enumerate(x_vec)
+            u[i, j] = eval_mode(m, t(x, y)...)
+        end
     end
-    if !iszero(yc)
-        y_vec = y_vec .+ yc
-    end
-    if !iszero(θ)
-        x_vec, y_vec = rotate_vectors(x_vec, y_vec; θ = θ, xc = xc, yc = yc)
-    end
-    [eval_mode(m, x, y) for x in x_vec, y in y_vec]
+    u
 end
 
-# function (m::Mode{2})(x_vec::AbstractVector, y_vec::AbstractVector; θ=0.0, xc=0.0, yc=0.0)
-#     # Applique translation et rotation autour du centre donné
-#     x_vec, y_vec = rotate_vectors(x_vec .- xc, y_vec .- yc; θ=θ)
-#     x_vec = x_vec .+ xc
-#     y_vec = y_vec .+ yc
-
-#     # Évaluation sur la grille
-#     [eval_mode(m, x, y) for y in y_vec, x in x_vec]  # dimensions : (ny, nx)
-# end
+function (m::Mode{2})(
+        x_vec::AbstractVector, y_vec::AbstractVector, t::AbstractAffineMap = Id2D())
+    nx = length(x_vec)
+    ny = length(y_vec)
+    u = zeros(eltype(m), (nx, ny))
+    m(u, x_vec, y_vec, t)
+end
 
 include("measure.jl")
 export intensity, phase, rms_error, correlation
 
 include("gaussian_modes.jl")
 export Gaussian1D, Gaussian, HermiteGaussian1D, HermiteGaussian
-export gaussian, hermite_gaussian
-export triangle_positions, gaussian_modes, hermite_gaussian_modes
+export hermite_gaussian_groups
+
+include("layouts.jl")
+export Layout2D, triangle_layout, generate_mode_stack
 
 end
