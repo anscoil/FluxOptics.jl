@@ -20,15 +20,19 @@ function get_q(w0, λ, z)
 end
 
 function gaussian_normalisation_constant(w0)
-    sqrt(2/π)/w0
+    sqrt(sqrt(2/π)/w0)
 end
 
 function hg_normalisation_constant(m)
-    1 / (2^m*factorial(m))
+    1 / sqrt(2^m*factorial(m))
 end
 
 function hg_normalisation_constant(w0, m)
     gaussian_normalisation_constant(w0) * hg_normalisation_constant(m)
+end
+
+function lg_normalisation_constant(w0, p, l)
+    sqrt(2*factorial(p) / (π*factorial(p + abs(l))))/w0
 end
 
 struct Gaussian1D{T, P <: Union{Nothing, <:NamedTuple}} <: Mode{1}
@@ -42,7 +46,7 @@ struct Gaussian1D{T, P <: Union{Nothing, <:NamedTuple}} <: Mode{1}
         wz = Complex{T}(get_w(w0, λ, z))
         k = T(2π/λ)
         eikz = constant_phase ? Complex{T}(exp(im*k*z)) : Complex{T}(1)
-        C = gaussian_normalisation_constant(w0) * (q0 / qz)
+        C = gaussian_normalisation_constant(w0) * sqrt(q0 / qz)
         data = (λ = λ, z = z, wz = wz, qz = qz, eikz = eikz, e_arg = im*k/(2*qz))
         new{T, typeof(data)}(w0, C, data)
     end
@@ -67,7 +71,7 @@ function eval_exp_arg(m::Gaussian1D{<:Real, <:NamedTuple}, x)
 end
 
 function eval_mode(m::Gaussian1D{<:Real, Nothing}, x)
-    sqrt(m.C) * exp(eval_exp_arg(m, x))
+    m.C * exp(eval_exp_arg(m, x))
 end
 
 function eval_mode(m::Gaussian1D{<:Real, <:NamedTuple}, x)
@@ -117,7 +121,7 @@ end
 function eval_mode(m::Gaussian, x, y)
     Cx, Cy = m.gx.C, m.gy.C
     eikz = eval_constant_phase(m.gx)
-    sqrt(Cx*Cy) * exp(eval_exp_arg(m.gx, x) + eval_exp_arg(m.gy, y)) * eikz
+    Cx * Cy * exp(eval_exp_arg(m.gx, x) + eval_exp_arg(m.gy, y)) * eikz
 end
 
 function hermite_polynomial(n::Integer)
@@ -143,7 +147,7 @@ struct HermiteGaussian1D{T, G <: Gaussian1D{T}, P} <: Mode{1}
         g = Gaussian1D(w0, λ, z; constant_phase = constant_phase)
         hn = hermite_polynomial(n)
         qz = g.data.qz
-        C = hg_normalisation_constant(n)*(-conj(qz)/qz)^n
+        C = hg_normalisation_constant(n)*sqrt((-conj(qz)/qz)^n)
         new{T, typeof(g), typeof(hn)}(g, C, hn, n)
     end
 
@@ -169,7 +173,7 @@ end
 
 function eval_mode(m::HermiteGaussian1D, x)
     wz = eval_wz(m)
-    sqrt(m.C) * m.hn(sqrt(2)*x/wz) * eval_mode(m.g, x)
+    m.C * m.hn(sqrt(2)*x/wz) * eval_mode(m.g, x)
 end
 
 struct HermiteGaussian{G <: HermiteGaussian1D} <: Mode{2}
@@ -213,7 +217,7 @@ function eval_mode(m::HermiteGaussian, x, y)
     wz_y = eval_wz(my)
     C = mx.C * mx.g.C * my.C * my.g.C
     eikz = eval_constant_phase(mx.g)
-    (sqrt(C) * mx.hn(sqrt(2)*x/wz_x) * my.hn(sqrt(2)*y/wz_y)
+    (C * mx.hn(sqrt(2)*x/wz_x) * my.hn(sqrt(2)*y/wz_y)
      * exp(eval_exp_arg(mx.g, x) + eval_exp_arg(my.g, y)) * eikz)
 end
 
@@ -226,4 +230,88 @@ function hermite_gaussian_groups(w0, n_groups::Int)
         end
     end
     l
+end
+
+function laguerre_polynomial(p::Integer, l::Integer)
+    if p < 0
+        throw(DomainError())
+    elseif p == 0
+        Polynomial([1])
+    elseif p == 1
+        Polynomial([1+l, -1])
+    else
+        ((2*p+l-1-Polynomial([0, 1]))*laguerre_polynomial(p-1, l) -
+         (p+l-1)*laguerre_polynomial(p-2, l)) / p
+    end
+end
+
+struct LaguerreGaussian{T, P <: Union{Nothing, <:NamedTuple}, K, L} <: Mode{2}
+    w0::T
+    C::Complex{T}
+    lp::L
+    order::@NamedTuple{p::Int, l::Int}
+    data::P
+    kind::K
+
+    function LaguerreGaussian(w0::T, p::Integer, l::Integer, λ::Real, z::Real;
+            constant_phase = true, kind = :vortex) where {T <: Real}
+        @assert p >= 0
+        q0 = Complex{T}(get_q(w0, λ, 0))
+        qz = Complex{T}(get_q(w0, λ, z))
+        wz = Complex{T}(get_w(w0, λ, z))
+        k = T(2π/λ)
+        eikz = constant_phase ? Complex{T}(exp(im*k*z)) : Complex{T}(1)
+        C = lg_normalisation_constant(w0, p, l) * (q0/qz) * (-conj(qz)/qz)^(p+abs(l)/2)
+        lp = laguerre_polynomial(p, abs(l))
+        data = (λ = λ, z = z, wz = wz, eikz = eikz, e_arg = im*k/(2*qz))
+        kind = parse_kind(kind)
+        P = typeof(data)
+        L = typeof(lp)
+        K = typeof(kind)
+        new{T, P, K, L}(w0, C, lp, (p = p, l = l), data, kind)
+    end
+
+    function LaguerreGaussian(
+            w0::T, p::Integer, l::Integer; kind = :vortex) where {T <: Real}
+        C = Complex{T}(gaussian_normalisation_constant(w0))
+        lp = laguerre_polynomial(p, abs(l))
+        kind = parse_kind(kind)
+        L = typeof(lp)
+        K = typeof(kind)
+        new{T, Nothing, K, L}(w0, C, lp, (p = p, l = l), nothing, kind)
+    end
+end
+
+function Base.eltype(m::LaguerreGaussian{T}) where {T}
+    Complex{T}
+end
+
+function eval_lg_arg(m::LaguerreGaussian{T, P, Vortex}, x, y) where {T, P}
+    l = m.order.l
+    exp(im*l*atan(y, x))
+end
+
+function eval_lg_arg(m::LaguerreGaussian{T, P, CosModulated}, x, y) where {T, P}
+    l = m.order.l
+    cos(l*atan(y, x))
+end
+
+function eval_lg_arg(m::LaguerreGaussian{T, P, SinModulated}, x, y) where {T, P}
+    l = m.order.l
+    sin(l*atan(y, x))
+end
+
+function eval_mode(m::LaguerreGaussian{T, Nothing}, x, y) where {T}
+    l = m.order.l
+    r2 = (x^2 + y^2) / m.w0^2
+    rl = (sqrt(2)*sqrt(r2))^abs(l)
+    m.C * rl * m.lp(2*r2) * exp(-r2) * eval_lg_arg(m, x, y)
+end
+
+function eval_mode(m::LaguerreGaussian{T, <:NamedTuple}, x, y) where {T}
+    l = m.order.l
+    wz = m.data.wz
+    r2 = x^2 + y^2
+    rl = (sqrt(2)*sqrt(r2)/wz)^abs(l)
+    m.C * rl * m.lp(2*r2/wz^2) * exp(m.data.e_arg*r2) * eval_lg_arg(m, x, y) * m.data.eikz
 end

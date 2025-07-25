@@ -13,7 +13,7 @@ export Shift2D, Rot2D, Id2D
 include("modes/Modes.jl")
 using .Modes
 export intensity, phase, rms_error, correlation
-export Gaussian1D, Gaussian, HermiteGaussian1D, HermiteGaussian
+export Gaussian1D, Gaussian, HermiteGaussian1D, HermiteGaussian, LaguerreGaussian
 export hermite_gaussian_groups
 export PointLayout, GridLayout, TriangleLayout, CustomLayout
 export generate_mode_stack

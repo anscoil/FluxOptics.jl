@@ -48,8 +48,26 @@ end
 include("measure.jl")
 export intensity, phase, rms_error, correlation
 
+abstract type LKind end
+
+struct Vortex <: LKind end
+struct CosModulated <: LKind end
+struct SinModulated <: LKind end
+
+function parse_kind(kind::Symbol)
+    if kind == :vortex
+        return Vortex()
+    elseif kind == :cos
+        return CosModulated()
+    elseif kind == :sin
+        return SinModulated()
+    else
+        error("Unknown kind: $kind")
+    end
+end
+
 include("gaussian_modes.jl")
-export Gaussian1D, Gaussian, HermiteGaussian1D, HermiteGaussian
+export Gaussian1D, Gaussian, HermiteGaussian1D, HermiteGaussian, LaguerreGaussian
 export hermite_gaussian_groups
 
 include("layouts.jl")
