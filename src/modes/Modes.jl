@@ -53,6 +53,7 @@ export Gaussian1D, Gaussian, HermiteGaussian1D, HermiteGaussian
 export hermite_gaussian_groups
 
 include("layouts.jl")
-export Layout2D, triangle_layout, generate_mode_stack
+export PointLayout, GridLayout, TriangleLayout, CustomLayout
+export generate_mode_stack
 
 end

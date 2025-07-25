@@ -220,8 +220,8 @@ end
 function hermite_gaussian_groups(w0, n_groups::Int)
     @assert n_groups >= 0
     l = HermiteGaussian[]
-    for m in 0:(n_groups - 1)
-        for n in 0:(n_groups - m - 1)
+    for n in 0:(n_groups - 1)
+        for m in 0:(n_groups - n - 1)
             push!(l, HermiteGaussian(w0, m, n))
         end
     end

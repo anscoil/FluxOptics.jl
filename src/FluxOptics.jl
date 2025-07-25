@@ -1,10 +1,9 @@
 module FluxOptics
 
+__precompile__()
+
 using Requires
 using LinearAlgebra
-
-export Modes
-export OpticalComponents
 
 include("GridUtils.jl")
 using .GridUtils
@@ -16,12 +15,15 @@ using .Modes
 export intensity, phase, rms_error, correlation
 export Gaussian1D, Gaussian, HermiteGaussian1D, HermiteGaussian
 export hermite_gaussian_groups
-export Layout2D, triangle_layout, generate_mode_stack
+export PointLayout, GridLayout, TriangleLayout, CustomLayout
+export generate_mode_stack
 
 include("optical_components/OpticalComponents.jl")
 using .OpticalComponents
-export propagate, propagate!, backpropagate, backpropagate!
-export compute_gradient, compute_gradient!
+export propagate!, propagate
+export propagate_and_save!, propagate_and_save
+export backpropagate!, backpropagate
+export backpropagate_with_gradient!, backpropagate_with_gradient
 export ASProp, RSProp, Phase, Seeder
 
 include("optimisers_ext.jl")
