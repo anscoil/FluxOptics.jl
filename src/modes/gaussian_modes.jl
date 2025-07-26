@@ -40,7 +40,8 @@ struct Gaussian1D{T, P <: Union{Nothing, <:NamedTuple}} <: Mode{1}
     C::Complex{T}
     data::P
 
-    function Gaussian1D(w0::T, λ::Real, z::Real; constant_phase = true) where {T <: Real}
+    function Gaussian1D(w0::Real, λ::Real, z::Real; constant_phase = true)
+        T = float(eltype(w0))
         q0 = Complex{T}(get_q(w0, λ, 0))
         qz = Complex{T}(get_q(w0, λ, z))
         wz = Complex{T}(get_w(w0, λ, z))
@@ -51,7 +52,8 @@ struct Gaussian1D{T, P <: Union{Nothing, <:NamedTuple}} <: Mode{1}
         new{T, typeof(data)}(w0, C, data)
     end
 
-    function Gaussian1D(w0::T) where {T <: Real}
+    function Gaussian1D(w0::Real)
+        T = float(eltype(w0))
         C = Complex{T}(gaussian_normalisation_constant(w0))
         new{T, Nothing}(w0, C, nothing)
     end
@@ -84,7 +86,7 @@ struct Gaussian{G <: Gaussian1D} <: Mode{2}
     gy::G
 
     function Gaussian(w0x::Real, w0y::Real, λ::Real, z::Real; constant_phase = true)
-        T = promote_type(typeof(w0x), typeof(w0y))
+        T = float(promote_type(typeof(w0x), typeof(w0y)))
         gx = Gaussian1D(T(w0x), λ, z; constant_phase = constant_phase)
         gy = Gaussian1D(T(w0y), λ, z; constant_phase = false)
         # We don't want to account for constant phase twice
@@ -142,8 +144,9 @@ struct HermiteGaussian1D{T, G <: Gaussian1D{T}, P} <: Mode{1}
     hn::P
     n::Int
 
-    function HermiteGaussian1D(w0::T, n::Integer, λ::Real, z::Real;
-            constant_phase = true) where {T <: Real}
+    function HermiteGaussian1D(w0::Real, n::Integer, λ::Real, z::Real;
+            constant_phase = true)
+        T = float(eltype(w0))
         g = Gaussian1D(w0, λ, z; constant_phase = constant_phase)
         hn = hermite_polynomial(n)
         qz = g.data.qz
@@ -151,7 +154,8 @@ struct HermiteGaussian1D{T, G <: Gaussian1D{T}, P} <: Mode{1}
         new{T, typeof(g), typeof(hn)}(g, C, hn, n)
     end
 
-    function HermiteGaussian1D(w0::T, n::Integer) where {T <: Real}
+    function HermiteGaussian1D(w0::Real, n::Integer)
+        T = float(eltype(w0))
         g = Gaussian1D(w0)
         hn = hermite_polynomial(n)
         C = hg_normalisation_constant(n)
@@ -183,7 +187,7 @@ struct HermiteGaussian{G <: HermiteGaussian1D} <: Mode{2}
     function HermiteGaussian(
             w0x::Real, w0y::Real, m::Integer, n::Integer, λ::Real, z::Real;
             constant_phase = true)
-        T = promote_type(typeof(w0x), typeof(w0y))
+        T = float(promote_type(typeof(w0x), typeof(w0y)))
         hgx = HermiteGaussian1D(T(w0x), m, λ, z; constant_phase = constant_phase)
         hgy = HermiteGaussian1D(T(w0y), n, λ, z; constant_phase = false)
         # We don't want to account for constant phase twice
@@ -224,8 +228,8 @@ end
 function hermite_gaussian_groups(w0, n_groups::Int)
     @assert n_groups >= 0
     l = HermiteGaussian[]
-    for n in 0:(n_groups - 1)
-        for m in 0:(n_groups - n - 1)
+    for m in 0:(n_groups - 1)
+        for n in 0:(n_groups - m - 1)
             push!(l, HermiteGaussian(w0, m, n))
         end
     end
@@ -253,9 +257,10 @@ struct LaguerreGaussian{T, P <: Union{Nothing, <:NamedTuple}, K, L} <: Mode{2}
     data::P
     kind::K
 
-    function LaguerreGaussian(w0::T, p::Integer, l::Integer, λ::Real, z::Real;
-            constant_phase = true, kind = :vortex) where {T <: Real}
+    function LaguerreGaussian(w0::Real, p::Integer, l::Integer, λ::Real, z::Real;
+            constant_phase = true, kind = :vortex)
         @assert p >= 0
+        T = float(eltype(w0))
         q0 = Complex{T}(get_q(w0, λ, 0))
         qz = Complex{T}(get_q(w0, λ, z))
         wz = Complex{T}(get_w(w0, λ, z))
@@ -271,8 +276,8 @@ struct LaguerreGaussian{T, P <: Union{Nothing, <:NamedTuple}, K, L} <: Mode{2}
         new{T, P, K, L}(w0, C, lp, (p = p, l = l), data, kind)
     end
 
-    function LaguerreGaussian(
-            w0::T, p::Integer, l::Integer; kind = :vortex) where {T <: Real}
+    function LaguerreGaussian(w0::Real, p::Integer, l::Integer; kind = :vortex)
+        T = float(eltype(w0))
         C = Complex{T}(gaussian_normalisation_constant(w0))
         lp = laguerre_polynomial(p, abs(l))
         kind = parse_kind(kind)
@@ -291,14 +296,14 @@ function eval_lg_arg(m::LaguerreGaussian{T, P, Vortex}, x, y) where {T, P}
     exp(im*l*atan(y, x))
 end
 
-function eval_lg_arg(m::LaguerreGaussian{T, P, CosModulated}, x, y) where {T, P}
+function eval_lg_arg(m::LaguerreGaussian{T, P, Even}, x, y) where {T, P}
     l = m.order.l
-    cos(l*atan(y, x))
+    sqrt(2)*cos(l*atan(y, x))
 end
 
-function eval_lg_arg(m::LaguerreGaussian{T, P, SinModulated}, x, y) where {T, P}
+function eval_lg_arg(m::LaguerreGaussian{T, P, Odd}, x, y) where {T, P}
     l = m.order.l
-    sin(l*atan(y, x))
+    sqrt(2)*sin(l*atan(y, x))
 end
 
 function eval_mode(m::LaguerreGaussian{T, Nothing}, x, y) where {T}

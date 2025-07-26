@@ -29,6 +29,7 @@ function (m::Mode{2})(u::AbstractArray{T, 2},
         t::AbstractAffineMap = Id2D()) where {T}
     @assert size(u, 1) == length(x_vec)
     @assert size(u, 2) == length(y_vec)
+    t = inv(t)
     @inbounds for (j, y) in enumerate(y_vec)
         for (i, x) in enumerate(x_vec)
             u[i, j] = eval_mode(m, t(x, y)...)
@@ -51,16 +52,16 @@ export intensity, phase, rms_error, correlation
 abstract type LKind end
 
 struct Vortex <: LKind end
-struct CosModulated <: LKind end
-struct SinModulated <: LKind end
+struct Even <: LKind end
+struct Odd <: LKind end
 
 function parse_kind(kind::Symbol)
     if kind == :vortex
         return Vortex()
-    elseif kind == :cos
-        return CosModulated()
-    elseif kind == :sin
-        return SinModulated()
+    elseif kind == :even
+        return Even()
+    elseif kind == :odd
+        return Odd()
     else
         error("Unknown kind: $kind")
     end

@@ -112,7 +112,7 @@ function generate_mode_stack(layout::AbstractLayout2D, nx, ny, dx, dy, m::Mode;
     xv, yv = spatial_vectors(nx, ny, dx, dy)
     modes = zeros(eltype(m), (nx, ny, n_modes))
     for (k, pos) in enumerate(layout)
-        mode = m(@view(modes[:, :, k]), xv, yv, t ∘ Shift2D(pos...))
+        mode = m(@view(modes[:, :, k]), xv, yv, Shift2D(pos...) ∘ t)
         if normalize
             mode ./= norm(mode)
         end
@@ -128,7 +128,7 @@ function generate_mode_stack(
     xv, yv = spatial_vectors(nx, ny, dx, dy)
     modes = zeros(reduce(promote_type, eltype.(m_v)), (nx, ny, n_modes))
     for (k, (pos, m)) in enumerate(zip(layout, m_v))
-        mode = m(@view(modes[:, :, k]), xv, yv, t ∘ Shift2D(pos...))
+        mode = m(@view(modes[:, :, k]), xv, yv, Shift2D(pos...) ∘ t)
         if normalize
             mode ./= norm(mode)
         end

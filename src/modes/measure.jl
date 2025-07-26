@@ -1,18 +1,26 @@
 using Statistics
 
+function intensity(x::T) where {T <: Number}
+    abs(x)^2
+end
+
+function phase(x::T) where {T <: Number}
+    angle(x)
+end
+
 function intensity(u::AbstractArray)
     n = ndims(u)
     if n <= 2
-        abs.(u) .^ 2
+        intensity.(u)
     else
         nx, ny = size(u)
         ur = reshape(u, (nx, ny, div(length(u), nx*ny)))
-        @views sum(abs.(ur) .^ 2, dims = 3)[:, :, 1]
+        @views sum(intensity.(ur), dims = 3)[:, :, 1]
     end
 end
 
 function phase(u::AbstractArray{T, 2}) where {T}
-    angle.(u)
+    phase.(u)
 end
 
 function rms_error(u, v)

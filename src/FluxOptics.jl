@@ -39,6 +39,15 @@ function __init__()
         include("CUDAExt.jl")
         using .CUDAExt
     end
+    # @require Makie="ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a" begin
+    #     include("plotting/Plotting.jl")
+    #     using .Plotting
+    #     export complex_to_rgb, plot_field, hello
+    # end
 end
+
+include("plotting/Plotting.jl")
+using .Plotting
+export complex_to_rgb, plot_fields
 
 end
