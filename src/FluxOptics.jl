@@ -5,6 +5,10 @@ __precompile__()
 using Requires
 using LinearAlgebra
 
+include("measure.jl")
+export vec_array2D, tuple_array2D
+export intensity, intensity2D, phase, rms_error, correlation
+
 include("GridUtils.jl")
 using .GridUtils
 export spatial_vectors
@@ -12,7 +16,6 @@ export Shift2D, Rot2D, Id2D
 
 include("modes/Modes.jl")
 using .Modes
-export intensity, phase, rms_error, correlation
 export Gaussian1D, Gaussian, HermiteGaussian1D, HermiteGaussian, LaguerreGaussian
 export hermite_gaussian_groups
 export PointLayout, GridLayout, TriangleLayout, CustomLayout
@@ -39,15 +42,11 @@ function __init__()
         include("CUDAExt.jl")
         using .CUDAExt
     end
-    # @require Makie="ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a" begin
-    #     include("plotting/Plotting.jl")
-    #     using .Plotting
-    #     export complex_to_rgb, plot_field, hello
-    # end
+    @require Makie="ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a" begin
+        include("plotting/Plotting.jl")
+        using .Plotting
+        export plot_fields, plot_fields_slider
+    end
 end
-
-include("plotting/Plotting.jl")
-using .Plotting
-export complex_to_rgb, plot_fields
 
 end

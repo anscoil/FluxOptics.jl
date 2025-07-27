@@ -46,9 +46,6 @@ function (m::Mode{2})(
     m(u, x_vec, y_vec, t)
 end
 
-include("measure.jl")
-export intensity, phase, rms_error, correlation
-
 abstract type LKind end
 
 struct Vortex <: LKind end
