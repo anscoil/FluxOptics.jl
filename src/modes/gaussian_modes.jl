@@ -150,7 +150,7 @@ struct HermiteGaussian1D{T, G <: Gaussian1D{T}, P} <: Mode{1}
         g = Gaussian1D(w0, λ, z; constant_phase = constant_phase)
         hn = hermite_polynomial(n)
         qz = g.data.qz
-        C = hg_normalisation_constant(n)*sqrt((-conj(qz)/qz)^n)
+        C = hg_normalisation_constant(n)*(-conj(qz)/qz)^(n/2)
         new{T, typeof(g), typeof(hn)}(g, C, hn, n)
     end
 
@@ -278,7 +278,7 @@ struct LaguerreGaussian{T, P <: Union{Nothing, <:NamedTuple}, K, L} <: Mode{2}
 
     function LaguerreGaussian(w0::Real, p::Integer, l::Integer; kind = :vortex)
         T = float(eltype(w0))
-        C = Complex{T}(gaussian_normalisation_constant(w0))
+        C = Complex{T}(lg_normalisation_constant(w0, p, l))
         lp = laguerre_polynomial(p, abs(l))
         kind = parse_kind(kind)
         L = typeof(lp)

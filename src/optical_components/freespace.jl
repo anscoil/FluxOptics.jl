@@ -9,9 +9,36 @@ function make_fft_plans(
     (; ft = p_ft, ift = p_ift)
 end
 
-struct ASProp{M, T, F, K, V, P} <: AbstractPropagator{M}
+function prepare_fft_plans(U, dims)
+    A_plan = U(undef, dims)
+    p_f = make_fft_plans(A_plan, (1, 2))
+    typeof(p_f), p_f
+end
+
+function prepare_fvec(T, nx, ny, dx, dy)
+    fxv = fftfreq(nx, T(1/dx))
+    fyv = fftfreq(ny, T(1/dy))
+    f_vec = (; x = fxv, y = fyv)
+    typeof(f_vec), f_vec
+end
+
+function prepare_filter(U, filter)
+    if isnothing(filter)
+        Nothing, nothing
+    else
+        adapt_dim(U, 2, real), filter |> F
+    end
+end
+
+function as_kernel(fx, fy, λ, z)
+    f² = complex(1/λ^2)
+    exp(im*2π*z*sqrt(f² - fx*fx - (fy*fy)))
+end
+
+struct ASProp{M, K, F, T, V, P} <: AbstractPropagator{M}
     f_vec::V
     p_ker::K
+    z::T
     p_f::P
     filter::F
 
@@ -25,19 +52,30 @@ struct ASProp{M, T, F, K, V, P} <: AbstractPropagator{M}
             filter::Union{Nothing, AbstractArray{<:Real, 2}} = nothing
     ) where {N, T <: Real}
         @assert N >= 2
-        K = adapt_dim(U, 2)
         nx, ny = dims
-        fxv = fftfreq(nx, T(1/dx))
-        fyv = fftfreq(ny, T(1/dy))
-        f_vec = (; x = fxv, y = fyv)
-        p_ker = (@. exp(im*(2*π*z)*sqrt((1/λ^2 + 0im) - fxv^2 - (fyv')^2))) |> K
-        A_plan = U(undef, dims)
-        p_f = make_fft_plans(A_plan, (1, 2))
-        filter = isnothing(filter) ? nothing : filter |> K
-        F = typeof(filter)
-        V = typeof(f_vec)
-        P = typeof(p_f)
-        new{Static, T, F, K, V, P}(f_vec, p_ker, p_f, filter)
+        V, f_vec = prepare_fvec(T, nx, ny, dx, dy)
+        P, p_f = prepare_fft_plans(U, dims)
+        F, filter = prepare_filter(U, filter)
+        K = adapt_dim(U, 2)
+        p_ker = (@. as_kernel(f_vec.x, f_vec.y', λ, z)) |> K
+        new{Static, K, F, T, V, P}(f_vec, p_ker, T(z), p_f, filter)
+    end
+
+    function ASProp(
+            U::Type{<:AbstractArray{Complex{T}, N}},
+            dims::NTuple{N, Integer},
+            dx::Real,
+            dy::Real,
+            z::Real;
+            filter::Union{Nothing, AbstractArray{<:Real, 2}} = nothing
+    ) where {N, T <: Real}
+        @assert N >= 2
+        nx, ny = dims
+        V, f_vec = prepare_fvec(T, nx, ny, dx, dy)
+        P, p_f = prepare_fft_plans(U, dims)
+        F, filter = prepare_filter(U, filter)
+        K = adapt_dim(U, 2)
+        new{Static, Nothing, F, T, V, P}(f_vec, nothing, T(z), p_f, filter)
     end
 
     function ASProp(u::U,
@@ -48,6 +86,23 @@ struct ASProp{M, T, F, K, V, P} <: AbstractPropagator{M}
             filter::Union{Nothing, AbstractArray{<:Real, 2}} = nothing
     ) where {U <: AbstractArray{<:Complex}}
         ASProp(typeof(u), size(u), dx, dy, λ, z; filter = filter)
+    end
+
+    function ASProp(u::U,
+            dx::Real,
+            dy::Real,
+            z::Real;
+            filter::Union{Nothing, AbstractArray{<:Real, 2}} = nothing
+    ) where {U <: AbstractArray{<:Complex}}
+        ASProp(typeof(u), size(u), dx, dy, z; filter = filter)
+    end
+
+    function ASProp(u::ScalarField,
+            dx::Real,
+            dy::Real,
+            z::Real;
+            filter::Union{Nothing, AbstractArray{<:Real, 2}} = nothing)
+        ASProp(typeof(u.data), size(u.data), dx, dy, z; filter = filter)
     end
 end
 
@@ -67,25 +122,27 @@ function apply_kernel!(u, prop::AbstractPropagator, ::Type{Backward})
     u .*= conjugate_kernel(prop)
 end
 
-function kernel_expr(as_prop::ASProp{M, T}, λ, z) where {M, T}
+function apply_kernel!(u, as_prop::ASProp{M, K}, λ, z,
+        ::Type{Forward}) where {M, K <: Union{Nothing, <:AbstractArray}}
     fx, fy = as_prop.f_vec.x, as_prop.f_vec.y'
-    k² = complex(inv(T(λ)^2))
-    im * T(2π*z) .* sqrt.(k² .- fx .* fx .- fy .* fy)
+    @. u *= as_kernel(fx, fy, λ, z)
 end
 
-function apply_kernel!(u, as_prop::ASProp, λ, z, ::Type{Forward})
-    u .*= exp.(kernel_expr(as_prop, λ, z))
+function apply_kernel!(u, as_prop::ASProp{M, K}, λ, z,
+        ::Type{Backward}) where {M, K <: Union{Nothing, <:AbstractArray}}
+    fx, fy = as_prop.f_vec.x, as_prop.f_vec.y'
+    @. u *= conj(as_kernel(fx, fy, λ, z))
 end
 
-function apply_kernel!(u, as_prop::ASProp, λ, z, ::Type{Backward})
-    u .*= conj.(exp.(kernel_expr(as_prop, λ, z)))
+function apply_kernel!(u, as_prop::ASProp, λ, direction::Type{<:Direction})
+    apply_kernel!(u, as_prop, λ, as_prop.z, direction)
 end
 
-function mul_filter!(u, as_prop::ASProp{M, T, Nothing}) where {M, T}
+function mul_filter!(u, as_prop::ASProp{M, K, Nothing}) where {M, K}
     u
 end
 
-function mul_filter!(u, as_prop::ASProp{M, T, F}) where {M, T, F <: AbstractArray{T}}
+function mul_filter!(u, as_prop::ASProp{M, K, F}) where {M, K, F <: AbstractArray}
     u .*= as_prop.filter
 end
 
@@ -96,19 +153,29 @@ function _propagate_core!(apply_kernel_fn, u, as_prop::ASProp)
     as_prop.p_f.ift * u
 end
 
-function propagate!(u, as_prop::ASProp, direction::Type{<:Direction})
+function propagate!(u::AbstractArray, as_prop::ASProp{M, K},
+        direction::Type{<:Direction}) where {M, K <: AbstractArray}
     _propagate_core!(u, as_prop) do
         apply_kernel!(u, as_prop, direction)
     end
 end
 
-function propagate!(u, as_prop::ASProp, λ, z, direction::Type{<:Direction})
+function propagate!(u::AbstractArray, as_prop::ASProp, λ, z, direction::Type{<:Direction})
     _propagate_core!(u, as_prop) do
         apply_kernel!(u, as_prop, λ, z, direction)
     end
 end
 
-struct RSProp{M, T, K, U, P} <: AbstractPropagator{M}
+function propagate!(u::AbstractArray, as_prop::ASProp, λ, direction::Type{<:Direction})
+    propagate!(u, as_prop, λ, as_prop.z, direction)
+end
+
+function propagate!(u::ScalarField, as_prop::ASProp, direction::Type{<:Direction})
+    propagate!(u.data, as_prop, u.lambdas, as_prop.z, direction)
+    u
+end
+
+struct RSProp{M, K, T, U, P} <: AbstractPropagator{M}
     p_ker::K
     u_tmp::U
     p_f::P
@@ -129,7 +196,7 @@ struct RSProp{M, T, K, U, P} <: AbstractPropagator{M}
         A_plan = U(undef, (Nx, Ny, dims[3:end]...))
         p_f = make_fft_plans(A_plan, (1, 2))
         P = typeof(p_f)
-        new{Static, T, K, U, P}(p_ker, A_plan, p_f)
+        new{Static, K, T, U, P}(p_ker, A_plan, p_f)
     end
 
     function RSProp(u::U,
@@ -139,7 +206,7 @@ struct RSProp{M, T, K, U, P} <: AbstractPropagator{M}
     end
 end
 
-function propagate!(u, rs_prop::RSProp, direction::Type{<:Direction})
+function propagate!(u::AbstractArray, rs_prop::RSProp, direction::Type{<:Direction})
     nx, ny = size(u)
     rs_prop.u_tmp .= 0
     u_view = @view rs_prop.u_tmp[1:nx, 1:ny, ..]

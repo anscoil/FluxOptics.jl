@@ -12,8 +12,8 @@ function vec_array2D(u::AbstractArray)
     [@view(u[:, :, k]) for k in 1:size(ur, 3)]
 end
 
-function tuple_array2D(u::AbstractArray)
-    Tuple(vec_array2D(u))
+function vec_array2D(u::ScalarField)
+    vec_array2D(u.data)
 end
 
 function intensity(x::T) where {T <: Number}

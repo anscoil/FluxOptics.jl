@@ -2,6 +2,7 @@ module OpticalComponents
 
 using Functors
 using ..GridUtils
+using ..Fields
 
 export Direction, Forward, Backward
 export Trainability, Trainable, Static

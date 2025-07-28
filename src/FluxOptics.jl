@@ -5,8 +5,13 @@ __precompile__()
 using Requires
 using LinearAlgebra
 
+include("Fields.jl")
+using .Fields
+export ScalarField
+export get_data
+
 include("measure.jl")
-export vec_array2D, tuple_array2D
+export vec_array2D
 export intensity, intensity2D, phase, rms_error, correlation
 
 include("GridUtils.jl")
@@ -23,6 +28,7 @@ export generate_mode_stack
 
 include("optical_components/OpticalComponents.jl")
 using .OpticalComponents
+export Forward, Backward
 export propagate!, propagate
 export propagate_and_save!, propagate_and_save
 export backpropagate!, backpropagate

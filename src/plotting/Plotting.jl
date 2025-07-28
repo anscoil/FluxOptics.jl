@@ -4,6 +4,8 @@ using Makie
 using Makie.Colors
 using Makie.ColorSchemes
 
+using ..Fields
+
 export plot_fields, plot_fields_slider
 
 function complex_to_rgb(
@@ -118,16 +120,18 @@ function plot_fields(
         u_vec::Union{AbstractVector{U}, Tuple{Vararg{U}}},
         fs::Union{Function, Tuple};
         colormap = :viridis, ratio = 1, max_width = 1024,
-        width = nothing, height = nothing) where {T <: Number, U <: AbstractArray{T}}
-    plot_fields(map(u -> (u,), u_vec), fs; colormap = colormap,
+        width = nothing, height = nothing) where {
+        T <: Number, U <: Union{ScalarField, AbstractArray{T}}}
+    plot_fields(map(u -> (get_data(u),), u_vec), fs; colormap = colormap,
         ratio = ratio, max_width = max_width,
         width = width, height = height)
 end
 
-function plot_fields(u::AbstractArray{T}, fs::Union{Function, Tuple};
+function plot_fields(u::Union{ScalarField, AbstractArray{T}}, fs::Union{Function, Tuple};
         colormap = :viridis, ratio = 1, max_width = 1024,
         width = nothing, height = nothing) where {T <: Number}
-    plot_fields(((u,),), fs; colormap = colormap, ratio = ratio, max_width = max_width,
+    plot_fields(
+        ((get_data(u),),), fs; colormap = colormap, ratio = ratio, max_width = max_width,
         width = width, height = height)
 end
 
@@ -189,7 +193,7 @@ function plot_fields_slider(
         fs::Union{Function, Tuple};
         colormap = :viridis, ratio = 1, max_width = 1024,
         width = nothing, height = nothing) where {T <: Number, U <: AbstractArray{T}}
-    plot_fields_slider(map(u -> (u,), u_vec), fs; colormap = colormap,
+    plot_fields_slider(map(u -> (get_data(u),), u_vec), fs; colormap = colormap,
         ratio = ratio, max_width = max_width,
         width = width, height = height)
 end
