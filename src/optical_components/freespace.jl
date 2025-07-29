@@ -47,7 +47,7 @@ struct ASProp{M, K, F, T, V, P} <: AbstractPropagator{M}
             dims::NTuple{N, Integer},
             dx::Real,
             dy::Real,
-            λ::Real,
+            lambdas::Union{Real, Tuple},
             z::Real;
             filter::Union{Nothing, AbstractArray{<:Real, 2}} = nothing
     ) where {N, T <: Real}
@@ -56,8 +56,22 @@ struct ASProp{M, K, F, T, V, P} <: AbstractPropagator{M}
         V, f_vec = prepare_fvec(T, nx, ny, dx, dy)
         P, p_f = prepare_fft_plans(U, dims)
         F, filter = prepare_filter(U, filter)
-        K = adapt_dim(U, 2)
-        p_ker = (@. as_kernel(f_vec.x, f_vec.y', λ, z)) |> K
+        if isa(lambdas, Real)
+            λ = lambdas
+            K = adapt_dim(U, 2)
+            p_ker = (@. as_kernel(f_vec.x, f_vec.y', λ, z)) |> K
+        elseif lambdas == ()
+            K = Nothing
+            p_ker = nothing
+        else
+            Ke = adapt_dim(U, 2)
+            K = Dict{T, Ke}
+            p_ker = K()
+            for λ in lambdas
+                p_ker_e = (@. as_kernel(f_vec.x, f_vec.y', λ, z)) |> Ke
+                p_ker[T(λ)] = p_ker_e
+            end
+        end
         new{Static, K, F, T, V, P}(f_vec, p_ker, T(z), p_f, filter)
     end
 
@@ -69,23 +83,17 @@ struct ASProp{M, K, F, T, V, P} <: AbstractPropagator{M}
             z::Real;
             filter::Union{Nothing, AbstractArray{<:Real, 2}} = nothing
     ) where {N, T <: Real}
-        @assert N >= 2
-        nx, ny = dims
-        V, f_vec = prepare_fvec(T, nx, ny, dx, dy)
-        P, p_f = prepare_fft_plans(U, dims)
-        F, filter = prepare_filter(U, filter)
-        K = adapt_dim(U, 2)
-        new{Static, Nothing, F, T, V, P}(f_vec, nothing, T(z), p_f, filter)
+        ASProp(U, dims, dx, dy, (), z; filter = filter)
     end
 
     function ASProp(u::U,
             dx::Real,
             dy::Real,
-            λ::Real,
+            lambdas::Union{Real, Tuple},
             z::Real;
             filter::Union{Nothing, AbstractArray{<:Real, 2}} = nothing
     ) where {U <: AbstractArray{<:Complex}}
-        ASProp(typeof(u), size(u), dx, dy, λ, z; filter = filter)
+        ASProp(typeof(u), size(u), dx, dy, lambdas, z; filter = filter)
     end
 
     function ASProp(u::U,
@@ -100,9 +108,25 @@ struct ASProp{M, K, F, T, V, P} <: AbstractPropagator{M}
     function ASProp(u::ScalarField,
             dx::Real,
             dy::Real,
+            lambdas::Real,
             z::Real;
             filter::Union{Nothing, AbstractArray{<:Real, 2}} = nothing)
-        ASProp(typeof(u.data), size(u.data), dx, dy, z; filter = filter)
+        @assert all(==(lambdas), u.lambdas)
+        ASProp(u.data, dx, dy, lambdas, z; filter = filter)
+    end
+
+    function ASProp(u::ScalarField,
+            dx::Real,
+            dy::Real,
+            z::Real;
+            filter::Union{Nothing, AbstractArray{<:Real, 2}} = nothing,
+            kernel_cache = false
+    )
+        if kernel_cache
+            ASProp(u.data, dx, dy, Tuple(Set(u.lambdas)), z; filter = filter)
+        else
+            ASProp(u.data, dx, dy, (), z; filter = filter)
+        end
     end
 end
 
@@ -138,6 +162,24 @@ function apply_kernel!(u, as_prop::ASProp, λ, direction::Type{<:Direction})
     apply_kernel!(u, as_prop, λ, as_prop.z, direction)
 end
 
+function apply_kernel!(
+        u::ScalarField, as_prop::ASProp{M, <:Dict}, ::Type{Forward}) where {M}
+    inds = CartesianIndices(size(u.data)[3:end])
+    for i in inds
+        @views u.data[:,:,i] .*= as_prop.p_ker[u.lambdas[i]]
+    end
+    u
+end
+
+function apply_kernel!(
+        u::ScalarField, as_prop::ASProp{M, <:Dict}, ::Type{Backward}) where {M}
+    inds = CartesianIndices(size(u.data)[3:end])
+    for i in inds
+        @views u.data[:,:,i] .*= conj.(as_prop.p_ker[u.lambdas[i]])
+    end
+    u
+end
+
 function mul_filter!(u, as_prop::ASProp{M, K, Nothing}) where {M, K}
     u
 end
@@ -153,8 +195,8 @@ function _propagate_core!(apply_kernel_fn, u, as_prop::ASProp)
     as_prop.p_f.ift * u
 end
 
-function propagate!(u::AbstractArray, as_prop::ASProp{M, K},
-        direction::Type{<:Direction}) where {M, K <: AbstractArray}
+function propagate!(u::AbstractArray, as_prop::ASProp{M, <:AbstractArray},
+        direction::Type{<:Direction}) where {M}
     _propagate_core!(u, as_prop) do
         apply_kernel!(u, as_prop, direction)
     end
@@ -170,8 +212,28 @@ function propagate!(u::AbstractArray, as_prop::ASProp, λ, direction::Type{<:Dir
     propagate!(u, as_prop, λ, as_prop.z, direction)
 end
 
-function propagate!(u::ScalarField, as_prop::ASProp, direction::Type{<:Direction})
+function propagate!(u::ScalarField, as_prop::ASProp{M, <:AbstractArray},
+        direction::Type{<:Direction}) where {M}
+    propagate!(u.data, as_prop, direction)
+    u
+end
+
+function propagate!(u::ScalarField, as_prop::ASProp{M, <:Dict},
+        direction::Type{<:Direction}) where {M}
+    _propagate_core!(u.data, as_prop) do
+        apply_kernel!(u, as_prop, direction)
+    end
+    u
+end
+
+function propagate!(u::ScalarField, as_prop::ASProp{M, Nothing},
+        direction::Type{<:Direction}) where {M}
     propagate!(u.data, as_prop, u.lambdas, as_prop.z, direction)
+    u
+end
+
+function propagate!(u::ScalarField, as_prop::ASProp, z, direction::Type{<:Direction})
+    propagate!(u.data, as_prop, u.lambdas, z, direction)
     u
 end
 
