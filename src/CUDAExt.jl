@@ -15,6 +15,10 @@ function compute_thread_config()
     return (threads_x, threads_y)
 end
 
+function Base.unique(x::CuArray)
+    unique(Array(x))
+end
+
 function OpticalComponents.make_fft_plans(
         u::U, dims::NTuple{N, Integer}) where {N, U <: CuArray{<:Complex}}
     p_ft = plan_fft!(u, dims)

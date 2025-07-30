@@ -86,6 +86,11 @@ function propagate(u, p::AbstractOpticalComponent, direction::Type{<:Direction})
     propagate!(copy(u), p, direction)
 end
 
+function propagate(u::AbstractArray, p::AbstractOpticalComponent,
+        λ::Real, direction::Type{<:Direction})
+    propagate!(copy(u), p, λ, direction)
+end
+
 function propagate_and_save(u, p::AbstractOpticalComponent{<:Trainable},
         direction::Type{<:Direction})
     propagate_and_save!(copy(u), p, direction)

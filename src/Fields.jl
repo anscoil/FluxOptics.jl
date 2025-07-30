@@ -5,9 +5,10 @@ export get_data
 
 import Base: +, -, *, /
 
-struct ScalarField{U, T}
+struct ScalarField{U, T, C}
     data::U
     lambdas::T
+    lambdas_collection::C # useful if lambdas is a CuArray
 
     function ScalarField(
             u::U, lambdas::T
@@ -17,14 +18,14 @@ struct ScalarField{U, T}
         nx, ny = size(u)
         nr = div(length(u), nx*ny)
         @assert length(lambdas) == nr
-        lambdas = reshape(lambdas, (1, 1, size(u)[3:end]...))
-        new{U, typeof(lambdas)}(u, lambdas)
+        lambdas = reshape(lambdas, (1, 1, size(u)[3:end]...)) |> U |> real
+        lambdas_collection = collect(lambdas)
+        new{U, typeof(lambdas), typeof(lambdas_collection)}(u, lambdas, lambdas_collection)
     end
 
     function ScalarField(u::U, lambda::Real) where {U <: AbstractArray{<:Complex}}
-        # ScalarField(u, [lambda])
         V = real(eltype(u))
-        new{U, V}(u, V(lambda))
+        new{U, V, Nothing}(u, V(lambda), nothing)
     end
 end
 

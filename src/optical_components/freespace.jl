@@ -1,6 +1,7 @@
 using AbstractFFTs
 using FFTW
 using EllipsisNotation
+using LRUCache
 
 function make_fft_plans(
         u::U, dims::NTuple{N, Integer}) where {N, U <: AbstractArray{<:Complex}}
@@ -9,231 +10,166 @@ function make_fft_plans(
     (; ft = p_ft, ift = p_ift)
 end
 
-function prepare_fft_plans(U, dims)
-    A_plan = U(undef, dims)
-    p_f = make_fft_plans(A_plan, (1, 2))
-    typeof(p_f), p_f
-end
+abstract type AbstractFourierKernel{T, K} end
 
-function prepare_fvec(T, nx, ny, dx, dy)
-    fxv = fftfreq(nx, T(1/dx))
-    fyv = fftfreq(ny, T(1/dy))
-    f_vec = (; x = fxv, y = fyv)
-    typeof(f_vec), f_vec
-end
-
-function prepare_filter(U, filter)
-    if isnothing(filter)
-        Nothing, nothing
-    else
-        adapt_dim(U, 2, real), filter |> F
-    end
-end
-
-function as_kernel(fx, fy, λ, z)
+function as_kernel(fx::T, fy::T, λ::T, z::T) where {T <: AbstractFloat}
     f² = complex(1/λ^2)
-    exp(im*2π*z*sqrt(f² - fx*fx - (fy*fy)))
+    exp(im*T(2)*π*z*sqrt(f² - fx*fx - (fy*fy)))
 end
 
-struct ASProp{M, K, F, T, V, P} <: AbstractPropagator{M}
+struct ASKernel{T, K, V} <: AbstractFourierKernel{T, K}
     f_vec::V
-    p_ker::K
+    kernel_cache::Union{Nothing, LRU{T, K}}
     z::T
-    p_f::P
-    filter::F
 
-    function ASProp(
+    function ASKernel(
             U::Type{<:AbstractArray{Complex{T}, N}},
-            dims::NTuple{N, Integer},
+            nx::Integer,
+            ny::Integer,
             dx::Real,
             dy::Real,
-            lambdas::Union{Real, Tuple},
-            z::Real;
-            filter::Union{Nothing, AbstractArray{<:Real, 2}} = nothing
-    ) where {N, T <: Real}
+            z::Real,
+            lambdas::Union{Nothing, Tuple{Vararg{<:Real}}} = nothing
+    ) where {T <: Real, N}
         @assert N >= 2
-        nx, ny = dims
-        V, f_vec = prepare_fvec(T, nx, ny, dx, dy)
-        P, p_f = prepare_fft_plans(U, dims)
-        F, filter = prepare_filter(U, filter)
-        if isa(lambdas, Real)
-            λ = lambdas
+        F = adapt_dim(U, 1, real)
+        fx = fftfreq(nx, T(1/dx)) |> F
+        fy = fftfreq(ny, T(1/dy)) |> F
+        f_vec = (; x = fx, y = fy)
+        V = typeof(f_vec)
+        if isnothing(lambdas)
+            new{T, Nothing, V}(f_vec, nothing, z)
+        else
             K = adapt_dim(U, 2)
-            p_ker = (@. as_kernel(f_vec.x, f_vec.y', λ, z)) |> K
-        elseif lambdas == ()
-            K = Nothing
-            p_ker = nothing
-        else
-            Ke = adapt_dim(U, 2)
-            K = Dict{T, Ke}
-            p_ker = K()
+            kernel_cache = LRU{T, K}(maxsize = length(lambdas))
             for λ in lambdas
-                p_ker_e = (@. as_kernel(f_vec.x, f_vec.y', λ, z)) |> Ke
-                p_ker[T(λ)] = p_ker_e
+                kernel_cache[T(λ)] = @. as_kernel(fx, fy', T(λ), T(z))
             end
+            new{T, K, V}(f_vec, kernel_cache, z)
         end
-        new{Static, K, F, T, V, P}(f_vec, p_ker, T(z), p_f, filter)
     end
 
-    function ASProp(
-            U::Type{<:AbstractArray{Complex{T}, N}},
-            dims::NTuple{N, Integer},
+    function ASKernel(
+            u::U,
             dx::Real,
             dy::Real,
-            z::Real;
-            filter::Union{Nothing, AbstractArray{<:Real, 2}} = nothing
-    ) where {N, T <: Real}
-        ASProp(U, dims, dx, dy, (), z; filter = filter)
-    end
-
-    function ASProp(u::U,
-            dx::Real,
-            dy::Real,
-            lambdas::Union{Real, Tuple},
-            z::Real;
-            filter::Union{Nothing, AbstractArray{<:Real, 2}} = nothing
+            z::Real,
+            lambdas::Union{Nothing, Tuple{Vararg{<:Real}}} = nothing
     ) where {U <: AbstractArray{<:Complex}}
-        ASProp(typeof(u), size(u), dx, dy, lambdas, z; filter = filter)
+        nx, ny = size(u)
+        ASKernel(typeof(u), nx, ny, dx, dy, z, lambdas)
     end
+end
 
-    function ASProp(u::U,
+function kernel_direction(kernel, ::Type{Forward})
+    kernel
+end
+
+function kernel_direction(kernel, ::Type{Backward})
+    conj(kernel)
+end
+
+function apply_kernel!(u::AbstractArray, as_k::ASKernel{T, Nothing},
+        λ::Real, direction::Type{<:Direction}) where {T}
+    fx, fy = as_k.f_vec.x, as_k.f_vec.y
+    @. u *= kernel_direction(as_kernel(fx, fy', T(λ), as_k.z), direction)
+end
+
+function apply_kernel!(u::AbstractArray, as_k::ASKernel{T, K}, λ::Real,
+        direction::Type{<:Direction}) where {T, K <: AbstractArray}
+    kernel_key = T(λ)
+    if haskey(as_k.kernel_cache, kernel_key)
+        @. u *= kernel_direction(as_k.kernel_cache[kernel_key], direction)
+    else
+        fx, fy = as_k.f_vec.x, as_k.f_vec.y
+        kernel = @. as_kernel(fx, fy', T(λ), as_k.z)
+        as_k.kernel_cache[kernel_key] = kernel
+        @. u *= kernel_direction(kernel, direction)
+    end
+end
+
+function apply_kernel!(u::ScalarField{U, A},
+        kernel::AbstractFourierKernel{T, K},
+        direction::Type{<:Direction}) where {U, T, A <: AbstractArray, K <: AbstractArray}
+    inds = CartesianIndices(size(u.data)[3:end])
+    for i in inds
+        apply_kernel!(@view(u.data[:, :, i]), kernel, u.lambdas_collection[i], direction)
+    end
+    u
+end
+
+function apply_kernel!(u::ScalarField{U, T},
+        kernel::AbstractFourierKernel,
+        direction::Type{<:Direction}) where {U, T <: Real}
+    apply_kernel!(u.data, kernel, u.lambdas, direction)
+end
+
+function apply_kernel!(u::ScalarField{U, A},
+        as_k::ASKernel{T, Nothing},
+        direction::Type{<:Direction}) where {U, T, A <: AbstractArray}
+    fx, fy = as_k.f_vec.x, as_k.f_vec.y
+    @. u.data *= kernel_direction(as_kernel(fx, fy', u.lambdas, as_k.z), direction)
+    u
+end
+
+struct ASProp{M, K, P} <: AbstractPropagator{M}
+    kernel::K
+    p_f::P
+
+    function ASProp(u::AbstractArray{<:Complex, N},
             dx::Real,
             dy::Real,
-            z::Real;
-            filter::Union{Nothing, AbstractArray{<:Real, 2}} = nothing
-    ) where {U <: AbstractArray{<:Complex}}
-        ASProp(typeof(u), size(u), dx, dy, z; filter = filter)
+            z::Real,
+            lambdas::Union{Nothing, Tuple{Vararg{<:Real}}} = nothing) where {N}
+        @assert N >= 2
+        kernel = ASKernel(u, dx, dy, z, lambdas)
+        A_plan = similar(u)
+        p_f = make_fft_plans(A_plan, (1, 2))
+        new{Static, typeof(kernel), typeof(p_f)}(kernel, p_f)
+    end
+
+    function ASProp(u::AbstractArray{<:Complex, N},
+            dx::Real,
+            dy::Real,
+            z::Real,
+            lambda::Real) where {N}
+        @assert N >= 2
+        ASProp(u, dx, dy, z, (lambda,))
     end
 
     function ASProp(u::ScalarField,
             dx::Real,
             dy::Real,
-            lambdas::Real,
-            z::Real;
-            filter::Union{Nothing, AbstractArray{<:Real, 2}} = nothing)
-        @assert all(==(lambdas), u.lambdas)
-        ASProp(u.data, dx, dy, lambdas, z; filter = filter)
-    end
-
-    function ASProp(u::ScalarField,
-            dx::Real,
-            dy::Real,
-            z::Real;
-            filter::Union{Nothing, AbstractArray{<:Real, 2}} = nothing,
-            kernel_cache = false
-    )
-        if kernel_cache
-            ASProp(u.data, dx, dy, Tuple(Set(u.lambdas)), z; filter = filter)
-        else
-            ASProp(u.data, dx, dy, (), z; filter = filter)
-        end
+            z::Real,
+            kernel_cache::Bool = false)
+        lambdas = kernel_cache ? Tuple(unique(u.lambdas)) : nothing
+        ASProp(u.data, dx, dy, z, lambdas)
     end
 end
 
-function kernel(prop::AbstractPropagator)
-    prop.p_ker
+function propagate!(u::AbstractArray, p::ASProp, λ::Real, direction::Type{<:Direction})
+    p.p_f.ft * u
+    apply_kernel!(u, p.kernel, λ, direction)
+    p.p_f.ift * u
 end
 
-function conjugate_kernel(prop::AbstractPropagator)
-    conj.(prop.p_ker)
+function propagate!(u::AbstractArray, p::ASProp{M, K},
+        direction::Type{<:Direction}) where {M, T, K <: ASKernel{T, <:AbstractArray}}
+    kernel_cache = p.kernel.kernel_cache
+    length(kernel_cache) == 1 || error("Propagation kernel should hold only one wavelength")
+    λ = first(keys(kernel_cache))
+    propagate!(u, p, λ, direction)
 end
 
-function apply_kernel!(u, prop::AbstractPropagator, ::Type{Forward})
-    u .*= kernel(prop)
+function propagate!(u::AbstractArray, p::ASProp{M, K},
+        direction::Type{<:Direction}) where {M, T, K <: ASKernel{T, Nothing}}
+    error("Propagation kernel has no defined wavelength")
 end
 
-function apply_kernel!(u, prop::AbstractPropagator, ::Type{Backward})
-    u .*= conjugate_kernel(prop)
-end
-
-function apply_kernel!(u, as_prop::ASProp{M, K}, λ, z,
-        ::Type{Forward}) where {M, K <: Union{Nothing, <:AbstractArray}}
-    fx, fy = as_prop.f_vec.x, as_prop.f_vec.y'
-    @. u *= as_kernel(fx, fy, λ, z)
-end
-
-function apply_kernel!(u, as_prop::ASProp{M, K}, λ, z,
-        ::Type{Backward}) where {M, K <: Union{Nothing, <:AbstractArray}}
-    fx, fy = as_prop.f_vec.x, as_prop.f_vec.y'
-    @. u *= conj(as_kernel(fx, fy, λ, z))
-end
-
-function apply_kernel!(u, as_prop::ASProp, λ, direction::Type{<:Direction})
-    apply_kernel!(u, as_prop, λ, as_prop.z, direction)
-end
-
-function apply_kernel!(
-        u::ScalarField, as_prop::ASProp{M, <:Dict}, ::Type{Forward}) where {M}
-    inds = CartesianIndices(size(u.data)[3:end])
-    for i in inds
-        @views u.data[:,:,i] .*= as_prop.p_ker[u.lambdas[i]]
-    end
-    u
-end
-
-function apply_kernel!(
-        u::ScalarField, as_prop::ASProp{M, <:Dict}, ::Type{Backward}) where {M}
-    inds = CartesianIndices(size(u.data)[3:end])
-    for i in inds
-        @views u.data[:,:,i] .*= conj.(as_prop.p_ker[u.lambdas[i]])
-    end
-    u
-end
-
-function mul_filter!(u, as_prop::ASProp{M, K, Nothing}) where {M, K}
-    u
-end
-
-function mul_filter!(u, as_prop::ASProp{M, K, F}) where {M, K, F <: AbstractArray}
-    u .*= as_prop.filter
-end
-
-function _propagate_core!(apply_kernel_fn, u, as_prop::ASProp)
-    as_prop.p_f.ft * u
-    apply_kernel_fn()
-    mul_filter!(u, as_prop)
-    as_prop.p_f.ift * u
-end
-
-function propagate!(u::AbstractArray, as_prop::ASProp{M, <:AbstractArray},
-        direction::Type{<:Direction}) where {M}
-    _propagate_core!(u, as_prop) do
-        apply_kernel!(u, as_prop, direction)
-    end
-end
-
-function propagate!(u::AbstractArray, as_prop::ASProp, λ, z, direction::Type{<:Direction})
-    _propagate_core!(u, as_prop) do
-        apply_kernel!(u, as_prop, λ, z, direction)
-    end
-end
-
-function propagate!(u::AbstractArray, as_prop::ASProp, λ, direction::Type{<:Direction})
-    propagate!(u, as_prop, λ, as_prop.z, direction)
-end
-
-function propagate!(u::ScalarField, as_prop::ASProp{M, <:AbstractArray},
-        direction::Type{<:Direction}) where {M}
-    propagate!(u.data, as_prop, direction)
-    u
-end
-
-function propagate!(u::ScalarField, as_prop::ASProp{M, <:Dict},
-        direction::Type{<:Direction}) where {M}
-    _propagate_core!(u.data, as_prop) do
-        apply_kernel!(u, as_prop, direction)
-    end
-    u
-end
-
-function propagate!(u::ScalarField, as_prop::ASProp{M, Nothing},
-        direction::Type{<:Direction}) where {M}
-    propagate!(u.data, as_prop, u.lambdas, as_prop.z, direction)
-    u
-end
-
-function propagate!(u::ScalarField, as_prop::ASProp, z, direction::Type{<:Direction})
-    propagate!(u.data, as_prop, u.lambdas, z, direction)
+function propagate!(u::ScalarField, p::ASProp, direction::Type{<:Direction})
+    p.p_f.ft * u.data
+    apply_kernel!(u, p.kernel, direction)
+    p.p_f.ift * u.data
     u
 end
 
