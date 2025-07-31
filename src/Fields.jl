@@ -25,7 +25,7 @@ struct ScalarField{U, T, C}
 
     function ScalarField(u::U, lambda::Real) where {U <: AbstractArray{<:Complex}}
         V = real(eltype(u))
-        new{U, V, Nothing}(u, V(lambda), nothing)
+        new{U, V, V}(u, V(lambda), V(lambda))
     end
 end
 

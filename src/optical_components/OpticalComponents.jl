@@ -36,7 +36,8 @@ has_prealloc(::Type{Trainable{Nothing}}) = false
 has_prealloc(::Type{Trainable{<:NamedTuple}}) = true
 
 abstract type AbstractOpticalComponent{M <: Trainability} end
-abstract type AbstractPropagator{M <: Trainability} <: AbstractOpticalComponent{M} end
+abstract type AbstractFourierKernel{T, K} end
+abstract type AbstractPropagator{M <: Trainability, K} <: AbstractOpticalComponent{M} end
 abstract type AbstractOpticalSource{M <: Trainability} <: AbstractOpticalComponent{M} end
 
 function adapt_dim(A::Type{<:AbstractArray{T}}, n::Integer, f = identity) where {T}
