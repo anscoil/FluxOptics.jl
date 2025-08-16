@@ -1,14 +1,5 @@
-using AbstractFFTs
-using FFTW
 using EllipsisNotation
 using LRUCache
-
-function make_fft_plans(
-        u::U, dims::NTuple{N, Integer}) where {N, U <: AbstractArray{<:Complex}}
-    p_ft = plan_fft!(u, dims, flags = FFTW.MEASURE)
-    p_ift = plan_ifft!(u, dims, flags = FFTW.MEASURE)
-    (; ft = p_ft, ift = p_ift)
-end
 
 function kernel_direction(kernel, ::Type{Forward})
     kernel

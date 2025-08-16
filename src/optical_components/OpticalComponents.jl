@@ -1,8 +1,10 @@
 module OpticalComponents
 
 using Functors
+using AbstractFFTs
 using ..GridUtils
 using ..Fields
+using ..FFTutils
 
 export Direction, Forward, Backward
 export Trainability, Trainable, Static
@@ -39,11 +41,6 @@ abstract type AbstractOpticalComponent{M <: Trainability} end
 abstract type AbstractFourierKernel{T, K} end
 abstract type AbstractPropagator{M <: Trainability, K} <: AbstractOpticalComponent{M} end
 abstract type AbstractOpticalSource{M <: Trainability} <: AbstractOpticalComponent{M} end
-
-function adapt_dim(A::Type{<:AbstractArray{T}}, n::Integer, f = identity) where {T}
-    @assert isconcretetype(A)
-    A.name.wrapper{f(A.parameters[1]), n, A.parameters[3:end]...}
-end
 
 trainable(p::AbstractOpticalComponent{Static}) = NamedTuple{}()
 
@@ -133,7 +130,7 @@ export ASProp, RSProp
 include("phasemask.jl")
 export Phase
 
-include("seeder.jl")
-export Seeder
+include("scalar_source.jl")
+export ScalarSource
 
 end

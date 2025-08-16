@@ -26,6 +26,9 @@ export hermite_gaussian_groups
 export PointLayout, GridLayout, TriangleLayout, CustomLayout
 export generate_mode_stack
 
+include("FFTutils.jl")
+using .FFTutils
+
 include("optical_components/OpticalComponents.jl")
 using .OpticalComponents
 export Forward, Backward
@@ -33,7 +36,7 @@ export propagate!, propagate
 export propagate_and_save!, propagate_and_save
 export backpropagate!, backpropagate
 export backpropagate_with_gradient!, backpropagate_with_gradient
-export ASProp, RSProp, Phase, Seeder
+export ASProp, RSProp, Phase, ScalarSource
 
 include("optimisers_ext.jl")
 export rules_dict, ProxRule, Fista

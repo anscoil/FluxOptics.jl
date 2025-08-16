@@ -1,9 +1,9 @@
-struct Seeder{M, U} <: AbstractOpticalSource{M}
+struct ScalarSource{M, U} <: AbstractOpticalSource{M}
     u0::U
     uf::U
     ∂p::Union{Nothing, @NamedTuple{u0::U}}
 
-    function Seeder(u::U; trainable::Bool = false,
+    function ScalarSource(u::U; trainable::Bool = false,
             prealloc_gradient::Bool = false
     ) where {U <: AbstractArray{<:Complex}}
         u0 = copy(u)
@@ -21,20 +21,20 @@ struct Seeder{M, U} <: AbstractOpticalSource{M}
     end
 end
 
-trainable(p::Seeder{<:Trainable}) = (; u0 = p.u0)
+trainable(p::ScalarSource{<:Trainable}) = (; u0 = p.u0)
 
-get_preallocated_gradient(p::Seeder{<:Trainable{<:NamedTuple}}) = p.∂p
+get_preallocated_gradient(p::ScalarSource{<:Trainable{<:NamedTuple}}) = p.∂p
 
-function propagate(p::Seeder, direction::Type{<:Direction})
+function propagate(p::ScalarSource, direction::Type{<:Direction})
     copyto!(p.uf, p.u0)
     p.uf
 end
 
-function propagate_and_save(p::Seeder, direction::Type{<:Direction})
+function propagate_and_save(p::ScalarSource, direction::Type{<:Direction})
     propagate(p, direction)
 end
 
-function backpropagate_with_gradient!(∂v, ∂p::NamedTuple, p::Seeder{<:Trainable},
+function backpropagate_with_gradient!(∂v, ∂p::NamedTuple, p::ScalarSource{<:Trainable},
         direction::Type{<:Direction})
     copyto!(∂p.u0, ∂v)
     ∂p

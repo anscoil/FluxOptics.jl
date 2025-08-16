@@ -2,6 +2,7 @@ module CUDAExt
 
 using AbstractFFTs
 using CUDA
+using ..FFTutils
 using ..OpticalComponents
 
 function compute_thread_config()
@@ -19,7 +20,7 @@ function Base.unique(x::CuArray)
     unique(Array(x))
 end
 
-function OpticalComponents.make_fft_plans(
+function FFTutils.make_fft_plans(
         u::U, dims::NTuple{N, Integer}) where {N, U <: CuArray{<:Complex}}
     p_ft = plan_fft!(u, dims)
     p_ift = plan_ifft!(u, dims)

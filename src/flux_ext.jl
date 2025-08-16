@@ -1,6 +1,7 @@
 using Flux
 using Functors
 using AbstractFFTs
+using LRUCache
 
 function (p::AbstractOpticalComponent)(u; direction::Type{<:Direction} = Forward,
         inplace::Val{B} = Val(false)) where {B}
@@ -45,12 +46,20 @@ Flux.trainable(p::OpticalChain) = (; layers = p.layers)
 
 Flux.trainable(p::AbstractOpticalComponent) = OpticalComponents.trainable(p)
 
+Functors.@functor OpticalChain (layers,)
 Flux.@layer OpticalChain
 
-Functors.@leaf AbstractFFTs.Plan
+# Functors.@leaf AbstractFFTs.Plan
+# Functors.@leaf LRUCache.LRU
+# Functors.@leaf Base.Pairs
 
+Functors.@functor ASProp{Static} ()
+Functors.@functor RSProp{Static} ()
 Flux.@layer ASProp{Static}
 Flux.@layer RSProp{Static}
 
+Functors.@functor Phase (ϕ,)
 Flux.@layer Phase
-Flux.@layer Seeder
+
+Functors.@functor ScalarSource (u0,)
+Flux.@layer ScalarSource
