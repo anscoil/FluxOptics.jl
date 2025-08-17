@@ -3,10 +3,16 @@ function as_kernel(fx::T, fy::T, λ::T, z::T) where {T <: AbstractFloat}
     exp(im*T(2)*π*z*sqrt(f² - fx^2 - fy^2))
 end
 
-struct ASKernel{T, K, V} <: AbstractFourierKernel{T, K}
+function as_kernel(fx::T, fy::T, λ::T, z::T, filter) where {T <: AbstractFloat}
+    f² = complex(1/λ^2)
+    exp(im*T(2)*π*z*sqrt(f² - fx^2 - fy^2)) * T(filter(fx, fy))
+end
+
+struct ASKernel{T, K, V, H} <: AbstractFourierKernel{T, K}
     f_vec::V
     kernel_cache::Union{Nothing, LRU{T, K}}
     z::T
+    filter::H
 
     function ASKernel(
             U::Type{<:AbstractArray{Complex{T}, N}},
@@ -15,7 +21,8 @@ struct ASKernel{T, K, V} <: AbstractFourierKernel{T, K}
             dx::Real,
             dy::Real,
             z::Real,
-            lambdas::Union{Nothing, Tuple{Vararg{<:Real}}} = nothing
+            lambdas::Union{Nothing, Tuple{Vararg{<:Real}}} = nothing,
+            filter = nothing
     ) where {T <: Real, N}
         @assert N >= 2
         F = adapt_dim(U, 1, real)
@@ -23,15 +30,17 @@ struct ASKernel{T, K, V} <: AbstractFourierKernel{T, K}
         fy = fftfreq(ny, T(1/dy)) |> F
         f_vec = (; x = fx, y = fy)
         V = typeof(f_vec)
+        filter = isnothing(filter) ? () : (filter,)
+        H = typeof(filter)
         if isnothing(lambdas)
-            new{T, Nothing, V}(f_vec, nothing, z)
+            new{T, Nothing, V, H}(f_vec, nothing, z, filter)
         else
             K = adapt_dim(U, 2)
             kernel_cache = LRU{T, K}(maxsize = length(lambdas))
             for λ in lambdas
-                kernel_cache[T(λ)] = @. as_kernel(fx, fy', T(λ), T(z))
+                kernel_cache[T(λ)] = @. as_kernel(fx, fy', T(λ), T(z), filter...)
             end
-            new{T, K, V}(f_vec, kernel_cache, z)
+            new{T, K, V, H}(f_vec, kernel_cache, z, filter)
         end
     end
 
@@ -40,17 +49,19 @@ struct ASKernel{T, K, V} <: AbstractFourierKernel{T, K}
             dx::Real,
             dy::Real,
             z::Real,
-            lambdas::Union{Nothing, Tuple{Vararg{<:Real}}} = nothing
+            lambdas::Union{Nothing, Tuple{Vararg{<:Real}}} = nothing,
+            filter = nothing
     ) where {U <: AbstractArray{<:Complex}}
         nx, ny = size(u)
-        ASKernel(typeof(u), nx, ny, dx, dy, z, lambdas)
+        ASKernel(typeof(u), nx, ny, dx, dy, z, lambdas, filter)
     end
 end
 
 function apply_kernel!(u::AbstractArray, as_k::ASKernel{T, Nothing}, lambdas,
         direction::Type{<:Direction}) where {T}
     fx, fy = as_k.f_vec.x, as_k.f_vec.y
-    @. u *= kernel_direction(as_kernel(fx, fy', lambdas, as_k.z), direction)
+    filter = as_k.filter
+    @. u *= kernel_direction(as_kernel(fx, fy', lambdas, as_k.z, filter...), direction)
 end
 
 function apply_kernel!(u::AbstractArray, as_k::ASKernel{T, K}, λ::Real,
@@ -60,7 +71,8 @@ function apply_kernel!(u::AbstractArray, as_k::ASKernel{T, K}, λ::Real,
         @. u *= kernel_direction(as_k.kernel_cache[kernel_key], direction)
     else
         fx, fy = as_k.f_vec.x, as_k.f_vec.y
-        kernel = @. as_kernel(fx, fy', T(λ), as_k.z)
+        filter = as_k.filter
+        kernel = @. as_kernel(fx, fy', T(λ), as_k.z, filter...)
         as_k.kernel_cache[kernel_key] = kernel
         @. u *= kernel_direction(kernel, direction)
     end
@@ -75,9 +87,11 @@ struct ASProp{M, K, P} <: AbstractPropagator{M, K}
             dx::Real,
             dy::Real,
             z::Real,
-            lambdas::Union{Nothing, Tuple{Vararg{<:Real}}} = nothing) where {N}
+            lambdas::Union{Nothing, Tuple{Vararg{<:Real}}} = nothing;
+            filter = nothing
+    ) where {N}
         @assert N >= 2
-        kernel = ASKernel(u, dx, dy, z, lambdas)
+        kernel = ASKernel(u, dx, dy, z, lambdas, filter)
         A_plan = similar(u)
         p_f = make_fft_plans(A_plan, (1, 2))
         new{Static, typeof(kernel), typeof(p_f)}(kernel, p_f)
@@ -87,18 +101,21 @@ struct ASProp{M, K, P} <: AbstractPropagator{M, K}
             dx::Real,
             dy::Real,
             z::Real,
-            lambda::Real) where {N}
+            lambda::Real;
+            filter = nothing
+    ) where {N}
         @assert N >= 2
-        ASProp(u, dx, dy, z, (lambda,))
+        ASProp(u, dx, dy, z, (lambda,); filter = filter)
     end
 
     function ASProp(u::ScalarField,
             dx::Real,
             dy::Real,
             z::Real,
-            kernel_cache::Bool = false)
+            kernel_cache::Bool = false;
+            filter = nothing)
         lambdas = kernel_cache ? Tuple(unique(u.lambdas)) : nothing
-        ASProp(u.data, dx, dy, z, lambdas)
+        ASProp(u.data, dx, dy, z, lambdas; filter = filter)
     end
 end
 

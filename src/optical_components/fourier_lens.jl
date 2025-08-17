@@ -70,7 +70,8 @@ struct FourierLens{M, K, T, U, V, P} <: AbstractPropagator{M, K}
             θx, θy, nrm_f, nothing, nothing, p_f, nothing)
     end
 
-    function FourierLens(u::ScalarField, dx::Real, dy::Real, dx′::Real, dy′::Real, fl::Real, cache::Bool=false)
+    function FourierLens(u::ScalarField, dx::Real, dy::Real, dx′::Real,
+            dy′::Real, fl::Real, cache::Bool = false)
         if cache
             λ = only(unique(u.lambdas)) # may fail, but that's what we want
             FourierLens(u.data, dx, dy, dx′, dy′, fl, λ)

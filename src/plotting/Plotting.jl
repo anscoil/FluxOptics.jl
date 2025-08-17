@@ -121,7 +121,7 @@ function plot_fields(
         fs::Union{Function, Tuple};
         colormap = :viridis, ratio = 1, max_width = 1024,
         width = nothing, height = nothing) where {
-        T <: Number, U <: Union{ScalarField, AbstractArray{T}}}
+        U <: Union{ScalarField, AbstractArray{<:Number}}}
     plot_fields(map(u -> (get_data(u),), u_vec), fs; colormap = colormap,
         ratio = ratio, max_width = max_width,
         width = width, height = height)
