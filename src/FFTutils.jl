@@ -65,12 +65,13 @@ struct CZTPlan{U, B, N, P}
         dims_tmp = ntuple(k -> k in dims ? 2*size(x, k) - 1 : size(x, k), N)
         x_tmp = similar(x, dims_tmp)
         p_f = make_fft_plans(x_tmp, dims)
-        new{U, Val{inplace}, Nd, typeof(p_f)}(p_f, input_chirp, output_chirp, fft(h, dims), x_tmp)
+        new{U, Val{inplace}, Nd, typeof(p_f)}(
+            p_f, input_chirp, output_chirp, fft(h, dims), x_tmp)
     end
 end
 
 struct CZTAdjointPlan{C}
-    p :: C
+    p::C
     function CZTAdjointPlan(p::C) where {C <: CZTPlan}
         new{C}(p)
     end
@@ -104,7 +105,7 @@ end
 function plan_czt!(x, dims, args...; center_on_grid = false)
     plan_czt(x, dims, args...; inplace = true, center_on_grid = center_on_grid)
 end
-  
+
 function czt!(p::CZTPlan{U}, x::U) where {U}
     p.x_tmp .= 0
     x_view = view(p.x_tmp, axes(x)...)
@@ -115,6 +116,7 @@ function czt!(p::CZTPlan{U}, x::U) where {U}
     p.p_f.ift * p.x_tmp
     p.x_tmp .*= p.output_chirp
     copyto!(x, x_view)
+    x
 end
 
 function iczt!(p::CZTPlan{U}, x::U) where {U}
@@ -132,6 +134,7 @@ function czt!(pa::CZTAdjointPlan{C}, x::U) where {U, C <: CZTPlan{U}}
     p.p_f.ift * p.x_tmp
     p.x_tmp .*= conj.(p.input_chirp)
     copyto!(x, x_view)
+    x
 end
 
 function Base.:*(p::CZTPlan{U, Val{true}}, x::U) where {U}

@@ -125,7 +125,7 @@ function backpropagate_with_gradient(
 end
 
 include("freespace.jl")
-export ASProp, RSProp
+export ASProp, RSProp, FourierLens
 
 include("phasemask.jl")
 export Phase

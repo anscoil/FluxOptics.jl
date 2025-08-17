@@ -36,7 +36,7 @@ export propagate!, propagate
 export propagate_and_save!, propagate_and_save
 export backpropagate!, backpropagate
 export backpropagate_with_gradient!, backpropagate_with_gradient
-export ASProp, RSProp, Phase, ScalarSource
+export ASProp, RSProp, FourierLens, Phase, ScalarSource
 
 include("optimisers_ext.jl")
 export rules_dict, ProxRule, Fista

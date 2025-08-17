@@ -25,6 +25,11 @@ function apply_kernel!(u::AbstractArray,
     u
 end
 
+function get_kernel_cache(p::AbstractPropagator{M, K}) where {
+        M, K <: AbstractFourierKernel}
+    error("Not Implemented")
+end
+
 function _propagate_core!(apply_kernel_fn, u::AbstractArray, p::AbstractPropagator)
     error("Not Implemented")
 end
@@ -41,7 +46,7 @@ end
 function propagate!(u::AbstractArray, p::AbstractPropagator{M, K},
         direction::Type{<:Direction}) where {
         M, T, K <: AbstractFourierKernel{T, <:AbstractArray}}
-    kernel_cache = p.kernel.kernel_cache
+    kernel_cache = get_kernel_cache(p)
     length(kernel_cache) == 1 ||
         error("Propagation kernel should hold exactly one wavelength")
     λ = first(keys(kernel_cache))
@@ -76,3 +81,4 @@ end
 
 include("angular_spectrum.jl")
 include("rayleigh_sommerfeld.jl")
+include("fourier_lens.jl")

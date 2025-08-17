@@ -1,7 +1,7 @@
 function rs_kernel(
         normalization_factor::T, x::T, y::T, λ::T, z::T) where {T <: AbstractFloat}
     k = T(2π)/λ
-    r = sqrt(x*x + y*y + z*z)
+    r = sqrt(x^2 + y^2 + z^2)
     normalization_factor*(exp(im*k*r)/r)*(z/r)*(1/r-im*k)
 end
 
@@ -112,6 +112,10 @@ struct RSProp{M, K, U, P} <: AbstractPropagator{M, K}
         lambdas = kernel_cache ? Tuple(unique(u.lambdas)) : nothing
         RSProp(u.data, dx, dy, z, lambdas)
     end
+end
+
+function get_kernel_cache(p::RSProp)
+    p.kernel.kernel_cache
 end
 
 function _propagate_core!(apply_kernel_fn, u::AbstractArray, p::RSProp)

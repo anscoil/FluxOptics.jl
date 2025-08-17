@@ -1,6 +1,6 @@
 function as_kernel(fx::T, fy::T, λ::T, z::T) where {T <: AbstractFloat}
     f² = complex(1/λ^2)
-    exp(im*T(2)*π*z*sqrt(f² - fx*fx - (fy*fy)))
+    exp(im*T(2)*π*z*sqrt(f² - fx^2 - fy^2))
 end
 
 struct ASKernel{T, K, V} <: AbstractFourierKernel{T, K}
@@ -100,6 +100,10 @@ struct ASProp{M, K, P} <: AbstractPropagator{M, K}
         lambdas = kernel_cache ? Tuple(unique(u.lambdas)) : nothing
         ASProp(u.data, dx, dy, z, lambdas)
     end
+end
+
+function get_kernel_cache(p::ASProp)
+    p.kernel.kernel_cache
 end
 
 function _propagate_core!(apply_kernel_fn, u::AbstractArray, p::ASProp)
