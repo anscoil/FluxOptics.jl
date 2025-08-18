@@ -30,15 +30,15 @@ struct FourierLens{M, K, T, U, V, P} <: AbstractPropagator{M, K}
         @assert fl > 0
         nx, ny = size(u)
         Nx, Ny = 2*nx-1, 2*ny-1
-        θx = T(-π*dx*dx′/fl)
-        θy = T(-π*dy*dy′/fl)
+        θx = T(-π*(dx′/dx)/fl)
+        θy = T(-π*(dy′/dy)/fl)
         nrm_f = T(dx*dy/fl)
         F = adapt_dim(U, 1, real)
-        x = ((0:(Nx - 1)) .- (nx-1)/2) |> F
-        y = ((0:(Ny - 1)) .- (ny-1)/2) |> F
+        x = ((0:(Nx - 1)) .- (nx-1)/2) .* dx |> F
+        y = ((0:(Ny - 1)) .- (ny-1)/2) .* dy |> F
         s_vec = (; x = x, y = y)
-        fx = (Nx * fftfreq(Nx, 1)) |> F
-        fy = (Ny * fftfreq(Ny, 1)) |> F
+        fx = circshift((1 - nx):(nx - 1), nx) .* dx |> F
+        fy = circshift((1 - ny):(ny - 1), ny) .* dy |> F
         f_vec = (; x = fx, y = fy)
         V = typeof(f_vec)
         u_tmp = similar(u, (2*nx-1, 2*ny-1, size(u)[3:end]...))

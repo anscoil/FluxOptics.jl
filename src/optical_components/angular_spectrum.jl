@@ -1,130 +1,92 @@
-function as_kernel(fx::T, fy::T, λ::T, z::T) where {T <: AbstractFloat}
-    f² = complex(1/λ^2)
-    exp(im*T(2)*π*z*sqrt(f² - fx^2 - fy^2))
+function compute_as_kernel(fx::T, fy::T, λ::T, z::Tp, filter::H
+) where {T <: AbstractFloat, Tp <: AbstractFloat, H}
+    fx, fy = Tp(fx), Tp(fy)
+    f² = complex(inv(λ)^2)
+    v = isnothing(filter) ? Tp(1) : Tp(filter(fx, fy))
+    cis(Tp(2)*π*z*sqrt(f² - fx^2 - fy^2)) * v
 end
 
-function as_kernel(fx::T, fy::T, λ::T, z::T, filter) where {T <: AbstractFloat}
+function compute_as_kernel(fx::T, λ::T, z::Tp, filter::H
+) where {T <: AbstractFloat, Tp <: AbstractFloat, H}
+    fx, fy = Tp(fx), Tp(fy)
     f² = complex(1/λ^2)
-    exp(im*T(2)*π*z*sqrt(f² - fx^2 - fy^2)) * T(filter(fx, fy))
+    v = isnothing(filter) ? Tp(1) : Tp(filter(fx))
+    cis(Tp(2)*π*z*sqrt(f² - fx^2)) * v
 end
 
-struct ASKernel{T, K, V, H} <: AbstractFourierKernel{T, K}
-    f_vec::V
-    kernel_cache::Union{Nothing, LRU{T, K}}
-    z::T
+struct ASProp{M, K, T, Tp, H} <: AbstractPropagator{M, K}
+    kernel::K
+    z::Tp
     filter::H
 
-    function ASKernel(
-            U::Type{<:AbstractArray{Complex{T}, N}},
-            nx::Integer,
-            ny::Integer,
-            dx::Real,
-            dy::Real,
+    function ASProp(u::AbstractArray{Complex{T}, N},
+            ds::NTuple{Nd, Real},
             z::Real,
-            lambdas::Union{Nothing, Tuple{Vararg{<:Real}}} = nothing,
-            filter = nothing
-    ) where {T <: Real, N}
-        @assert N >= 2
-        F = adapt_dim(U, 1, real)
-        fx = fftfreq(nx, T(1/dx)) |> F
-        fy = fftfreq(ny, T(1/dy)) |> F
-        f_vec = (; x = fx, y = fy)
-        V = typeof(f_vec)
-        filter = isnothing(filter) ? () : (filter,)
-        H = typeof(filter)
-        if isnothing(lambdas)
-            new{T, Nothing, V, H}(f_vec, nothing, z, filter)
-        else
-            K = adapt_dim(U, 2)
-            kernel_cache = LRU{T, K}(maxsize = length(lambdas))
-            for λ in lambdas
-                kernel_cache[T(λ)] = @. as_kernel(fx, fy', T(λ), T(z), filter...)
-            end
-            new{T, K, V, H}(f_vec, kernel_cache, z, filter)
-        end
+            λ::Real;
+            filter::H = nothing,
+            double_precision_kernel = true
+    ) where {N, Nd, T, H}
+        @assert N >= Nd
+        ns = size(u)[1:Nd]
+        kernel = FourierKernel(u, ns, ds, 1)
+        kernel_key = T(λ)
+        Tp = double_precision_kernel ? Float64 : T
+        fill_kernel_cache(kernel, kernel_key, compute_as_kernel, T(λ), (Tp(z), filter))
+        new{Static, typeof(kernel), T, Tp, H}(kernel, Tp(z), filter)
     end
 
-    function ASKernel(
-            u::U,
-            dx::Real,
-            dy::Real,
+    function ASProp(u::ScalarField{U},
+            ds::NTuple{Nd, Real},
             z::Real,
-            lambdas::Union{Nothing, Tuple{Vararg{<:Real}}} = nothing,
-            filter = nothing
-    ) where {U <: AbstractArray{<:Complex}}
-        nx, ny = size(u)
-        ASKernel(typeof(u), nx, ny, dx, dy, z, lambdas, filter)
+            use_cache::Bool = false;
+            filter::H = nothing,
+            double_precision_kernel = true
+    ) where {N, Nd, T, H, U <: AbstractArray{Complex{T}, N}}
+        @assert ndims(u.data) >= Nd
+        ns = size(u)[1:Nd]
+        cache_size = use_cache ? length(unique(u.lambdas)) : 0
+        kernel = FourierKernel(u.data, ns, ds, cache_size)
+        Tp = double_precision_kernel ? Float64 : T
+        new{Static, typeof(kernel), T, Tp, H}(kernel, Tp(z), filter)
     end
 end
 
-function apply_kernel!(u::AbstractArray, as_k::ASKernel{T, Nothing}, lambdas,
-        direction::Type{<:Direction}) where {T}
-    fx, fy = as_k.f_vec.x, as_k.f_vec.y
-    filter = as_k.filter
-    @. u *= kernel_direction(as_kernel(fx, fy', lambdas, as_k.z, filter...), direction)
+function _propagate_core!(apply_kernel_fn::F, u::AbstractArray, p::ASProp) where {F}
+    p_f = p.kernel.p_f
+    p_f.ft * u
+    apply_kernel_fn()
+    p_f.ift * u
 end
 
-function apply_kernel!(u::AbstractArray, as_k::ASKernel{T, K}, λ::Real,
-        direction::Type{<:Direction}) where {T, K <: AbstractArray}
-    kernel_key = T(λ)
-    if haskey(as_k.kernel_cache, kernel_key)
-        @. u *= kernel_direction(as_k.kernel_cache[kernel_key], direction)
-    else
-        fx, fy = as_k.f_vec.x, as_k.f_vec.y
-        filter = as_k.filter
-        kernel = @. as_kernel(fx, fy', T(λ), as_k.z, filter...)
-        as_k.kernel_cache[kernel_key] = kernel
-        @. u *= kernel_direction(kernel, direction)
+function propagate!(u::AbstractArray, p::ASProp, λ::Real, direction::Type{<:Direction})
+    _propagate_core!(u, p) do
+        apply_kernel!(u, p.kernel, direction, compute_as_kernel, λ, (p.z, p.filter))
     end
     u
 end
 
-struct ASProp{M, K, P} <: AbstractPropagator{M, K}
-    kernel::K
-    p_f::P
-
-    function ASProp(u::AbstractArray{<:Complex, N},
-            dx::Real,
-            dy::Real,
-            z::Real,
-            lambdas::Union{Nothing, Tuple{Vararg{<:Real}}} = nothing;
-            filter = nothing
-    ) where {N}
-        @assert N >= 2
-        kernel = ASKernel(u, dx, dy, z, lambdas, filter)
-        A_plan = similar(u)
-        p_f = make_fft_plans(A_plan, (1, 2))
-        new{Static, typeof(kernel), typeof(p_f)}(kernel, p_f)
-    end
-
-    function ASProp(u::AbstractArray{<:Complex, N},
-            dx::Real,
-            dy::Real,
-            z::Real,
-            lambda::Real;
-            filter = nothing
-    ) where {N}
-        @assert N >= 2
-        ASProp(u, dx, dy, z, (lambda,); filter = filter)
-    end
-
-    function ASProp(u::ScalarField,
-            dx::Real,
-            dy::Real,
-            z::Real,
-            kernel_cache::Bool = false;
-            filter = nothing)
-        lambdas = kernel_cache ? Tuple(unique(u.lambdas)) : nothing
-        ASProp(u.data, dx, dy, z, lambdas; filter = filter)
-    end
+function propagate!(u::AbstractArray, p::ASProp, direction::Type{<:Direction})
+    kernel_cache = p.kernel.kernel_cache
+    (!isnothing(kernel_cache) && length(kernel_cache) == 1) ||
+        error("Propagation kernel should hold exactly one wavelength")
+    λ = first(keys(kernel_cache))
+    propagate!(u, p, λ, direction)
 end
 
-function get_kernel_cache(p::ASProp)
-    p.kernel.kernel_cache
+function propagate!(u::ScalarField, p::ASProp{M, <:FourierKernel{T, Nothing}},
+        direction::Type{<:Direction}) where {M, T}
+    _propagate_core!(u.data, p) do
+        apply_kernel!(u.data, p.kernel, direction, compute_as_kernel,
+            u.lambdas, (p.z, p.filter))
+    end
+    u
 end
 
-function _propagate_core!(apply_kernel_fn, u::AbstractArray, p::ASProp)
-    p.p_f.ft * u
-    apply_kernel_fn(u)
-    p.p_f.ift * u
+function propagate!(u::ScalarField, p::ASProp{M, <:FourierKernel{T, K}},
+        direction::Type{<:Direction}) where {M, T, K <: AbstractArray}
+    _propagate_core!(u.data, p) do
+        apply_kernel!(u.data, p.kernel, direction,
+            compute_as_kernel, u.lambdas_collection, (p.z, p.filter))
+    end
+    u
 end
