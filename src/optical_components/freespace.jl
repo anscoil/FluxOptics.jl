@@ -79,6 +79,7 @@ function backpropagate!(u, p::AbstractPropagator, direction::Type{<:Direction})
     propagate!(u, p, reverse(direction))
 end
 
+include("abstract_kernel.jl")
 include("fourier_kernel.jl")
 include("angular_spectrum.jl")
 include("rayleigh_sommerfeld.jl")
