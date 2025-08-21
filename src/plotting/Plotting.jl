@@ -219,7 +219,7 @@ end
 function plot_fields_slider(
         u_vec::Union{AbstractVector{U}, Tuple{Vararg{U}}},
         fs::Union{Function, Tuple};
-        colormap = :viridis, ratio = 1, max_width = 1024,
+        colormap = :viridis, ratio = 1, max_width = 2048,
         width = nothing, height = nothing) where {T <: Number, U <: AbstractArray{T}}
     plot_fields_slider(map(u -> (get_data(u),), u_vec), fs; colormap = colormap,
         ratio = ratio, max_width = max_width,

@@ -3,7 +3,7 @@ function compute_as_kernel(fx::T, fy::T, λ::T, z::Tp,
     fx, fy = Tp(fx), Tp(fy)
     f² = complex(inv(Tp(λ))^2)
     v = isnothing(filter) ? Tp(1) : Tp(filter(fx, fy))
-    cis(Tp(2)*π*z*sqrt(f² - fx^2 - fy^2)) * v
+    Complex{T}(cis(Tp(2)*π*z*sqrt(f² - fx^2 - fy^2)) * v)
 end
 
 function compute_as_kernel(fx::T, λ::T, z::Tp, filter::H
@@ -11,7 +11,7 @@ function compute_as_kernel(fx::T, λ::T, z::Tp, filter::H
     fx, fy = Tp(fx), Tp(fy)
     f² = complex(inv(Tp(λ)^2))
     v = isnothing(filter) ? Tp(1) : Tp(filter(fx))
-    cis(Tp(2)*π*z*sqrt(f² - fx^2)) * v
+    Complex{T}(cis(Tp(2)*π*z*sqrt(f² - fx^2)) * v)
 end
 
 struct ASProp{M, K, T, Tp, H} <: AbstractPropagator{M, K}
@@ -51,50 +51,28 @@ struct ASProp{M, K, T, Tp, H} <: AbstractPropagator{M, K}
     end
 end
 
-function _propagate_core!(apply_kernel_fn::F, u::AbstractArray, p::ASProp) where {F}
+function get_kernel(p::ASProp)
+    p.kernel
+end
+
+function build_kernel_key_args(
+        p::ASProp{M, <:FourierKernel{K, T}}, λ::Real) where {M, K, T}
+    hash(T(λ)), (T(λ), p.z, p.filter)
+end
+
+function build_kernel_args(
+        p::ASProp{M, <:FourierKernel{Nothing, T}}, u::ScalarField) where {M, T}
+    (u.lambdas, p.z, p.filter)
+end
+
+function build_kernel_key_args(p::ASProp{M, <:FourierKernel{K, T}},
+        u::ScalarField) where {M, K <: AbstractArray, T}
+    hash.(u.lambdas_collection), (u.lambdas_collection, p.z, p.filter)
+end
+
+function _propagate_core!(apply_kernel_fn!::F, u::AbstractArray, p::ASProp) where {F}
     p_f = p.kernel.p_f
     p_f.ft * u
-    apply_kernel_fn()
+    apply_kernel_fn!(u, compute_as_kernel)
     p_f.ift * u
-end
-
-function propagate!(u::AbstractArray, p::ASProp{M, <:FourierKernel{K, T}}, λ::Real,
-        direction::Type{<:Direction}) where {M, T, K <: AbstractArray}
-    kernel_key = hash(T(λ))
-    _propagate_core!(u, p) do
-        apply_kernel!(
-            u, p.kernel, kernel_key, direction, compute_as_kernel, (T(λ), p.z, p.filter))
-    end
-    u
-end
-
-function propagate!(u::AbstractArray, p::ASProp{M, <:FourierKernel{K}},
-        direction::Type{<:Direction}) where {M, K <: AbstractArray}
-    kernel_cache = p.kernel.kernel_cache
-    (!isnothing(kernel_cache) && length(kernel_cache) == 1) ||
-        error("Propagation kernel should hold exactly one wavelength")
-    kernel_key = first(keys(kernel_cache))
-    _propagate_core!(u, p) do
-        apply_kernel!(u, p.kernel, kernel_key, direction)
-    end
-    u
-end
-
-function propagate!(u::ScalarField, p::ASProp{M, <:FourierKernel{Nothing}},
-        direction::Type{<:Direction}) where {M}
-    _propagate_core!(u.data, p) do
-        apply_kernel!(u.data, p.kernel, direction, compute_as_kernel,
-            (u.lambdas, p.z, p.filter))
-    end
-    u
-end
-
-function propagate!(u::ScalarField, p::ASProp{M, <:FourierKernel{K}},
-        direction::Type{<:Direction}) where {M, K <: AbstractArray}
-    kernel_keys = hash.(u.lambdas_collection)
-    _propagate_core!(u.data, p) do
-        apply_kernel!(u.data, p.kernel, kernel_keys, direction,
-            compute_as_kernel, (u.lambdas_collection, p.z, p.filter))
-    end
-    u
 end

@@ -14,10 +14,10 @@ struct FourierKernel{K, T, V, P} <: AbstractKernel{K, V}
         @assert cache_size >= 0
         F = adapt_dim(U, 1, real)
         fs = [fftfreq(nx, 1/dx) |> F for (nx, dx) in zip(ns, ds)]
-        f_vec = Nd == 2 ? (; x = fs[1], y = fs[2]') : (x = fs[1],)
+        f_vec = Nd == 2 ? (; x = fs[1], y = fs[2]') : (; x = fs[1])
         V = typeof(f_vec)
-        A_plan = similar(u)
-        p_f = make_fft_plans(A_plan, Tuple(1:Nd))
+        u_plan = similar(u)
+        p_f = make_fft_plans(u_plan, Tuple(1:Nd))
         P = typeof(p_f)
         if iszero(cache_size)
             new{Nothing, T, V, P}(f_vec, nothing, p_f)
@@ -35,4 +35,8 @@ end
 
 function get_kernel_vectors(kernel::FourierKernel)
     kernel.f_vec
+end
+
+function transform_kernel!(kernel_val, kernel::FourierKernel)
+    kernel_val
 end
