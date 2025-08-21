@@ -43,8 +43,8 @@ struct RSProp{M, K, T, Tp} <: AbstractPropagator{M, K}
     end
 end
 
-function get_kernel(p::RSProp)
-    p.kernel
+function get_kernels(p::RSProp)
+    (p.kernel,)
 end
 
 function build_kernel_key_args(
@@ -62,7 +62,8 @@ function build_kernel_key_args(p::RSProp{M, <:ConvolutionKernel{K, T}},
     hash.(u.lambdas_collection), (u.lambdas_collection, p.z, p.nrm_f)
 end
 
-function _propagate_core!(apply_kernel_fn!::F, u::AbstractArray, p::RSProp) where {F}
+function _propagate_core!(apply_kernel_fns::F, u::AbstractArray, p::RSProp) where {F}
+    apply_kernel_fn!, = apply_kernel_fns
     p_f = p.kernel.p_f
     u_tmp = p.kernel.u_plan
     u_tmp .= 0

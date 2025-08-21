@@ -51,8 +51,8 @@ struct ASProp{M, K, T, Tp, H} <: AbstractPropagator{M, K}
     end
 end
 
-function get_kernel(p::ASProp)
-    p.kernel
+function get_kernels(p::ASProp)
+    (p.kernel,)
 end
 
 function build_kernel_key_args(
@@ -70,7 +70,8 @@ function build_kernel_key_args(p::ASProp{M, <:FourierKernel{K, T}},
     hash.(u.lambdas_collection), (u.lambdas_collection, p.z, p.filter)
 end
 
-function _propagate_core!(apply_kernel_fn!::F, u::AbstractArray, p::ASProp) where {F}
+function _propagate_core!(apply_kernel_fns::F, u::AbstractArray, p::ASProp) where {F}
+    apply_kernel_fn!, = apply_kernel_fns
     p_f = p.kernel.p_f
     p_f.ft * u
     apply_kernel_fn!(u, compute_as_kernel)

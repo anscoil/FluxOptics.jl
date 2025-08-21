@@ -9,7 +9,7 @@ function kernel_direction(kernel, ::Type{Backward})
     conj(kernel)
 end
 
-function get_kernel(p::AbstractPropagator{M, <:AbstractKernel}) where {M}
+function get_kernels(p::AbstractPropagator{M, <:AbstractKernel}) where {M}
     error("Not implemented")
 end
 
@@ -20,63 +20,75 @@ end
 
 function build_kernel_args(
         p::AbstractPropagator{M, <:AbstractKernel{Nothing}},
-        u:: ScalarField) where {M}
+        u::ScalarField) where {M}
     error("Not implemented")
 end
 
 function build_kernel_key_args(
         p::AbstractPropagator{M, <:AbstractKernel{K}},
-        u:: ScalarField) where {M, K <: AbstractArray}
+        u::ScalarField) where {M, K <: AbstractArray}
     error("Not implemented")
 end
 
 function _propagate_core!(
-         apply_kernel_fn!::F,
-         u::AbstractArray,
-         p::AbstractPropagator{M, <:AbstractKernel}) where {F, M}
+        apply_kernel_fn!::F,
+        u::AbstractArray,
+        p::AbstractPropagator{M, <:AbstractKernel}) where {F, M}
     error("Not implemented")
 end
 
 function propagate!(u::AbstractArray, p::AbstractPropagator{M, <:AbstractKernel{K}},
-         λ::Real, direction::Type{<:Direction}) where {M, K <: AbstractArray}
-    kernel = get_kernel(p)
+        λ::Real, direction::Type{<:Direction}) where {M, K <: AbstractArray}
+    kernels = get_kernels(p)
     kernel_key, kernel_args = build_kernel_key_args(p, λ)
-    _propagate_core!(u, p) do v, compute_kernel
-        apply_kernel!(v, kernel, kernel_key, direction, compute_kernel, kernel_args)
-    end
+    apply_kernel_fns = map(
+        kernel -> (v,
+            compute_kernel) -> apply_kernel!(
+            v, kernel, kernel_key, direction, compute_kernel, kernel_args),
+        kernels)
+    _propagate_core!(apply_kernel_fns, u, p)
     u
 end
 
 function propagate!(u::AbstractArray, p::AbstractPropagator{M, <:AbstractKernel{K}},
         direction::Type{<:Direction}) where {M, K <: AbstractArray}
-    kernel = get_kernel(p)
-    kernel_cache = get_kernel_cache(kernel)
-    (!isnothing(kernel_cache) && length(kernel_cache) == 1) ||
+    kernels = get_kernels(p)
+    kernel_caches = map(get_kernel_cache, kernels)
+    (all(!isnothing, kernel_caches) && all((==)(1) ∘ length, kernel_caches)) ||
         error("Propagation kernel should hold exactly one wavelength")
-    kernel_key = first(keys(kernel_cache))
-    _propagate_core!(u, p) do v, compute_kernel
-        apply_kernel!(v, kernel, kernel_key, direction)
-    end
+    kernel_keys = map(first ∘ keys, kernel_caches)
+    kernel_key = kernel_keys[1]
+    all((==)(kernel_key), kernel_keys) || error("All kernel keys must be equal")
+    apply_kernel_fns = map(
+        kernel -> (v, compute_kernel) -> apply_kernel!(v, kernel, kernel_key, direction),
+        kernels)
+    _propagate_core!(apply_kernel_fns, u, p)
     u
 end
 
 function propagate!(u::ScalarField, p::AbstractPropagator{M, <:AbstractKernel{Nothing}},
         direction::Type{<:Direction}) where {M}
-    kernel = get_kernel(p)
+    kernels = get_kernels(p)
     kernel_args = build_kernel_args(p, u)
-    _propagate_core!(u.data, p) do v, compute_kernel
-        apply_kernel!(v, kernel, direction, compute_kernel, kernel_args)
-    end
+    apply_kernel_fns = map(
+        kernel -> (v,
+            compute_kernel) -> apply_kernel!(
+            v, kernel, direction, compute_kernel, kernel_args),
+        kernels)
+    _propagate_core!(apply_kernel_fns, u.data, p)
     u
 end
 
 function propagate!(u::ScalarField, p::AbstractPropagator{M, <:AbstractKernel{K}},
         direction::Type{<:Direction}) where {M, K <: AbstractArray}
-    kernel = get_kernel(p)
+    kernels = get_kernels(p)
     kernel_keys, kernel_args = build_kernel_key_args(p, u)
-    _propagate_core!(u.data, p) do v, compute_kernel
-        apply_kernel!(v, kernel, kernel_keys, direction, compute_kernel, kernel_args)
-    end
+    apply_kernel_fns = map(
+        kernel -> (v,
+            compute_kernel) -> apply_kernel!(
+            v, kernel, kernel_keys, direction, compute_kernel, kernel_args),
+        kernels)
+    _propagate_core!(apply_kernel_fns, u.data, p)
     u
 end
 
