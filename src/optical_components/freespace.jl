@@ -1,14 +1,6 @@
 using EllipsisNotation
 using LRUCache
 
-function kernel_direction(kernel, ::Type{Forward})
-    kernel
-end
-
-function kernel_direction(kernel, ::Type{Backward})
-    conj(kernel)
-end
-
 function get_kernels(p::AbstractPropagator{M, <:AbstractKernel}) where {M}
     error("Not implemented")
 end
@@ -102,3 +94,4 @@ include("chirp_kernel.jl")
 include("angular_spectrum.jl")
 include("rayleigh_sommerfeld.jl")
 include("fourier_lens.jl")
+include("collins_integral.jl")

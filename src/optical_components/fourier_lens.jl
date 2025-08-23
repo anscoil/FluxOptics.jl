@@ -1,29 +1,29 @@
 function fourier_lens_convolution(
         x::T, y::T, λ::T, θx::Tp, θy::Tp, fl::Tp,
         nrm_f::Tp) where {T <: AbstractFloat, Tp <: AbstractFloat}
-    x, y, λ, fl = Tp(x), Tp(y), Tp(λ), Tp(fl)
-    Complex{T}(cis(-(x^2*θx + y^2*θy)/(λ*fl))*nrm_f/λ)
+    x, y, λ = Tp(x), Tp(y), Tp(λ)
+    Complex{T}(cis((x^2*θx + y^2*θy)/(λ*fl))*nrm_f/λ)
 end
 
 function fourier_lens_convolution(
         x::T, λ::T, θx::Tp, fl::Tp,
         nrm_f::Tp) where {T <: AbstractFloat, Tp <: AbstractFloat}
-    x, λ, fl = Tp(x), Tp(λ), Tp(fl)
-    Complex{T}(cis(-x^2*θx/(λ*fl))*nrm_f/λ)
+    x, λ = Tp(x), Tp(λ)
+    Complex{T}(cis(x^2*θx/(λ*fl))*nrm_f/sqrt(λ))
 end
 
 function fourier_lens_chirp(
         x::T, y::T, λ::T, θx::Tp, θy::Tp, fl::Tp,
         ::Tp) where {T <: AbstractFloat, Tp <: AbstractFloat}
-    x, y, λ, fl = Tp(x), Tp(y), Tp(λ), Tp(fl)
-    Complex{T}(cis((x^2*θx + y^2*θy)/(λ*fl)))
+    x, y, λ = Tp(x), Tp(y), Tp(λ)
+    Complex{T}(cis(-(x^2*θx + y^2*θy)/(λ*fl)))
 end
 
 function fourier_lens_chirp(
         x::T, λ::T, θx::Tp, fl::Tp,
         ::Tp) where {T <: AbstractFloat, Tp <: AbstractFloat}
-    x, λ, fl = Tp(x), Tp(λ), Tp(fl)
-    Complex{T}(cis(x^2*θx/(λ*fl)))
+    x, λ = Tp(x), Tp(λ)
+    Complex{T}(cis(-x^2*θx/(λ*fl)))
 end
 
 struct FourierLensKernel{K, V, P, U} <: AbstractKernel{K, V, 2}
@@ -53,7 +53,7 @@ struct FourierLens{M, K, T, Tp, Nd} <: AbstractPropagator{M, K}
         kernel = FourierLensKernel(conv_kernel, chirp_kernel)
         kernel_key = hash(T(λ))
         Tp = double_precision_kernel ? Float64 : T
-        θs = Tuple([Tp(-π*dx′/dx) for (dx, dx′) in zip(ds, ds′)])
+        θs = Tuple([Tp(π*dx′/dx) for (dx, dx′) in zip(ds, ds′)])
         nrm_f = Tp(prod(ds)/fl)
         kernel_args = (T(λ), θs..., Tp(fl), nrm_f)
         fill_kernel_cache(conv_kernel, kernel_key, fourier_lens_convolution, kernel_args)
@@ -75,7 +75,7 @@ struct FourierLens{M, K, T, Tp, Nd} <: AbstractPropagator{M, K}
         chirp_kernel = ChirpKernel(u.data, ns, ds, cache_size)
         kernel = FourierLensKernel(conv_kernel, chirp_kernel)
         Tp = double_precision_kernel ? Float64 : T
-        θs = Tuple([Tp(-π*dx′/dx) for (dx, dx′) in zip(ds, ds′)])
+        θs = Tuple([Tp(π*dx′/dx) for (dx, dx′) in zip(ds, ds′)])
         nrm_f = Tp(prod(ds)/fl)
         new{Static, typeof(kernel), T, Tp, Nd}(kernel, θs, Tp(fl), nrm_f)
     end

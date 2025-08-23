@@ -60,13 +60,10 @@ function build_kernel_key_args(p::ASProp{M, K, T}, λ::Real) where {M, K, T}
 end
 
 function build_kernel_args(p::ASProp, u::ScalarField)
-    #        p::ASProp{M, <:FourierKernel{Nothing}}, u::ScalarField) where {M}
     (u.lambdas, p.z, p.filter)
 end
 
 function build_kernel_key_args(p::ASProp, u::ScalarField)
-    # p::ASProp{M, <:FourierKernel{K}},
-    # u::ScalarField) where {M, K <: AbstractArray}
     hash.(u.lambdas_collection), (u.lambdas_collection, p.z, p.filter)
 end
 

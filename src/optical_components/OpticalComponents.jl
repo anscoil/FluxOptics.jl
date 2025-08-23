@@ -126,7 +126,7 @@ end
 include("abstract_kernel.jl")
 
 include("freespace.jl")
-export ASProp, RSProp, FourierLens
+export ASProp, RSProp, FourierLens, CollinsProp
 
 include("phasemask.jl")
 export Phase

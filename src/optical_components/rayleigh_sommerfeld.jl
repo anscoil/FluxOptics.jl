@@ -52,13 +52,10 @@ function build_kernel_key_args(p::RSProp{M, K, T}, λ::Real) where {M, K, T}
 end
 
 function build_kernel_args(p::RSProp, u::ScalarField)
-    # p::RSProp{M, <:ConvolutionKernel{Nothing}}, u::ScalarField) where {M}
     (u.lambdas, p.z, p.nrm_f)
 end
 
 function build_kernel_key_args(p::RSProp, u::ScalarField)
-    # p::RSProp{M, <:ConvolutionKernel{K}},
-    # u::ScalarField) where {M, K <: AbstractArray}
     hash.(u.lambdas_collection), (u.lambdas_collection, p.z, p.nrm_f)
 end
 

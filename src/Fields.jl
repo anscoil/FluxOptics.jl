@@ -61,11 +61,11 @@ function Base.copy(u::ScalarField)
 end
 
 function get_data(u::ScalarField)
-    u.data
+    u.data # collect ?
 end
 
 function get_data(u::AbstractArray)
-    u
+    u # collect ?
 end
 
 end
