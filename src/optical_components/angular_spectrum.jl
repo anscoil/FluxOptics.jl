@@ -55,22 +55,23 @@ function get_kernels(p::ASProp)
     (p.kernel,)
 end
 
-function build_kernel_key_args(
-        p::ASProp{M, <:FourierKernel{K, T}}, λ::Real) where {M, K, T}
+function build_kernel_key_args(p::ASProp{M, K, T}, λ::Real) where {M, K, T}
     hash(T(λ)), (T(λ), p.z, p.filter)
 end
 
-function build_kernel_args(
-        p::ASProp{M, <:FourierKernel{Nothing, T}}, u::ScalarField) where {M, T}
+function build_kernel_args(p::ASProp, u::ScalarField)
+    #        p::ASProp{M, <:FourierKernel{Nothing}}, u::ScalarField) where {M}
     (u.lambdas, p.z, p.filter)
 end
 
-function build_kernel_key_args(p::ASProp{M, <:FourierKernel{K, T}},
-        u::ScalarField) where {M, K <: AbstractArray, T}
+function build_kernel_key_args(p::ASProp, u::ScalarField)
+    # p::ASProp{M, <:FourierKernel{K}},
+    # u::ScalarField) where {M, K <: AbstractArray}
     hash.(u.lambdas_collection), (u.lambdas_collection, p.z, p.filter)
 end
 
-function _propagate_core!(apply_kernel_fns::F, u::AbstractArray, p::ASProp) where {F}
+function _propagate_core!(
+        apply_kernel_fns::F, u::AbstractArray, p::ASProp, ::Type{<:Direction}) where {F}
     apply_kernel_fn!, = apply_kernel_fns
     p_f = p.kernel.p_f
     p_f.ft * u

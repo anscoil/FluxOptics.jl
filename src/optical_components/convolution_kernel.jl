@@ -1,4 +1,4 @@
-struct ConvolutionKernel{K, T, U, V, P} <: AbstractKernel{K, V}
+struct ConvolutionKernel{K, V, P, U} <: AbstractKernel{K, V, 1}
     s_vec::V
     kernel_cache::Union{Nothing, LRU{UInt, K}}
     p_f::P
@@ -9,7 +9,7 @@ struct ConvolutionKernel{K, T, U, V, P} <: AbstractKernel{K, V}
             ns::NTuple{Nd, Integer},
             ds::NTuple{Nd, Real},
             cache_size::Integer
-    ) where {N, Nd, T, U <: AbstractArray{Complex{T}, N}}
+    ) where {N, Nd, U <: AbstractArray{<:Complex, N}}
         @assert Nd in (1, 2)
         @assert N >= Nd
         @assert cache_size >= 0
@@ -28,11 +28,11 @@ struct ConvolutionKernel{K, T, U, V, P} <: AbstractKernel{K, V}
         p_f = make_fft_plans(u_plan, Tuple(1:Nd))
         P = typeof(p_f)
         if iszero(cache_size)
-            new{Nothing, T, U, V, P}(s_vec, nothing, p_f, u_plan)
+            new{Nothing, V, P, U}(s_vec, nothing, p_f, u_plan)
         else
             K = adapt_dim(U, Nd)
             kernel_cache = LRU{UInt, K}(maxsize = cache_size)
-            new{K, T, U, V, P}(s_vec, kernel_cache, p_f, u_plan)
+            new{K, V, P, U}(s_vec, kernel_cache, p_f, u_plan)
         end
     end
 end

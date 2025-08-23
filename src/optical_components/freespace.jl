@@ -46,7 +46,7 @@ function propagate!(u::AbstractArray, p::AbstractPropagator{M, <:AbstractKernel{
             compute_kernel) -> apply_kernel!(
             v, kernel, kernel_key, direction, compute_kernel, kernel_args),
         kernels)
-    _propagate_core!(apply_kernel_fns, u, p)
+    _propagate_core!(apply_kernel_fns, u, p, direction)
     u
 end
 
@@ -62,7 +62,7 @@ function propagate!(u::AbstractArray, p::AbstractPropagator{M, <:AbstractKernel{
     apply_kernel_fns = map(
         kernel -> (v, compute_kernel) -> apply_kernel!(v, kernel, kernel_key, direction),
         kernels)
-    _propagate_core!(apply_kernel_fns, u, p)
+    _propagate_core!(apply_kernel_fns, u, p, direction)
     u
 end
 
@@ -75,7 +75,7 @@ function propagate!(u::ScalarField, p::AbstractPropagator{M, <:AbstractKernel{No
             compute_kernel) -> apply_kernel!(
             v, kernel, direction, compute_kernel, kernel_args),
         kernels)
-    _propagate_core!(apply_kernel_fns, u.data, p)
+    _propagate_core!(apply_kernel_fns, u.data, p, direction)
     u
 end
 
@@ -88,7 +88,7 @@ function propagate!(u::ScalarField, p::AbstractPropagator{M, <:AbstractKernel{K}
             compute_kernel) -> apply_kernel!(
             v, kernel, kernel_keys, direction, compute_kernel, kernel_args),
         kernels)
-    _propagate_core!(apply_kernel_fns, u.data, p)
+    _propagate_core!(apply_kernel_fns, u.data, p, direction)
     u
 end
 
@@ -98,6 +98,7 @@ end
 
 include("fourier_kernel.jl")
 include("convolution_kernel.jl")
+include("chirp_kernel.jl")
 include("angular_spectrum.jl")
 include("rayleigh_sommerfeld.jl")
 include("fourier_lens.jl")

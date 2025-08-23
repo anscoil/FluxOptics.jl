@@ -47,22 +47,23 @@ function get_kernels(p::RSProp)
     (p.kernel,)
 end
 
-function build_kernel_key_args(
-        p::RSProp{M, <:ConvolutionKernel{K, T}}, λ::Real) where {M, K, T}
+function build_kernel_key_args(p::RSProp{M, K, T}, λ::Real) where {M, K, T}
     hash(T(λ)), (T(λ), p.z, p.nrm_f)
 end
 
-function build_kernel_args(
-        p::RSProp{M, <:ConvolutionKernel{Nothing, T}}, u::ScalarField) where {M, T}
+function build_kernel_args(p::RSProp, u::ScalarField)
+    # p::RSProp{M, <:ConvolutionKernel{Nothing}}, u::ScalarField) where {M}
     (u.lambdas, p.z, p.nrm_f)
 end
 
-function build_kernel_key_args(p::RSProp{M, <:ConvolutionKernel{K, T}},
-        u::ScalarField) where {M, K <: AbstractArray, T}
+function build_kernel_key_args(p::RSProp, u::ScalarField)
+    # p::RSProp{M, <:ConvolutionKernel{K}},
+    # u::ScalarField) where {M, K <: AbstractArray}
     hash.(u.lambdas_collection), (u.lambdas_collection, p.z, p.nrm_f)
 end
 
-function _propagate_core!(apply_kernel_fns::F, u::AbstractArray, p::RSProp) where {F}
+function _propagate_core!(
+        apply_kernel_fns::F, u::AbstractArray, p::RSProp, ::Type{<:Direction}) where {F}
     apply_kernel_fn!, = apply_kernel_fns
     p_f = p.kernel.p_f
     u_tmp = p.kernel.u_plan

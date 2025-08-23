@@ -1,4 +1,4 @@
-struct FourierKernel{K, T, V, P} <: AbstractKernel{K, V}
+struct FourierKernel{K, V, P} <: AbstractKernel{K, V, 1}
     f_vec::V
     kernel_cache::Union{Nothing, LRU{UInt, K}}
     p_f::P
@@ -8,7 +8,7 @@ struct FourierKernel{K, T, V, P} <: AbstractKernel{K, V}
             ns::NTuple{Nd, Integer},
             ds::NTuple{Nd, Real},
             cache_size::Integer
-    ) where {N, Nd, T, U <: AbstractArray{Complex{T}, N}}
+    ) where {N, Nd, U <: AbstractArray{<:Complex, N}}
         @assert Nd in (1, 2)
         @assert N >= Nd
         @assert cache_size >= 0
@@ -20,11 +20,11 @@ struct FourierKernel{K, T, V, P} <: AbstractKernel{K, V}
         p_f = make_fft_plans(u_plan, Tuple(1:Nd))
         P = typeof(p_f)
         if iszero(cache_size)
-            new{Nothing, T, V, P}(f_vec, nothing, p_f)
+            new{Nothing, V, P}(f_vec, nothing, p_f)
         else
             K = adapt_dim(U, Nd)
             kernel_cache = LRU{UInt, K}(maxsize = cache_size)
-            new{K, T, V, P}(f_vec, kernel_cache, p_f)
+            new{K, V, P}(f_vec, kernel_cache, p_f)
         end
     end
 end
