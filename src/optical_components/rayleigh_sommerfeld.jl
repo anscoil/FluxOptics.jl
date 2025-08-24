@@ -1,4 +1,4 @@
-function compute_rs_kernel(x::T, y::T, λ::T, z::Tp, nrm_f::Tp
+function rs_kernel(x::T, y::T, λ::T, z::Tp, nrm_f::Tp
 ) where {T <: AbstractFloat, Tp <: AbstractFloat}
     x, y = Tp(x), Tp(y)
     k = Tp(2π/λ)
@@ -15,7 +15,7 @@ struct RSProp{M, K, T, Tp} <: AbstractPropagator{M, K}
             ds::NTuple{Nd, Real},
             z::Real,
             λ::Real;
-            double_precision_kernel = true
+            double_precision_kernel::Bool = true
     ) where {N, Nd, T}
         @assert N >= Nd
         ns = size(u)[1:Nd]
@@ -23,7 +23,7 @@ struct RSProp{M, K, T, Tp} <: AbstractPropagator{M, K}
         kernel_key = hash(T(λ))
         Tp = double_precision_kernel ? Float64 : T
         nrm_f = Tp(prod(ds)/2π)
-        fill_kernel_cache(kernel, kernel_key, compute_rs_kernel, (T(λ), Tp(z), nrm_f))
+        fill_kernel_cache(kernel, kernel_key, rs_kernel, (T(λ), Tp(z), nrm_f))
         new{Static, typeof(kernel), T, Tp}(kernel, Tp(z), nrm_f)
     end
 
@@ -31,7 +31,7 @@ struct RSProp{M, K, T, Tp} <: AbstractPropagator{M, K}
             ds::NTuple{Nd, Real},
             z::Real,
             use_cache::Bool = false;
-            double_precision_kernel = true
+            double_precision_kernel::Bool = true
     ) where {N, Nd, T, U <: AbstractArray{Complex{T}, N}}
         @assert ndims(u.data) >= Nd
         ns = size(u)[1:Nd]
@@ -68,7 +68,7 @@ function _propagate_core!(
     u_view = view(u_tmp, axes(u)...)
     copyto!(u_view, u)
     p_f.ft * u_tmp
-    apply_kernel_fn!(u_tmp, compute_rs_kernel)
+    apply_kernel_fn!(u_tmp, rs_kernel)
     p_f.ift * u_tmp
     copyto!(u, u_view)
     u

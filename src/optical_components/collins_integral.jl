@@ -44,7 +44,7 @@ struct CollinsProp{M, K, T, Tp, Nd} <: AbstractPropagator{M, K}
             ds′::NTuple{Nd, Real},
             abd::Tuple{<:Real, <:Real, <:Real},
             λ::Real;
-            double_precision_kernel = true
+            double_precision_kernel::Bool = true
     ) where {N, Nd, T}
         @assert N >= Nd
         ns = size(u)[1:Nd]
@@ -71,7 +71,7 @@ struct CollinsProp{M, K, T, Tp, Nd} <: AbstractPropagator{M, K}
             ds′::NTuple{Nd, Real},
             abd::Tuple{<:Real, <:Real, <:Real},
             use_cache::Bool = false;
-            double_precision_kernel = true
+            double_precision_kernel::Bool = true
     ) where {N, Nd, T, U <: AbstractArray{Complex{T}, N}}
         @assert ndims(u.data) >= Nd
         ns = size(u)[1:Nd]
