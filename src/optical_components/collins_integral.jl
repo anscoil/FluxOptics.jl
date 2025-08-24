@@ -1,3 +1,7 @@
+# Stuart A. Collins, "Lens-System Diffraction Integral Written in
+# Terms of Matrix Optics*," J. Opt. Soc. Am. 60, 1168-1177 (1970)
+# https://doi.org/10.1364/JOSA.60.001168
+
 function collins_a_chirp(
         x::T, y::T, λ::T, αx::Tp, αy::Tp, a::Tp, b::Tp,
         d::Tp
@@ -72,9 +76,9 @@ struct CollinsProp{M, K, T, Tp, Nd} <: AbstractPropagator{M, K}
         @assert ndims(u.data) >= Nd
         ns = size(u)[1:Nd]
         cache_size = use_cache ? length(unique(u.lambdas)) : 0
-        a_chirp = ChirpKernel(u, ns, ds, cache_size)
-        d_chirp = ChirpKernel(u, ns, ds, cache_size)
-        conv_kernel = ConvolutionKernel(u, ns, ds, cache_size)
+        a_chirp = ChirpKernel(u.data, ns, ds, cache_size)
+        d_chirp = ChirpKernel(u.data, ns, ds, cache_size)
+        conv_kernel = ConvolutionKernel(u.data, ns, ds, cache_size)
         kernel = CollinsKernel(a_chirp, d_chirp, conv_kernel)
         Tp = double_precision_kernel ? Float64 : T
         αs = Tuple([Tp(dx′/dx) for (dx, dx′) in zip(ds, ds′)])
