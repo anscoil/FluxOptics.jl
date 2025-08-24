@@ -77,3 +77,7 @@ function ChainRulesCore.rrule(::typeof(propagate), p::P,
 
     return v, pullback
 end
+
+function ChainRulesCore.ProjectTo(u::ScalarField)
+    ∂v -> ScalarField(∂v.data, u.lambdas, u.lambdas_collection)
+end

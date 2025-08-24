@@ -4,6 +4,11 @@ using AbstractFFTs
 using CUDA
 using ..FFTutils
 using ..OpticalComponents
+using ..Fields
+
+function CUDA.cu(u::ScalarField)
+    ScalarField(cu(u.data), u.lambdas)
+end
 
 function compute_thread_config()
     props = CUDA.device()

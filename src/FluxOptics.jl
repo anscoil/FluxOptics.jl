@@ -8,7 +8,7 @@ using LinearAlgebra
 include("Fields.jl")
 using .Fields
 export ScalarField
-export get_data
+export get_data, collect_data
 
 include("measure.jl")
 export vec_array2D

@@ -69,12 +69,17 @@ trainable(p::Phase{<:Trainable}) = (; ϕ = p.ϕ)
 
 get_preallocated_gradient(p::Phase{<:Trainable{<:NamedTuple}}) = p.∂p
 
-function apply_phase!(u, p, ::Type{Forward})
+function apply_phase!(u::AbstractArray, p, ::Type{Forward})
     u .*= exp.(im .* p.ϕ)
 end
 
-function apply_phase!(u, p, ::Type{Backward})
+function apply_phase!(u::AbstractArray, p, ::Type{Backward})
     u .*= exp.(-im .* p.ϕ)
+end
+
+function apply_phase!(u::ScalarField, p, direction::Type{<:Direction})
+    apply_phase!(u.data, p, direction)
+    u
 end
 
 function propagate!(u, p::Phase, direction::Type{<:Direction})
@@ -85,8 +90,15 @@ function backpropagate!(u, p::Phase, direction::Type{<:Direction})
     propagate!(u, p, reverse(direction))
 end
 
-function propagate_and_save!(u, p::Phase{<:Trainable}, direction::Type{<:Direction})
+function propagate_and_save!(
+        u::AbstractArray, p::Phase{<:Trainable}, direction::Type{<:Direction})
     copyto!(p.u, u)
+    apply_phase!(u, p, direction)
+end
+
+function propagate_and_save!(
+        u::ScalarField, p::Phase{<:Trainable}, direction::Type{<:Direction})
+    copyto!(p.u, u.data)
     apply_phase!(u, p, direction)
 end
 
@@ -123,6 +135,6 @@ end
 function backpropagate_with_gradient!(∂v, ∂p::NamedTuple, p::Phase{<:Trainable},
         direction::Type{<:Direction})
     ∂u = backpropagate!(∂v, p, direction)
-    compute_phase_gradient!(∂p.ϕ, ∂u, p.u)
+    compute_phase_gradient!(∂p.ϕ, get_data(∂u), p.u)
     (∂u, ∂p)
 end

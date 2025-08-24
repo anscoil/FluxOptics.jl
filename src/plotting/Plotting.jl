@@ -126,7 +126,7 @@ function plot_fields(u_vec, fs::Union{Function, Tuple};
                 ax = Axis(cell[1, 1])
                 hidedecorations!(ax)
                 ax.aspect = DataAspect()
-                hm, is_complex, factor = fill_heatmap!(ax, f, u, cmap)
+                hm, is_complex, factor = fill_heatmap!(ax, f, collect_data(u), cmap)
                 if show_colorbars && !is_complex
                     Colorbar(cell[1, 2], hm; width = 10,
                         height = fig_height-n_fields_per_col*20, tickformat = "{:.1f}")
@@ -149,7 +149,7 @@ function plot_fields(
         width = nothing, height = nothing,
         show_colorbars = false, show_labels = false) where {
         U <: Union{ScalarField, AbstractArray{<:Number}}}
-    plot_fields(map(u -> (get_data(u),), u_vec), fs; colormap = colormap,
+    plot_fields(map(u -> (collect_data(u),), u_vec), fs; colormap = colormap,
         ratio = ratio, max_width = max_width,
         width = width, height = height, show_colorbars = show_colorbars, show_labels = show_labels)
 end
@@ -158,7 +158,7 @@ function plot_fields(u::Union{ScalarField, AbstractArray{T}}, fs::Union{Function
         colormap = :viridis, ratio = 1, max_width = 1024,
         width = nothing, height = nothing, show_colorbars = false, show_labels = false
 ) where {T <: Number}
-    plot_fields(((get_data(u),),), fs; colormap = colormap, ratio = ratio,
+    plot_fields(((collect_data(u),),), fs; colormap = colormap, ratio = ratio,
         max_width = max_width, width = width, height = height,
         show_colorbars = show_colorbars, show_labels = show_labels)
 end
@@ -206,7 +206,7 @@ function plot_fields_slider(u_vec, fs::Union{Function, Tuple};
     on(sl.value) do i
         u_fields = collect(u_vec[i])
         for (ax, f, cmap, k) in heatmaps
-            u = u_fields[k]
+            u = collect_data(u_fields[k])
             fill_heatmap!(ax, f, u, cmap)
         end
     end
@@ -221,7 +221,7 @@ function plot_fields_slider(
         fs::Union{Function, Tuple};
         colormap = :viridis, ratio = 1, max_width = 2048,
         width = nothing, height = nothing) where {T <: Number, U <: AbstractArray{T}}
-    plot_fields_slider(map(u -> (get_data(u),), u_vec), fs; colormap = colormap,
+    plot_fields_slider(map(u -> (collect_data(u),), u_vec), fs; colormap = colormap,
         ratio = ratio, max_width = max_width,
         width = width, height = height)
 end

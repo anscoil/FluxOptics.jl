@@ -3,9 +3,10 @@ struct ScalarSource{M, U} <: AbstractOpticalSource{M}
     uf::U
     ∂p::Union{Nothing, @NamedTuple{u0::U}}
 
-    function ScalarSource(u::U; trainable::Bool = false,
+    function ScalarSource(u::U;
+            trainable::Bool = false,
             prealloc_gradient::Bool = false
-    ) where {U <: AbstractArray{<:Complex}}
+    ) where {U <: Union{ScalarField, AbstractArray{<:Complex}}}
         u0 = copy(u)
         uf = similar(u)
 
@@ -21,7 +22,7 @@ struct ScalarSource{M, U} <: AbstractOpticalSource{M}
     end
 end
 
-trainable(p::ScalarSource{<:Trainable}) = (; u0 = p.u0)
+trainable(p::ScalarSource{<:Trainable}) = (; u0 = get_data(p.u0))
 
 get_preallocated_gradient(p::ScalarSource{<:Trainable{<:NamedTuple}}) = p.∂p
 
