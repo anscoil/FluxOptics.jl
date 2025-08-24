@@ -9,14 +9,14 @@ struct Phase{M, A, U} <: AbstractOpticalComponent{M}
             u::U
     ) where {A <: AbstractArray{<:Real, 2}, U <: AbstractArray{<:Complex}}
         @assert size(∂p.ϕ) == size(ϕ)
-        @assert size(u)[1:2] == size(ϕ)
+        @assert size(u)[1:ndims(ϕ)] == size(ϕ)
         new{Trainable{@NamedTuple{ϕ::A}}, A, U}(ϕ, ∂p, u)
     end
 
     function Phase(
             ϕ::A, u::U) where {A <: AbstractArray{<:Real, 2},
             U <: AbstractArray{<:Complex}}
-        @assert size(u)[1:2] == size(ϕ)
+        @assert size(u)[1:ndims(ϕ)] == size(ϕ)
         new{Trainable{Nothing}, A, U}(ϕ, nothing, u)
     end
 
@@ -36,19 +36,17 @@ struct Phase{M, A, U} <: AbstractOpticalComponent{M}
     function Phase(
             U::Type{<:AbstractArray{<:Complex, N}},
             dims::NTuple{N, Integer},
-            dx::Real,
-            dy::Real,
+            ds::NTuple{Nd, Real},
             f::Function;
             trainable::Bool = false,
             prealloc_gradient::Bool = false,
-            xc::Real = 0,
-            yc::Real = 0
-    ) where {N}
-        @assert N >= 2
-        P = adapt_dim(U, 2, real)
-        nx, ny = dims
-        xv, yv = spatial_vectors(nx, ny, dx, dy; xc = xc, yc = xc)
-        ϕ = P(f.(xv, yv'))
+            center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
+    ) where {N, Nd}
+        @assert Nd in (1, 2)
+        @assert N >= Nd
+        P = adapt_dim(U, Nd, real)
+        xs = spatial_vectors(dims[1:Nd], ds; center = center)
+        ϕ = Nd == 2 ? P(f.(xs[1], xs[2]')) : P(f.(xs[1]))
         ∂p = prealloc_gradient ? (; ϕ = similar(ϕ)) : nothing
         u = trainable ? U(undef, dims) : nothing
         Phase(ϕ, ∂p, u)
@@ -56,16 +54,14 @@ struct Phase{M, A, U} <: AbstractOpticalComponent{M}
 
     function Phase(
             u::U,
-            dx::Real,
-            dy::Real,
+            ds::NTuple{Nd, Real},
             f::Function;
             trainable::Bool = false,
             prealloc_gradient::Bool = false,
-            xc::Real = 0,
-            yc::Real = 0
-    ) where {U <: AbstractArray{<:Complex}}
-        Phase(U, size(u), dx, dy, f, trainable = trainable,
-            prealloc_gradient = prealloc_gradient, xc = xc, yc = yc)
+            center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
+    ) where {U <: AbstractArray{<:Complex}, Nd}
+        Phase(U, size(u), ds, f, trainable = trainable,
+            prealloc_gradient = prealloc_gradient, center = center)
     end
 end
 
@@ -98,9 +94,10 @@ function compute_phase_gradient!(
         ∂ϕ::P,
         ∂u::U,
         u::U) where {T <: Real,
-        P <: AbstractArray{T, 2},
+        Nd,
+        P <: AbstractArray{T, Nd},
         U <: AbstractArray{<:Complex{T}}}
-    sdims = 3:ndims(∂u)
+    sdims = (Nd + 1):ndims(∂u)
     @views ∂ϕ .= sum(imag.(∂u .* conj.(u)), dims = sdims)
 end
 

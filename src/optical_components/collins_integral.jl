@@ -1,19 +1,22 @@
 function collins_a_chirp(
-        x::T, y::T, λ::T, αx::Tp, αy::Tp, a::Tp, b::Tp, d::Tp
+        x::T, y::T, λ::T, αx::Tp, αy::Tp, a::Tp, b::Tp,
+        d::Tp
 ) where {T <: AbstractFloat, Tp <: AbstractFloat}
     x, y, λ = Tp(x), Tp(y), Tp(λ)
-    Complex{T}(cis(π*(x^2*αx*(a*αx-1) + y^2*αy*(a*αy-1))/(b*λ))/λ)
+    Complex{T}(cis(π*(x^2*(a-αx) + y^2*(a-αy))/(b*λ))/λ)
 end
 
 function collins_d_chirp(
-        x::T, y::T, λ::T, αx::Tp, αy::Tp, a::Tp, b::Tp, d::Tp
+        x::T, y::T, λ::T, αx::Tp, αy::Tp, a::Tp, b::Tp,
+        d::Tp
 ) where {T <: AbstractFloat, Tp <: AbstractFloat}
     x, y, λ = Tp(x), Tp(y), Tp(λ)
-    Complex{T}(cis(π*(x^2*(d-αx) + y^2*(d-αy))/(b*λ)))
+    Complex{T}(cis(π*(x^2*αx*(d*αx-1) + y^2*αy*(d*αy-1))/(b*λ)))
 end
 
 function collins_convolution_kernel(
-        x::T, y::T, λ::T, αx::Tp, αy::Tp, a::Tp, b::Tp, d::Tp
+        x::T, y::T, λ::T, αx::Tp, αy::Tp, a::Tp, b::Tp,
+        d::Tp
 ) where {T <: AbstractFloat, Tp <: AbstractFloat}
     x, y, λ = Tp(x), Tp(y), Tp(λ)
     Complex{T}(cis(π*(x^2*αx + y^2*αy)/(b*λ)))
@@ -49,8 +52,8 @@ struct CollinsProp{M, K, T, Tp, Nd} <: AbstractPropagator{M, K}
         Tp = double_precision_kernel ? Float64 : T
         αs = Tuple([Tp(dx′/dx) for (dx, dx′) in zip(ds, ds′)])
         _, b = abd
-        nrm_fwd = Complex{Tp}(prod(ds .* sqrt(-im/b)))
-        nrm_bwd = Complex{Tp}(prod(ds′ .* sqrt(im/b)))
+        nrm_fwd = Complex{Tp}(prod(ds ./ sqrt(im*b)))
+        nrm_bwd = Complex{Tp}(prod(ds′ ./ sqrt(-im*b)))
         abd = Tp.(abd)
         kernel_args = (T(λ), αs..., abd...)
         fill_kernel_cache(a_chirp, kernel_key, collins_a_chirp, kernel_args)
@@ -76,8 +79,8 @@ struct CollinsProp{M, K, T, Tp, Nd} <: AbstractPropagator{M, K}
         Tp = double_precision_kernel ? Float64 : T
         αs = Tuple([Tp(dx′/dx) for (dx, dx′) in zip(ds, ds′)])
         _, b = abd
-        nrm_fwd = Complex{Tp}(prod(ds .* sqrt(-im/b)))
-        nrm_bwd = Complex{Tp}(prod(ds′ .* sqrt(im/b)))
+        nrm_fwd = Complex{Tp}(prod(ds ./ sqrt(im*b)))
+        nrm_bwd = Complex{Tp}(prod(ds′ ./ sqrt(-im*b)))
         new{Static, typeof(kernel), T, Tp, Nd}(kernel, αs, Tp.(abd), nrm_fwd, nrm_bwd)
     end
 end
@@ -99,19 +102,19 @@ function build_kernel_key_args(p::CollinsProp, u::ScalarField)
 end
 
 function apply_collins_first_chirp!(u_tmp, apply_a_chirp!, apply_d_chirp!, ::Type{Forward})
-    apply_d_chirp!(u_tmp, collins_d_chirp)
+    apply_a_chirp!(u_tmp, collins_a_chirp)
 end
 
 function apply_collins_first_chirp!(u_tmp, apply_a_chirp!, apply_d_chirp!, ::Type{Backward})
-    apply_a_chirp!(u_tmp, collins_a_chirp)
+    apply_d_chirp!(u_tmp, collins_d_chirp)
 end
 
 function apply_collins_last_chirp!(u_tmp, apply_a_chirp!, apply_d_chirp!, ::Type{Forward})
-    apply_a_chirp!(u_tmp, collins_a_chirp)
+    apply_d_chirp!(u_tmp, collins_d_chirp)
 end
 
 function apply_collins_last_chirp!(u_tmp, apply_a_chirp!, apply_d_chirp!, ::Type{Backward})
-    apply_d_chirp!(u_tmp, collins_d_chirp)
+    apply_a_chirp!(u_tmp, collins_a_chirp)
 end
 
 function normalize!(u::AbstractArray, p::CollinsProp, ::Type{Forward})

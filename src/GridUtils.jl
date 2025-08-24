@@ -7,10 +7,17 @@ using CoordinateTransformations
 export spatial_vectors
 export AbstractAffineMap, Shift2D, Rot2D, Id2D
 
+function spatial_vectors(ns::NTuple{Nd, Real}, ds::NTuple{Nd, Real};
+        center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)) where {Nd}
+    Tuple([((0:(nx - 1)) .- (nx-1)/2)*dx .+ xc for (nx, dx, xc) in zip(ns, ds, center)])
+end
+
+function spatial_vectors(nx, dx; xc = 0.0)
+    spatial_vectors((nx,), (dx,); center = (xc,))
+end
+
 function spatial_vectors(nx, ny, dx, dy; xc = 0.0, yc = 0.0)
-    x_vec = ((0:(nx - 1)) .- (nx-1)/2)*dx .+ xc
-    y_vec = ((0:(ny - 1)) .- (ny-1)/2)*dy .+ yc
-    (x_vec, y_vec)
+    spatial_vectors((nx, ny), (dx, dy); center = (xc, yc))
 end
 
 const Shift2D{T} = Translation{SVector{2, T}}
