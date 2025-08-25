@@ -36,8 +36,8 @@ export propagate!, propagate
 export propagate_and_save!, propagate_and_save
 export backpropagate!, backpropagate
 export backpropagate_with_gradient!, backpropagate_with_gradient
-export ASProp, RSProp, FourierLens, CollinsProp, ParaxialProp
-export Phase, ScalarSource
+export ASProp, RSProp, CollinsProp, FourierLens, ParaxialProp
+export ScalarSource, Phase, TeaDOE, TeaReflector
 
 include("optimisers_ext.jl")
 export rules_dict, ProxRule, Fista

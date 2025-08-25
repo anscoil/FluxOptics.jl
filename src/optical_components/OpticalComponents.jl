@@ -27,15 +27,19 @@ function Base.reverse(::Type{Backward})
     Forward
 end
 
+abstract type GradientAllocation end
+struct GradNoAlloc <: GradientAllocation end
+struct GradAllocated <: GradientAllocation end
+
 abstract type Trainability end
 struct Static <: Trainability end
-struct Trainable{A <: Union{Nothing, <:NamedTuple}} <: Trainability end
+struct Trainable{A <: GradientAllocation} <: Trainability end
 
 is_trainable(::Type{<:Trainable}) = true
 is_trainable(::Type{Static}) = false
 
-has_prealloc(::Type{Trainable{Nothing}}) = false
-has_prealloc(::Type{Trainable{<:NamedTuple}}) = true
+has_prealloc(::Type{Trainable{GradNoAlloc}}) = false
+has_prealloc(::Type{Trainable{GradAllocated}}) = true
 
 abstract type AbstractOpticalComponent{M <: Trainability} end
 abstract type AbstractPropagator{M <: Trainability, K} <: AbstractOpticalComponent{M} end
@@ -47,7 +51,7 @@ function trainable(p::AbstractOpticalComponent{<:Trainable})
     error("Not implemented")
 end
 
-function get_preallocated_gradient(p::AbstractOpticalComponent{<:Trainable{<:NamedTuple}})
+function get_preallocated_gradient(p::AbstractOpticalComponent{<:Trainable{GradAllocated}})
     error("Not implemented")
 end
 
@@ -98,14 +102,14 @@ function backpropagate(u, p::AbstractOpticalComponent, direction::Type{<:Directi
 end
 
 function backpropagate_with_gradient!(
-        ∂v, p::AbstractOpticalComponent{Trainable{Nothing}},
+        ∂v, p::AbstractOpticalComponent{Trainable{GradNoAlloc}},
         direction::Type{<:Direction})
     ∂p = fmap(similar, trainable(p))
     backpropagate_with_gradient!(∂v, ∂p, p, direction)
 end
 
 function backpropagate_with_gradient!(
-        ∂v, p::AbstractOpticalComponent{<:Trainable{<:NamedTuple}},
+        ∂v, p::AbstractOpticalComponent{<:Trainable{GradAllocated}},
         direction::Type{<:Direction})
     ∂p = get_preallocated_gradient(p)
     backpropagate_with_gradient!(∂v, ∂p, p, direction)
@@ -126,12 +130,15 @@ end
 include("abstract_kernel.jl")
 
 include("freespace.jl")
-export ASProp, RSProp, FourierLens, CollinsProp, ParaxialProp
+export ASProp, RSProp, CollinsProp, FourierLens, ParaxialProp
+
+include("scalar_source.jl")
+export ScalarSource
 
 include("phasemask.jl")
 export Phase
 
-include("scalar_source.jl")
-export ScalarSource
+include("tea_doe.jl")
+export TeaDOE, TeaReflector
 
 end

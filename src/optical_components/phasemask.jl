@@ -10,14 +10,14 @@ struct Phase{M, A, U} <: AbstractOpticalComponent{M}
     ) where {A <: AbstractArray{<:Real, 2}, U <: AbstractArray{<:Complex}}
         @assert size(∂p.ϕ) == size(ϕ)
         @assert size(u)[1:ndims(ϕ)] == size(ϕ)
-        new{Trainable{@NamedTuple{ϕ::A}}, A, U}(ϕ, ∂p, u)
+        new{Trainable{GradAllocated}, A, U}(ϕ, ∂p, u)
     end
 
     function Phase(
             ϕ::A, u::U) where {A <: AbstractArray{<:Real, 2},
             U <: AbstractArray{<:Complex}}
         @assert size(u)[1:ndims(ϕ)] == size(ϕ)
-        new{Trainable{Nothing}, A, U}(ϕ, nothing, u)
+        new{Trainable{GradNoAlloc}, A, U}(ϕ, nothing, u)
     end
 
     function Phase(ϕ::A) where {A <: AbstractArray{<:Real, 2}}
@@ -53,31 +53,31 @@ struct Phase{M, A, U} <: AbstractOpticalComponent{M}
     end
 
     function Phase(
-            u::U,
+            u::Union{U, ScalarField{U}},
             ds::NTuple{Nd, Real},
             f::Function;
             trainable::Bool = false,
             prealloc_gradient::Bool = false,
             center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
     ) where {U <: AbstractArray{<:Complex}, Nd}
-        Phase(U, size(u), ds, f, trainable = trainable,
+        Phase(U, size(u), ds, f; trainable = trainable,
             prealloc_gradient = prealloc_gradient, center = center)
     end
 end
 
 trainable(p::Phase{<:Trainable}) = (; ϕ = p.ϕ)
 
-get_preallocated_gradient(p::Phase{<:Trainable{<:NamedTuple}}) = p.∂p
+get_preallocated_gradient(p::Phase{<:Trainable{GradAllocated}}) = p.∂p
 
-function apply_phase!(u::AbstractArray, p, ::Type{Forward})
-    u .*= exp.(im .* p.ϕ)
+function apply_phase!(u::AbstractArray, p::Phase, ::Type{Forward})
+    @. u *= cis(p.ϕ)
 end
 
-function apply_phase!(u::AbstractArray, p, ::Type{Backward})
-    u .*= exp.(-im .* p.ϕ)
+function apply_phase!(u::AbstractArray, p::Phase, ::Type{Backward})
+    @. u *= cis(-p.ϕ)
 end
 
-function apply_phase!(u::ScalarField, p, direction::Type{<:Direction})
+function apply_phase!(u::ScalarField, p::Phase, direction::Type{<:Direction})
     apply_phase!(u.data, p, direction)
     u
 end
@@ -90,16 +90,9 @@ function backpropagate!(u, p::Phase, direction::Type{<:Direction})
     propagate!(u, p, reverse(direction))
 end
 
-function propagate_and_save!(
-        u::AbstractArray, p::Phase{<:Trainable}, direction::Type{<:Direction})
-    copyto!(p.u, u)
-    apply_phase!(u, p, direction)
-end
-
-function propagate_and_save!(
-        u::ScalarField, p::Phase{<:Trainable}, direction::Type{<:Direction})
-    copyto!(p.u, u.data)
-    apply_phase!(u, p, direction)
+function propagate_and_save!(u, p::Phase{<:Trainable}, direction::Type{<:Direction})
+    copyto!(p.u, get_data(u))
+    propagate!(u, p, direction)
 end
 
 function compute_phase_gradient!(

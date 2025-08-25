@@ -30,9 +30,9 @@ function rules_dict(pairs::Pair{K, <:AbstractRule}...) where {K}
     return IdDict{Any, AbstractRule}(pairs)
 end
 
-struct ProxRule{R <: AbstractRule} <: AbstractRule
+struct ProxRule{R <: AbstractRule, F} <: AbstractRule
     rule::R
-    prox::Function
+    prox::F
 end
 
 function Optimisers.apply!(o::ProxRule, state, x, x̄)
@@ -54,7 +54,11 @@ function Optimisers._update!(ℓ::Leaf{<:ProxRule, S}, x; grads, params) where {
 end
 
 struct Fista <: AbstractRule
-    eta::Any
+    eta::Real
+
+    function Fista(eta)
+        new(eta^2)
+    end
 end
 
 function init(o::Fista, x::AbstractArray{T}) where {T}

@@ -58,8 +58,11 @@ Functors.@functor RSProp{Static} ()
 Flux.@layer ASProp{Static}
 Flux.@layer RSProp{Static}
 
+Functors.@functor ScalarSource (u0,)
+Flux.@layer ScalarSource
+
 Functors.@functor Phase (ϕ,)
 Flux.@layer Phase
 
-Functors.@functor ScalarSource (u0,)
-Flux.@layer ScalarSource
+Functors.@functor TeaDOE (h,)
+Flux.@layer TeaDOE
