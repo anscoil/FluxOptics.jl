@@ -49,10 +49,6 @@ Flux.trainable(p::AbstractOpticalComponent) = OpticalComponents.trainable(p)
 Functors.@functor OpticalChain (layers,)
 Flux.@layer OpticalChain
 
-# Functors.@leaf AbstractFFTs.Plan
-# Functors.@leaf LRUCache.LRU
-# Functors.@leaf Base.Pairs
-
 Functors.@functor ASProp{Static} ()
 Functors.@functor RSProp{Static} ()
 Flux.@layer ASProp{Static}

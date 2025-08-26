@@ -1,47 +1,57 @@
-struct TeaDOE{M, T, A, U} <: AbstractOpticalComponent{M}
-    dn::T
-    r::Complex{T}
+struct TeaDOE{M, Fn, Fr, A, U} <: AbstractOpticalComponent{M}
+    dn::Fn
+    r::Fr
     h::A
     ∂p::Union{Nothing, @NamedTuple{h::A}}
     u::Union{Nothing, U}
 
     function TeaDOE(
-            dn::T,
-            r::Complex{T},
+            dn::Fn,
+            r::Fr,
             h::A,
             ∂p::@NamedTuple{h::A},
             u::U;
-    ) where {T <: Real, A <: AbstractArray{T, 2}, U <: AbstractArray{Complex{T}}}
+    ) where {Fn <: Function, Fr <: Function, T <: Real,
+            A <: AbstractArray{T, 2}, U <: AbstractArray{Complex{T}}}
         @assert size(∂p.h) == size(h)
         @assert size(u)[1:ndims(h)] == size(h)
-        new{Trainable{GradAllocated}, T, A, U}(dn, r, h, ∂p, u)
+        new{Trainable{GradAllocated}, Fn, Fr, A, U}(dn, r, h, ∂p, u)
     end
 
     function TeaDOE(
-            dn::T, r::Complex{T}, h::A, u::U
-    ) where {T <: Real,
-             A <: AbstractArray{T, 2},
-             U <: AbstractArray{Complex{T}}}
+            dn::Fn, r::Fr,
+            h::A,
+            u::U
+    ) where {Fn <: Function, Fr <: Function, T <: Real,
+            A <: AbstractArray{T, 2},
+            U <: AbstractArray{Complex{T}}}
         @assert size(u)[1:ndims(h)] == size(h)
-        new{Trainable{GradNoAlloc}, T, A, U}(dn, r, h, nothing, u)
+        new{Trainable{GradNoAlloc}, Fn, Fr, A, U}(dn, r, h, nothing, u)
     end
 
-    function TeaDOE(dn::T, r::Complex{T}, h::A
-    ) where {T <: Real, A <: AbstractArray{T, 2}}
-        new{Static, T, A, Nothing}(dn, r, h, nothing, nothing)
+    function TeaDOE(dn::Fn,
+            r::Fr,
+            h::A
+    ) where {Fn <: Function, Fr <: Function, T <: Real, A <: AbstractArray{T, 2}}
+        new{Static, Fn, Fr, A, Nothing}(dn, r, h, nothing, nothing)
     end
 
-    function TeaDOE(dn::T,
-            r::Complex{T},
+    function TeaDOE(dn::Fn,
+            r::Fr,
             h::A,
             ∂p::Nothing,
             u::U
-    ) where {T <: Real, A <: AbstractArray{T, 2}, U <: AbstractArray{<:Complex}}
+    ) where {Fn <: Function, Fr <: Function, T <: Real,
+            A <: AbstractArray{T, 2}, U <: AbstractArray{<:Complex}}
         TeaDOE(dn, r, h, u)
     end
 
-    function TeaDOE(dn::T, r::Complex{T}, h::A, ∂p::Nothing, u::Nothing
-    ) where {T <: Real, A <: AbstractArray{T, 2}}
+    function TeaDOE(dn::Fn,
+            r::Fr,
+            h::A,
+            ∂p::Nothing,
+            u::Nothing
+    ) where {Fn <: Function, Fr <: Function, T <: Real, A <: AbstractArray{T, 2}}
         TeaDOE(dn, r, h)
     end
 
@@ -49,9 +59,9 @@ struct TeaDOE{M, T, A, U} <: AbstractOpticalComponent{M}
             U::Type{<:AbstractArray{Complex{T}, N}},
             dims::NTuple{N, Integer},
             ds::NTuple{Nd, Real},
-            dn::Real,
+            dn::Union{Real, Function},
             f::Function;
-            r::Number = 1,
+            r::Union{Number, Function} = 1,
             trainable::Bool = false,
             prealloc_gradient::Bool = false,
             center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
@@ -63,15 +73,17 @@ struct TeaDOE{M, T, A, U} <: AbstractOpticalComponent{M}
         h = Nd == 2 ? P(f.(xs[1], xs[2]')) : P(f.(xs[1]))
         ∂p = prealloc_gradient ? (; h = similar(h)) : nothing
         u = trainable ? U(undef, dims) : nothing
-        TeaDOE(T(dn), Complex{T}(r), h, ∂p, u)
+        dn_f = isa(dn, Real) ? (λ -> T(dn)) : (λ -> T(dn(λ)))
+        r_f = isa(r, Number) ? (λ -> Complex{T}(r)) : (λ -> Complex{T}(r(λ)))
+        TeaDOE(dn_f, r_f, h, ∂p, u)
     end
 
     function TeaDOE(
             u::Union{U, ScalarField{U}},
             ds::NTuple{Nd, Real},
-            dn::Real,
+            dn::Union{Real, Function},
             f::Function;
-            r::Number = 1,
+            r::Union{Number, Function} = 1,
             trainable::Bool = false,
             prealloc_gradient::Bool = false,
             center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
@@ -85,12 +97,12 @@ function TeaReflector(
         u::Union{U, ScalarField{U}},
         ds::NTuple{Nd, Real},
         f::Function;
-        r::Number = 1,
+        r::Union{Number, Function} = 1,
         trainable::Bool = false,
         prealloc_gradient::Bool = false,
         center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
 ) where {U <: AbstractArray{<:Complex}, Nd}
-    TeaDOE(U, size(u), ds, 2, f; r = r, trainable = trainable,
+    TeaDOE(U, size(u), ds, _ -> 2, f; r = r, trainable = trainable,
         prealloc_gradient = prealloc_gradient, center = center)
 end
 
@@ -99,13 +111,13 @@ trainable(p::TeaDOE{<:Trainable}) = (; h = p.h)
 get_preallocated_gradient(p::TeaDOE{<:Trainable{GradAllocated}}) = p.∂p
 
 function apply_phase!(
-        u::AbstractArray, lambdas, p::TeaDOE{M, T}, ::Type{Forward}) where {M, T}
-    @. u *= p.r * cis((T(2)*π/lambdas)*p.dn*p.h)
+        u::AbstractArray{T}, lambdas, p::TeaDOE, ::Type{Forward}) where {T}
+    @. u *= p.r(lambdas) * cis((T(2)*π/lambdas)*p.dn(lambdas)*p.h)
 end
 
 function apply_phase!(
-        u::AbstractArray, lambdas, p::TeaDOE{M, T}, ::Type{Backward}) where {M, T}
-    @. u *= conj(p.r) * cis(-(T(2)*π/lambdas)*p.dn*p.h)
+        u::AbstractArray{T}, lambdas, p::TeaDOE, ::Type{Backward}) where {T}
+    @. u *= conj(p.r(lambdas)) * cis(-(T(2)*π/lambdas)*p.dn(lambdas)*p.h)
 end
 
 function propagate!(u::AbstractArray, lambdas, p::TeaDOE, direction::Type{<:Direction})
@@ -131,14 +143,14 @@ function compute_surface_gradient!(
         ∂h::P,
         ∂u::U,
         lambdas,
-        dn::T,
-        r::Complex{T},
+        dn::Function,
+        r::Function,
         u::U) where {T <: Real,
         Nd,
         P <: AbstractArray{T, Nd},
         U <: AbstractArray{<:Complex{T}}}
     sdims = (Nd + 1):ndims(∂u)
-    g = @. (T(2)*π*dn/lambdas)*imag(∂u * conj(r*u))
+    g = @. (T(2)*π*dn(lambdas)/lambdas)*imag(∂u * conj(r(lambdas)*u))
     @views ∂h .= sum(g, dims = sdims)
 end
 
