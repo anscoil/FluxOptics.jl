@@ -47,7 +47,7 @@ include("optimisers_ext.jl")
 export rules_dict, ProxRule, Fista
 
 include("flux_ext.jl")
-export OpticalChain
+export OpticalChain, set_kwargs!
 
 include("chainrulescore_ext.jl")
 
