@@ -35,7 +35,7 @@ function ParaxialProp(u::AbstractArray{<:Complex},
         double_precision_kernel::Bool = true
 ) where {Nd, H}
     ASProp(u, ds, z, λ;
-        filter = filter, is_paraxial = true,
+        filter = filter, paraxial = true,
         double_precision_kernel = double_precision_kernel)
 end
 
@@ -47,6 +47,6 @@ function ParaxialProp(u::ScalarField{U},
         double_precision_kernel::Bool = true
 ) where {Nd, H, U <: AbstractArray{<:Complex}}
     ASProp(u, ds, z, use_cache;
-        filter = filter, is_paraxial = true,
+        filter = filter, paraxial = true,
         double_precision_kernel = double_precision_kernel)
 end

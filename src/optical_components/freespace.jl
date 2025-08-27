@@ -1,6 +1,8 @@
 using EllipsisNotation
 using LRUCache
 
+abstract type AbstractPropagator{M, K} <: AbstractCustomComponent{M} end
+
 function get_kernels(p::AbstractPropagator{M, <:AbstractKernel}) where {M}
     error("Not implemented")
 end

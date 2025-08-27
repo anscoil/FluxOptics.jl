@@ -1,4 +1,4 @@
-struct TeaDOE{M, Fn, Fr, A, U} <: AbstractOpticalComponent{M}
+struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
     dn::Fn
     r::Fr
     h::A

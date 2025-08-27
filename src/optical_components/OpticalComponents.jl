@@ -7,9 +7,11 @@ using ..Fields
 using ..FFTutils
 
 export Direction, Forward, Backward
+export GradientAllocation, GradNoAlloc, GradAllocated
 export Trainability, Trainable, Static
-export is_trainable, has_prealloc
-export AbstractOpticalComponent, AbstractPropagator, AbstractOpticalSource
+export AbstractOpticalComponent, AbstractOpticalSource
+export AbstractCustomComponent, AbstractCustomSource
+export AbstractPureComponent, AbstractPureSource
 export propagate!, propagate
 export propagate_and_save!, propagate_and_save
 export backpropagate!, backpropagate
@@ -35,15 +37,7 @@ abstract type Trainability end
 struct Static <: Trainability end
 struct Trainable{A <: GradientAllocation} <: Trainability end
 
-is_trainable(::Type{<:Trainable}) = true
-is_trainable(::Type{Static}) = false
-
-has_prealloc(::Type{Trainable{GradNoAlloc}}) = false
-has_prealloc(::Type{Trainable{GradAllocated}}) = true
-
 abstract type AbstractOpticalComponent{M <: Trainability} end
-abstract type AbstractPropagator{M <: Trainability, K} <: AbstractOpticalComponent{M} end
-abstract type AbstractOpticalSource{M <: Trainability} <: AbstractOpticalComponent{M} end
 
 trainable(p::AbstractOpticalComponent{Static}) = NamedTuple{}()
 
@@ -51,86 +45,116 @@ function trainable(p::AbstractOpticalComponent{<:Trainable})
     error("Not implemented")
 end
 
-function get_preallocated_gradient(p::AbstractOpticalComponent{<:Trainable{GradAllocated}})
+abstract type AbstractCustomComponent{M} <: AbstractOpticalComponent{M} end
+
+function get_preallocated_gradient(p::AbstractCustomComponent{<:Trainable{GradNoAlloc}})
+    fmap(similar, trainable(p))
+end
+
+function get_preallocated_gradient(p::AbstractCustomComponent{<:Trainable{GradAllocated}})
     error("Not implemented")
 end
 
-function propagate!(u, p::AbstractOpticalComponent, direction::Type{<:Direction})
+function propagate!(u, p::AbstractCustomComponent, direction::Type{<:Direction})
     error("Not implemented")
 end
 
-function propagate(p::AbstractOpticalSource, direction::Type{<:Direction})
-    error("Not implemented")
-end
-
-function propagate_and_save!(u, p::AbstractOpticalComponent{<:Trainable},
+function propagate_and_save!(u, p::AbstractCustomComponent{<:Trainable},
         direction::Type{<:Direction})
     error("Not implemented")
 end
 
-function propagate_and_save(p::AbstractOpticalSource{<:Trainable},
-        direction::Type{<:Direction})
-    error("Not implemented")
-end
-
-function backpropagate!(u, p::AbstractOpticalComponent, direction::Type{<:Direction})
+function backpropagate!(u, p::AbstractCustomComponent, direction::Type{<:Direction})
     error("Not implemented")
 end
 
 function backpropagate_with_gradient!(
-        ∂v, ∂p::NamedTuple, p::AbstractOpticalComponent{<:Trainable},
+        ∂v, ∂p::NamedTuple, p::AbstractCustomComponent{<:Trainable},
         direction::Type{<:Direction})
     error("Not implemented")
 end
 
-function propagate(u, p::AbstractOpticalComponent, direction::Type{<:Direction})
+function propagate(u, p::AbstractCustomComponent, direction::Type{<:Direction})
     propagate!(copy(u), p, direction)
 end
 
-function propagate(u::AbstractArray, p::AbstractOpticalComponent,
+function propagate(u::AbstractArray, p::AbstractCustomComponent,
         λ::Real, direction::Type{<:Direction})
     propagate!(copy(u), p, λ, direction)
 end
 
-function propagate_and_save(u, p::AbstractOpticalComponent{<:Trainable},
+function propagate_and_save(u, p::AbstractCustomComponent{<:Trainable},
         direction::Type{<:Direction})
     propagate_and_save!(copy(u), p, direction)
 end
 
-function backpropagate(u, p::AbstractOpticalComponent, direction::Type{<:Direction})
+function backpropagate(u, p::AbstractCustomComponent, direction::Type{<:Direction})
     backpropagate!(copy(u), p, direction)
 end
 
 function backpropagate_with_gradient!(
-        ∂v, p::AbstractOpticalComponent{Trainable{GradNoAlloc}},
-        direction::Type{<:Direction})
-    ∂p = fmap(similar, trainable(p))
-    backpropagate_with_gradient!(∂v, ∂p, p, direction)
-end
-
-function backpropagate_with_gradient!(
-        ∂v, p::AbstractOpticalComponent{<:Trainable{GradAllocated}},
+        ∂v, p::AbstractCustomComponent{<:Trainable},
         direction::Type{<:Direction})
     ∂p = get_preallocated_gradient(p)
     backpropagate_with_gradient!(∂v, ∂p, p, direction)
 end
 
 function backpropagate_with_gradient(
-        ∂v, p::AbstractOpticalComponent{<:Trainable},
+        ∂v, p::AbstractCustomComponent{<:Trainable},
         direction::Type{<:Direction})
     backpropagate_with_gradient!(copy(∂v), p, direction)
 end
 
-function backpropagate_with_gradient(
-        ∂v, p::AbstractOpticalSource{<:Trainable},
+abstract type AbstractPureComponent{M} <: AbstractOpticalComponent{M} end
+
+function propagate(u, p::AbstractPureComponent, direction::Type{<:Direction})
+    error("Not implemented")
+end
+
+function propagate!(u, p::AbstractPureComponent, direction::Type{<:Direction})
+    propagate(u, p, direction)
+end
+
+abstract type AbstractOpticalSource{M} <: AbstractOpticalComponent{M} end
+
+function propagate(p::AbstractOpticalSource, direction::Type{<:Direction})
+    error("Not implemented")
+end
+
+abstract type AbstractPureSource{M} <: AbstractOpticalSource{M} end
+
+abstract type AbstractCustomSource{M} <: AbstractOpticalSource{M} end
+
+function get_preallocated_gradient(p::AbstractCustomSource{<:Trainable{GradNoAlloc}})
+    fmap(similar, trainable(p))
+end
+
+function get_preallocated_gradient(p::AbstractCustomSource{<:Trainable{GradAllocated}})
+    error("Not implemented")
+end
+
+function propagate_and_save(p::AbstractCustomSource{<:Trainable},
         direction::Type{<:Direction})
-    backpropagate_with_gradient!(∂v, p, direction)
+    error("Not implemented")
+end
+
+function backpropagate_with_gradient!(
+        ∂v, ∂p::NamedTuple, p::AbstractCustomSource{<:Trainable},
+        direction::Type{<:Direction})
+    error("Not implemented")
+end
+
+function backpropagate_with_gradient(
+        ∂v, p::AbstractCustomSource{<:Trainable},
+        direction::Type{<:Direction})
+    ∂p = get_preallocated_gradient(p)
+    backpropagate_with_gradient!(∂v, ∂p, p, direction)
 end
 
 include("abstract_kernel.jl")
 
 include("freespace.jl")
-export ASProp, RSProp, CollinsProp, FourierLens, ParaxialProp
+export ASProp, ASPropZ, RSProp, CollinsProp, FourierLens, ParaxialProp
 
 include("scalar_source.jl")
 export ScalarSource

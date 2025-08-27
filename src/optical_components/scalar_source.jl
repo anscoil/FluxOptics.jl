@@ -1,4 +1,4 @@
-struct ScalarSource{M, U} <: AbstractOpticalSource{M}
+struct ScalarSource{M, U} <: AbstractCustomSource{M}
     u0::U
     uf::U
     ∂p::Union{Nothing, @NamedTuple{u0::U}}
@@ -24,7 +24,7 @@ end
 
 trainable(p::ScalarSource{<:Trainable}) = (; u0 = get_data(p.u0))
 
-get_preallocated_gradient(p::ScalarSource{<:Trainable{<:NamedTuple}}) = p.∂p
+get_preallocated_gradient(p::ScalarSource{<:Trainable{GradAllocated}}) = p.∂p
 
 function propagate(p::ScalarSource, direction::Type{<:Direction})
     copyto!(p.uf, p.u0)

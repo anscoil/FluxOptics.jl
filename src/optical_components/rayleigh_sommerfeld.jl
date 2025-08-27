@@ -1,5 +1,5 @@
 function rs_kernel(x::T, y::T, λ::T, z::Tp, nrm_f::Tp
-) where {T <: AbstractFloat, Tp <: AbstractFloat}
+) where {T <: Real, Tp <: Real}
     x, y = Tp(x), Tp(y)
     k = Tp(2π/λ)
     r = sqrt(x^2 + y^2 + z^2)
@@ -33,7 +33,7 @@ struct RSProp{M, K, T, Tp} <: AbstractPropagator{M, K}
             use_cache::Bool = false;
             double_precision_kernel::Bool = true
     ) where {N, Nd, T, U <: AbstractArray{Complex{T}, N}}
-        @assert ndims(u.data) >= Nd
+        @assert N >= Nd
         ns = size(u)[1:Nd]
         cache_size = use_cache ? length(unique(u.lambdas)) : 0
         kernel = ConvolutionKernel(u.data, ns, ds, cache_size)

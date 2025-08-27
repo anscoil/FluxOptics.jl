@@ -1,4 +1,4 @@
-struct Phase{M, A, U} <: AbstractOpticalComponent{M}
+struct Phase{M, A, U} <: AbstractCustomComponent{M}
     ϕ::A
     ∂p::Union{Nothing, @NamedTuple{ϕ::A}}
     u::Union{Nothing, U}

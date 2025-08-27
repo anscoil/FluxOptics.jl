@@ -22,7 +22,7 @@ struct OpticalChain{N, T <: NTuple{N, AbstractOpticalComponent}, K}
 end
 
 function OpticalChain(layers...)
-    OpticalChain(layers, Ref((; inplace=false)))
+    OpticalChain(layers, Ref((; inplace = false)))
 end
 
 function set_kwargs!(m::OpticalChain; kwargs...)
@@ -76,10 +76,14 @@ Flux.trainable(p::AbstractOpticalComponent) = OpticalComponents.trainable(p)
 Functors.@functor OpticalChain (layers,)
 Flux.@layer OpticalChain
 
-Functors.@functor ASProp{Static} ()
-Functors.@functor RSProp{Static} ()
-Flux.@layer ASProp{Static}
-Flux.@layer RSProp{Static}
+Functors.@functor ASProp ()
+Functors.@functor ASPropZ (z,)
+Functors.@functor RSProp ()
+Functors.@functor CollinsProp ()
+Flux.@layer ASProp
+Flux.@layer ASPropZ
+Flux.@layer RSProp
+Flux.@layer CollinsProp
 
 Functors.@functor ScalarSource (u0,)
 Flux.@layer ScalarSource

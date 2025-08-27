@@ -1,7 +1,7 @@
 using ChainRulesCore
 
 function ChainRulesCore.rrule(
-        ::typeof(propagate), u, p::AbstractOpticalComponent{Static},
+        ::typeof(propagate), u, p::AbstractCustomComponent{Static},
         direction::Type{<:Direction})
     v = propagate(u, p, direction)
 
@@ -16,7 +16,7 @@ end
 function ChainRulesCore.rrule(
         ::typeof(propagate), u, p::P,
         direction::Type{<:Direction}
-) where {P <: AbstractOpticalComponent{<:Trainable}}
+) where {P <: AbstractCustomComponent{<:Trainable}}
     v = propagate_and_save(u, p, direction)
 
     function pullback(∂v)
@@ -28,7 +28,7 @@ function ChainRulesCore.rrule(
 end
 
 function ChainRulesCore.rrule(
-        ::typeof(propagate!), u, p::AbstractOpticalComponent{Static},
+        ::typeof(propagate!), u, p::AbstractCustomComponent{Static},
         direction::Type{<:Direction})
     v = propagate!(u, p, direction)
 
@@ -43,7 +43,7 @@ end
 function ChainRulesCore.rrule(
         ::typeof(propagate!), u, p::P,
         direction::Type{<:Direction}
-) where {P <: AbstractOpticalComponent{<:Trainable}}
+) where {P <: AbstractCustomComponent{<:Trainable}}
     v = propagate_and_save!(u, p, direction)
     function pullback(∂v)
         ∂u, ∂p = backpropagate_with_gradient!(∂v, p, direction)
@@ -54,7 +54,7 @@ function ChainRulesCore.rrule(
 end
 
 function ChainRulesCore.rrule(
-        ::typeof(propagate), p::AbstractOpticalSource{Static},
+        ::typeof(propagate), p::AbstractCustomSource{Static},
         direction::Type{<:Direction})
     v = propagate(p, direction)
 
@@ -67,7 +67,7 @@ end
 
 function ChainRulesCore.rrule(::typeof(propagate), p::P,
         direction::Type{<:Direction}
-) where {P <: AbstractOpticalSource{<:Trainable}}
+) where {P <: AbstractCustomComponent{<:Trainable}}
     v = propagate_and_save(p, direction)
 
     function pullback(∂v)
@@ -78,6 +78,21 @@ function ChainRulesCore.rrule(::typeof(propagate), p::P,
     return v, pullback
 end
 
+function ChainRulesCore.rrule(::Type{<:ScalarField}, data, lambdas, lambdas_collection)
+    y = ScalarField(data, lambdas, lambdas_collection)
+    function pullback(∂y)
+        (NoTangent(), ∂y.data, NoTangent(), NoTangent())
+    end
+    return y, pullback
+end
+
 function ChainRulesCore.ProjectTo(u::ScalarField)
-    ∂v -> ScalarField(∂v.data, u.lambdas, u.lambdas_collection)
+    function pullback(∂y)
+        if ∂y.data isa NoTangent
+            NoTangent()
+        else
+            ScalarField(∂y.data, u.lambdas, u.lambdas_collection)
+        end
+    end
+    pullback
 end

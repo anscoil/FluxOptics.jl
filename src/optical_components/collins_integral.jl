@@ -5,7 +5,7 @@
 function collins_a_chirp(
         x::T, y::T, λ::T, αx::Tp, αy::Tp, a::Tp, b::Tp,
         d::Tp
-) where {T <: AbstractFloat, Tp <: AbstractFloat}
+) where {T <: Real, Tp <: Real}
     x, y, λ = Tp(x), Tp(y), Tp(λ)
     Complex{T}(cis(π*(x^2*(a-αx) + y^2*(a-αy))/(b*λ))/λ)
 end
@@ -13,7 +13,7 @@ end
 function collins_d_chirp(
         x::T, y::T, λ::T, αx::Tp, αy::Tp, a::Tp, b::Tp,
         d::Tp
-) where {T <: AbstractFloat, Tp <: AbstractFloat}
+) where {T <: Real, Tp <: Real}
     x, y, λ = Tp(x), Tp(y), Tp(λ)
     Complex{T}(cis(π*(x^2*αx*(d*αx-1) + y^2*αy*(d*αy-1))/(b*λ)))
 end
@@ -21,7 +21,7 @@ end
 function collins_convolution_kernel(
         x::T, y::T, λ::T, αx::Tp, αy::Tp, a::Tp, b::Tp,
         d::Tp
-) where {T <: AbstractFloat, Tp <: AbstractFloat}
+) where {T <: Real, Tp <: Real}
     x, y, λ = Tp(x), Tp(y), Tp(λ)
     Complex{T}(cis(π*(x^2*αx + y^2*αy)/(b*λ)))
 end
@@ -73,7 +73,7 @@ struct CollinsProp{M, K, T, Tp, Nd} <: AbstractPropagator{M, K}
             use_cache::Bool = false;
             double_precision_kernel::Bool = true
     ) where {N, Nd, T, U <: AbstractArray{Complex{T}, N}}
-        @assert ndims(u.data) >= Nd
+        @assert N >= Nd
         ns = size(u)[1:Nd]
         cache_size = use_cache ? length(unique(u.lambdas)) : 0
         a_chirp = ChirpKernel(u.data, ns, ds, cache_size)
