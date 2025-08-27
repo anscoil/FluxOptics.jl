@@ -1,5 +1,5 @@
 function ista(p, c)
-    function shrink(x::T) where T
+    function shrink(x::T) where {T}
         s = T(p)
         xc = x - T(c)
         if abs(xc) <= s
@@ -15,7 +15,7 @@ end
 
 struct IstaProx{F} <: StatelessProximalOperator
     f::F
-    function IstaProx(s::Real, c::Real=0)
+    function IstaProx(s::Real, c::Real = 0)
         f = ista(s, c)
         new{typeof(f)}(f)
     end

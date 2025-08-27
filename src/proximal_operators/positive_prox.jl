@@ -1,4 +1,4 @@
-function force_positive(x::T) where T
+function force_positive(x::T) where {T}
     if x < T(0)
         T(0)
     else

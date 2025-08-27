@@ -80,6 +80,20 @@ function fill_heatmap!(ax, f, u, cmap)
     hm
 end
 
+function parse_colormap(colormap, n_cols, n_fields_per_col)
+    if isa(colormap, Symbol)
+        ntuple(_ -> ntuple(_ -> colormap, n_fields_per_col), n_cols)
+    else
+        @assert length(colormap) == n_cols
+        map(x -> if isa(x, Symbol)
+                ntuple(_ -> x, n_fields_per_col)
+            else
+                @assert length(x) == n_fields_per_col
+                x
+            end, colormap)
+    end
+end
+
 function plot_fields(u_vec, fs::Union{Function, Tuple};
         colormap = :viridis, ratio = 1, max_width = 1024, width = nothing, height = nothing,
         show_colorbars = false, show_labels = false)
@@ -90,11 +104,7 @@ function plot_fields(u_vec, fs::Union{Function, Tuple};
     fs = isa(fs, Function) ? (fs,) : fs
     ls = length(fs)
 
-    cmaps = isa(colormap, Symbol) ? fill(colormap, ls) : colormap
-
-    if length(cmaps) != ls
-        error("Number of colormaps must match number of functions")
-    end
+    cmaps = parse_colormap(colormap, ls, n_fields_per_col)
 
     nx, ny = size(first(first(u_vec)))
     fig_width,
@@ -126,7 +136,7 @@ function plot_fields(u_vec, fs::Union{Function, Tuple};
                 ax = Axis(cell[1, 1])
                 hidedecorations!(ax)
                 ax.aspect = DataAspect()
-                hm, is_complex, factor = fill_heatmap!(ax, f, collect_data(u), cmap)
+                hm, is_complex, factor = fill_heatmap!(ax, f, collect_data(u), cmap[k])
                 if show_colorbars && !is_complex
                     Colorbar(cell[1, 2], hm; width = 10,
                         height = fig_height-n_fields_per_col*20, tickformat = "{:.1f}")
@@ -173,8 +183,7 @@ function plot_fields_slider(u_vec, fs::Union{Function, Tuple};
     fs = isa(fs, Function) ? (fs,) : fs
     ls = length(fs)
 
-    cmaps = isa(colormap, Symbol) ? fill(colormap, ls) : colormap
-    @assert length(cmaps) == ls
+    cmaps = parse_colormap(colormap, ls, n_fields_per_col)
 
     nx, ny = size(first(first(u_vec)))
     fig_width,
@@ -207,7 +216,7 @@ function plot_fields_slider(u_vec, fs::Union{Function, Tuple};
         u_fields = collect(u_vec[i])
         for (ax, f, cmap, k) in heatmaps
             u = collect_data(u_fields[k])
-            fill_heatmap!(ax, f, u, cmap)
+            fill_heatmap!(ax, f, u, cmap[k])
         end
     end
 
