@@ -70,7 +70,7 @@ Functors.@functor Phase (ϕ,)
 
 trainable(p::Phase{<:Trainable}) = (; ϕ = p.ϕ)
 
-get_preallocated_gradient(p::Phase{<:Trainable{GradAllocated}}) = p.∂p
+get_preallocated_gradient(p::Phase{Trainable{GradAllocated}}) = p.∂p
 
 function apply_phase!(u::AbstractArray, p::Phase, ::Type{Forward})
     @. u *= cis(p.ϕ)

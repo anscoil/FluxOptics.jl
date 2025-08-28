@@ -111,7 +111,7 @@ end
 
 trainable(p::TeaDOE{<:Trainable}) = (; h = p.h)
 
-get_preallocated_gradient(p::TeaDOE{<:Trainable{GradAllocated}}) = p.∂p
+get_preallocated_gradient(p::TeaDOE{Trainable{GradAllocated}}) = p.∂p
 
 function apply_phase!(
         u::AbstractArray{T}, lambdas, p::TeaDOE, ::Type{Forward}) where {T}

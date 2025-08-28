@@ -67,7 +67,7 @@ end
 
 function ChainRulesCore.rrule(::typeof(propagate), p::P,
         direction::Type{<:Direction}
-) where {P <: AbstractCustomComponent{<:Trainable}}
+) where {P <: AbstractCustomSource{<:Trainable}}
     v = propagate_and_save(p, direction)
 
     function pullback(∂v)

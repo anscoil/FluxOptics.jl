@@ -80,63 +80,54 @@ function fill_heatmap!(ax, f, u, cmap)
     hm
 end
 
-function parse_colormap(colormap, n_cols, n_fields_per_col)
-    if isa(colormap, Symbol)
-        ntuple(_ -> ntuple(_ -> colormap, n_fields_per_col), n_cols)
+function parse_args(args, n_cols, n_fields_per_col)
+    if !isa(args, Tuple)
+        ntuple(_ -> ntuple(_ -> args, n_fields_per_col), n_cols)
     else
-        @assert length(colormap) == n_cols
-        map(x -> if isa(x, Symbol)
+        @assert length(args) == n_cols
+        map(x -> if !isa(x, Tuple)
                 ntuple(_ -> x, n_fields_per_col)
             else
                 @assert length(x) == n_fields_per_col
                 x
-            end, colormap)
+            end, args)
     end
 end
 
 function plot_fields(u_vec, fs::Union{Function, Tuple};
         colormap = :viridis, ratio = 1, max_width = 1024, width = nothing, height = nothing,
-        show_colorbars = false, show_labels = false)
+        show_colorbars = false)
     n_lines = length(u_vec)
     @assert n_lines > 0
     n_fields_per_col = length(first(u_vec))
+    n_cols = isa(fs, Tuple) ? length(fs) : 1
     @assert n_fields_per_col > 0
-    fs = isa(fs, Function) ? (fs,) : fs
-    ls = length(fs)
+    fs = parse_args(fs, n_cols, n_fields_per_col)
 
-    cmaps = parse_colormap(colormap, ls, n_fields_per_col)
+    cmaps = parse_args(colormap, n_cols, n_fields_per_col)
 
     nx, ny = size(first(first(u_vec)))
     fig_width,
     fig_height = get_fig_size(
-        ratio*n_fields_per_col*nx*ls, ratio*ny, max_width, width, height)
+        ratio*n_fields_per_col*nx*n_cols, ratio*ny, max_width, width, height)
 
-    width_offset = show_colorbars ? ls*(25 + n_fields_per_col*20) : 0
-    height_offset = show_labels ? 50 : 0
+    width_offset = show_colorbars ? n_cols*(25 + n_fields_per_col*20) : 0
+    height_offset = 0
     if show_colorbars
         height_offset += 40 * (n_lines-1)
     end
     fig = Figure(size = (fig_width + width_offset, n_lines*fig_height + height_offset))
 
-    if show_labels
-        for (j, f) in enumerate(fs)
-            fig[1, j] = Label(fig, string(f), halign = :center)
-        end
-        line_start = 1
-    else
-        line_start = 0
-    end
-
     for (i, u_fields) in enumerate(u_vec)
         for (j, (f, cmap)) in enumerate(zip(fs, cmaps))
-            subgrid = fig[i + line_start, j] = GridLayout()
-            colsize!(fig.layout, j, fig_width / ls)
+            subgrid = fig[i, j] = GridLayout()
+            colsize!(fig.layout, j, fig_width / n_cols)
             for (k, u) in enumerate(u_fields)
                 cell = subgrid[1, k] = GridLayout()
                 ax = Axis(cell[1, 1])
                 hidedecorations!(ax)
                 ax.aspect = DataAspect()
-                hm, is_complex, factor = fill_heatmap!(ax, f, collect_data(u), cmap[k])
+                hm, is_complex, factor = fill_heatmap!(ax, f[k], collect_data(u), cmap[k])
                 if show_colorbars && !is_complex
                     Colorbar(cell[1, 2], hm; width = 10,
                         height = fig_height-n_fields_per_col*20, tickformat = "{:.1f}")
@@ -157,20 +148,20 @@ function plot_fields(
         fs::Union{Function, Tuple};
         colormap = :viridis, ratio = 1, max_width = 1024,
         width = nothing, height = nothing,
-        show_colorbars = false, show_labels = false) where {
+        show_colorbars = false) where {
         U <: Union{ScalarField, AbstractArray{<:Number}}}
     plot_fields(map(u -> (collect_data(u),), u_vec), fs; colormap = colormap,
         ratio = ratio, max_width = max_width,
-        width = width, height = height, show_colorbars = show_colorbars, show_labels = show_labels)
+        width = width, height = height, show_colorbars = show_colorbars)
 end
 
 function plot_fields(u::Union{ScalarField, AbstractArray{T}}, fs::Union{Function, Tuple};
         colormap = :viridis, ratio = 1, max_width = 1024,
-        width = nothing, height = nothing, show_colorbars = false, show_labels = false
+        width = nothing, height = nothing, show_colorbars = false
 ) where {T <: Number}
     plot_fields(((collect_data(u),),), fs; colormap = colormap, ratio = ratio,
         max_width = max_width, width = width, height = height,
-        show_colorbars = show_colorbars, show_labels = show_labels)
+        show_colorbars = show_colorbars)
 end
 
 function plot_fields_slider(u_vec, fs::Union{Function, Tuple};

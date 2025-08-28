@@ -163,7 +163,7 @@ include("freespace.jl")
 export ASProp, ASPropZ, RSProp, CollinsProp, FourierLens, ParaxialProp
 
 include("scalar_source.jl")
-export ScalarSource
+export ScalarSource, init_source!
 
 include("phasemask.jl")
 export Phase
