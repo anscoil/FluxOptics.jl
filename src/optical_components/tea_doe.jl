@@ -66,6 +66,7 @@ struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
             prealloc_gradient::Bool = false,
             center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
     ) where {T <: Real, N, Nd}
+        check_trainable_combination(trainable, prealloc_gradient)
         @assert Nd in (1, 2)
         @assert N >= Nd
         P = adapt_dim(U, Nd, real)
@@ -92,6 +93,8 @@ struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
             prealloc_gradient = prealloc_gradient, center = center)
     end
 end
+
+Functors.@functor TeaDOE (h,)
 
 function TeaReflector(
         u::Union{U, ScalarField{U}},

@@ -37,6 +37,12 @@ abstract type Trainability end
 struct Static <: Trainability end
 struct Trainable{A <: GradientAllocation} <: Trainability end
 
+function check_trainable_combination(trainable::Bool, prealloc_gradient::Bool)
+    if !trainable && prealloc_gradient
+        error("Invalid combination: `prealloc_gradient=true` only makes sense when `trainable=true`.")
+    end
+end
+
 abstract type AbstractOpticalComponent{M <: Trainability} end
 
 trainable(p::AbstractOpticalComponent{Static}) = NamedTuple{}()
@@ -164,5 +170,8 @@ export Phase
 
 include("tea_doe.jl")
 export TeaDOE, TeaReflector
+
+include("field_probe.jl")
+export FieldProbe
 
 end

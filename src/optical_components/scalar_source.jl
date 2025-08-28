@@ -22,6 +22,8 @@ struct ScalarSource{M, U} <: AbstractCustomSource{M}
     end
 end
 
+Functors.@functor ScalarSource (u0,)
+
 trainable(p::ScalarSource{<:Trainable}) = (; u0 = get_data(p.u0))
 
 get_preallocated_gradient(p::ScalarSource{<:Trainable{GradAllocated}}) = p.∂p

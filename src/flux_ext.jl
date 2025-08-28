@@ -21,6 +21,8 @@ struct OpticalChain{N, T <: NTuple{N, AbstractOpticalComponent}, K}
     kwargs::Ref{K}
 end
 
+Functors.@functor OpticalChain (layers,)
+
 function OpticalChain(layers...)
     OpticalChain(layers, Ref((; inplace = false)))
 end
@@ -52,44 +54,46 @@ function Base.:|>(p::AbstractOpticalComponent, kwargs::NamedTuple)
     m
 end
 
-function (m::OpticalChain)(x; call_kwargs...)
-    kwargs = merge(m.kwargs[], call_kwargs)
-    for layer in m.layers
-        x = layer(x; kwargs...)
-    end
-    return x
+function compute_split_output(p::AbstractOpticalComponent, u; kwargs...)
+    v = p(u; kwargs...)
+    (v, nothing)
 end
 
-function (m::OpticalChain)(; call_kwargs...)
-    kwargs = merge(m.kwargs[], call_kwargs)
-    x = m.layers[1](; call_kwargs...)
-    for layer in m.layers[2:end]
-        x = layer(x; kwargs...)
+function compute_split_output(p::FieldProbe, u; kwargs...)
+    p(u; kwargs...)
+end
+
+function iter_layers(layers, x, d; kwargs...)
+    for layer in layers
+        x, x_probe = compute_split_output(layer, x; kwargs...)
+        if !isnothing(x_probe)
+            d[layer] = x_probe
+        end
     end
-    return x
+    (; out = x, probes = d)
+end
+
+function (m::OpticalChain{N})(x = nothing; call_kwargs...) where {N}
+    kwargs = merge(m.kwargs[], call_kwargs)
+    x = isnothing(x) ? m.layers[1](; call_kwargs...) : m.layers[1](x; kwargs...)
+    d = IdDict{AbstractOpticalComponent, typeof(x)}()
+    iter_layers(m.layers[2:end], x, d; kwargs...)
 end
 
 Flux.trainable(p::OpticalChain) = (; layers = p.layers)
 
 Flux.trainable(p::AbstractOpticalComponent) = OpticalComponents.trainable(p)
 
-Functors.@functor OpticalChain (layers,)
 Flux.@layer OpticalChain
 
-Functors.@functor ASProp ()
-Functors.@functor ASPropZ (z,)
-Functors.@functor RSProp ()
-Functors.@functor CollinsProp ()
 Flux.@layer ASProp
 Flux.@layer ASPropZ
 Flux.@layer RSProp
 Flux.@layer CollinsProp
 
-Functors.@functor ScalarSource (u0,)
 Flux.@layer ScalarSource
 
-Functors.@functor Phase (ϕ,)
 Flux.@layer Phase
-
-Functors.@functor TeaDOE (h,)
 Flux.@layer TeaDOE
+
+Flux.@layer FieldProbe

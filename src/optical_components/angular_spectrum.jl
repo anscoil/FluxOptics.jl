@@ -69,6 +69,8 @@ struct ASProp{M, K, T, Tp, H} <: AbstractPropagator{M, K}
     end
 end
 
+Functors.@functor ASProp ()
+
 function get_kernels(p::ASProp)
     (p.kernel,)
 end
@@ -104,6 +106,10 @@ struct ASPropZ{M, A, V, H} <: AbstractPureComponent{M}
     f_vec::V
     filter::H
 
+    # After functor destructuring, ASPropZ is always re-instantiated
+    # as `Static`.  Even if the original instance was trainable, the
+    # restructured version does not require to expose its trainable
+    # parameters, since they are no longer optimized.
     function ASPropZ(z::A, is_paraxial::Bool, f_vec::V, filter::H) where {A, V, H}
         new{Static, A, V, H}(z, is_paraxial, f_vec, filter)
     end
@@ -128,6 +134,8 @@ struct ASPropZ{M, A, V, H} <: AbstractPureComponent{M}
         new{M, typeof(z_arr), V, H}(z_arr, paraxial, f_vec, filter)
     end
 end
+
+Functors.@functor ASPropZ (z,)
 
 trainable(p::ASPropZ{<:Trainable}) = (; z = p.z)
 

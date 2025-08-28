@@ -89,6 +89,8 @@ struct CollinsProp{M, K, T, Tp, Nd} <: AbstractPropagator{M, K}
     end
 end
 
+Functors.@functor CollinsProp ()
+
 function get_kernels(p::CollinsProp)
     (p.kernel.a_chirp, p.kernel.d_chirp, p.kernel.convolution_kernel)
 end

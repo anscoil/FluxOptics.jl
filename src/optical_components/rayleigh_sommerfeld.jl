@@ -43,6 +43,8 @@ struct RSProp{M, K, T, Tp} <: AbstractPropagator{M, K}
     end
 end
 
+Functors.@functor RSProp ()
+
 function get_kernels(p::RSProp)
     (p.kernel,)
 end
