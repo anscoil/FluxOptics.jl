@@ -56,8 +56,7 @@ struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
     end
 
     function TeaDOE(
-            U::Type{<:AbstractArray{Complex{T}, N}},
-            dims::NTuple{N, Integer},
+            u::U,
             ds::NTuple{Nd, Real},
             dn::Union{Real, Function},
             f::Function;
@@ -65,23 +64,22 @@ struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
             trainable::Bool = false,
             prealloc_gradient::Bool = false,
             center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
-    ) where {T <: Real, N, Nd}
+    ) where {N, Nd, T, U <: AbstractArray{Complex{T}, N}}
         check_trainable_combination(trainable, prealloc_gradient)
         @assert Nd in (1, 2)
         @assert N >= Nd
         P = adapt_dim(U, Nd, real)
-        xs = spatial_vectors(dims[1:Nd], ds; center = center)
+        xs = spatial_vectors(size(u)[1:Nd], ds; center = center)
         h = Nd == 2 ? P(f.(xs[1], xs[2]')) : P(f.(xs[1]))
         ∂p = prealloc_gradient ? (; h = similar(h)) : nothing
-        u = trainable ? U(undef, dims) : nothing
+        u = trainable ? similar(u) : nothing
         dn_f = isa(dn, Real) ? (λ -> T(dn)) : (λ -> T(dn(λ)))
         r_f = isa(r, Number) ? (λ -> Complex{T}(r)) : (λ -> Complex{T}(r(λ)))
         TeaDOE(dn_f, r_f, h, ∂p, u)
     end
 
     function TeaDOE(
-            u::Union{U, ScalarField{U}},
-            ds::NTuple{Nd, Real},
+            u::ScalarField{U, Nd},
             dn::Union{Real, Function},
             f::Function;
             r::Union{Number, Function} = 1,
@@ -89,21 +87,20 @@ struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
             prealloc_gradient::Bool = false,
             center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
     ) where {U <: AbstractArray{<:Complex}, Nd}
-        TeaDOE(U, size(u), ds, dn, f; r = r, trainable = trainable,
+        TeaDOE(u.data, u.ds, dn, f; r = r, trainable = trainable,
             prealloc_gradient = prealloc_gradient, center = center)
     end
 end
 
 function TeaReflector(
-        u::Union{U, ScalarField{U}},
-        ds::NTuple{Nd, Real},
+        u::ScalarField{U, Nd},
         f::Function;
         r::Union{Number, Function} = 1,
         trainable::Bool = false,
         prealloc_gradient::Bool = false,
         center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
 ) where {U <: AbstractArray{<:Complex}, Nd}
-    TeaDOE(U, size(u), ds, x -> 2, f; r = r, trainable = trainable,
+    TeaDOE(u, λ -> 2, f; r = r, trainable = trainable,
         prealloc_gradient = prealloc_gradient, center = center)
 end
 
@@ -157,7 +154,7 @@ function compute_surface_gradient!(
         U <: AbstractArray{<:Complex{T}}}
     sdims = (Nd + 1):ndims(∂u)
     g = @. (T(2)*π*dn(lambdas)/lambdas)*imag(∂u * conj(r(lambdas)*u))
-    @views ∂h .= sum(g, dims = sdims)
+    copyto!(∂h, sum(g; dims = sdims))
 end
 
 function backpropagate_with_gradient!(∂v::ScalarField, ∂p::NamedTuple,

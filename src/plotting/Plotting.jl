@@ -95,7 +95,8 @@ function parse_args(args, n_cols, n_fields_per_col)
     end
 end
 
-Plottable = Union{ScalarField, AbstractOpticalComponent, AbstractArray{T, 2} where {T <: Number}}
+Plottable = Union{
+    ScalarField, AbstractOpticalComponent, AbstractArray{T, 2} where {T <: Number}}
 
 function visualize(u_vec, fs::Union{Function, Tuple};
         colormap = :viridis, ratio = 1, max_width = 1024, width = nothing, height = nothing,

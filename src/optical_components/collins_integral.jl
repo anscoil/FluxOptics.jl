@@ -35,6 +35,8 @@ end
 struct CollinsProp{M, K, T, Tp, Nd} <: AbstractPropagator{M, K}
     kernel::K
     αs::NTuple{Nd, Tp}
+    ds::NTuple{Nd, Tp}
+    ds′::NTuple{Nd, Tp}
     abd::Tuple{Tp, Tp, Tp}
     nrm_fwd::Complex{Tp}
     nrm_bwd::Complex{Tp}
@@ -63,29 +65,30 @@ struct CollinsProp{M, K, T, Tp, Nd} <: AbstractPropagator{M, K}
         fill_kernel_cache(a_chirp, kernel_key, collins_a_chirp, kernel_args)
         fill_kernel_cache(d_chirp, kernel_key, collins_d_chirp, kernel_args)
         fill_kernel_cache(conv_kernel, kernel_key, collins_convolution_kernel, kernel_args)
-        new{Static, typeof(kernel), T, Tp, Nd}(kernel, αs, abd, nrm_fwd, nrm_bwd)
+        new{Static, typeof(kernel), T, Tp, Nd}(kernel, αs, ds, ds′, abd, nrm_fwd, nrm_bwd)
     end
 
     function CollinsProp(u::ScalarField{U},
-            ds::NTuple{Nd, Real},
             ds′::NTuple{Nd, Real},
             abd::Tuple{<:Real, <:Real, <:Real},
             use_cache::Bool = false;
             double_precision_kernel::Bool = true
     ) where {N, Nd, T, U <: AbstractArray{Complex{T}, N}}
         @assert N >= Nd
+        @assert length(u.ds) == Nd
         ns = size(u)[1:Nd]
         cache_size = use_cache ? length(unique(u.lambdas)) : 0
-        a_chirp = ChirpKernel(u.data, ns, ds, cache_size)
-        d_chirp = ChirpKernel(u.data, ns, ds, cache_size)
-        conv_kernel = ConvolutionKernel(u.data, ns, ds, cache_size)
+        a_chirp = ChirpKernel(u.data, ns, u.ds, cache_size)
+        d_chirp = ChirpKernel(u.data, ns, u.ds, cache_size)
+        conv_kernel = ConvolutionKernel(u.data, ns, u.ds, cache_size)
         kernel = CollinsKernel(a_chirp, d_chirp, conv_kernel)
         Tp = double_precision_kernel ? Float64 : T
-        αs = Tuple([Tp(dx′/dx) for (dx, dx′) in zip(ds, ds′)])
+        αs = Tuple([Tp(dx′/dx) for (dx, dx′) in zip(u.ds, ds′)])
         _, b = abd
-        nrm_fwd = Complex{Tp}(prod(ds ./ sqrt(im*b)))
+        nrm_fwd = Complex{Tp}(prod(u.ds ./ sqrt(im*b)))
         nrm_bwd = Complex{Tp}(prod(ds′ ./ sqrt(-im*b)))
-        new{Static, typeof(kernel), T, Tp, Nd}(kernel, αs, Tp.(abd), nrm_fwd, nrm_bwd)
+        new{Static, typeof(kernel), T, Tp, Nd}(
+            kernel, αs, u.ds, ds′, Tp.(abd), nrm_fwd, nrm_bwd)
     end
 end
 
@@ -147,4 +150,12 @@ function _propagate_core!(apply_kernel_fns::F, u::AbstractArray,
     copyto!(u, u_view)
     normalize!(u, p, direction)
     u
+end
+
+function set_ds_out(p::CollinsProp, u::ScalarField, ::Type{Forward})
+    ScalarField(u.data, p.ds′, u.lambdas, u.lambdas_collection)
+end
+
+function set_ds_out(p::CollinsProp, u::ScalarField, ::Type{Backward})
+    ScalarField(u.data, p.ds, u.lambdas, u.lambdas_collection)
 end

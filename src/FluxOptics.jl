@@ -9,6 +9,7 @@ include("Fields.jl")
 using .Fields
 export ScalarField
 export get_data, collect_data
+export power, normalize_power!
 
 include("measure.jl")
 export vec_array2D
@@ -42,7 +43,7 @@ export FieldProbe
 
 include("proximal_operators/ProximalOperators.jl")
 using .ProximalOperators
-export IstaProx, ClampProx, PositiveProx
+export IstaProx, ClampProx, PositiveProx, NormalizePowerProx
 
 include("optimisers_ext.jl")
 export rules_dict, ProxRule, Fista

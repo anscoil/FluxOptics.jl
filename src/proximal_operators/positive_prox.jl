@@ -6,7 +6,7 @@ function force_positive(x::T) where {T}
     end
 end
 
-struct PositiveProx{F} <: StatelessProximalOperator
+struct PositiveProx{F} <: PointwiseProximalOperator
     f::F
     function PositiveProx()
         new{typeof(force_positive)}(force_positive)

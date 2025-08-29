@@ -13,7 +13,7 @@ function ista(p, c)
     return shrink
 end
 
-struct IstaProx{F} <: StatelessProximalOperator
+struct IstaProx{F} <: PointwiseProximalOperator
     f::F
     function IstaProx(s::Real, c::Real = 0)
         f = ista(s, c)

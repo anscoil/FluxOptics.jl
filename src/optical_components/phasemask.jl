@@ -34,34 +34,32 @@ struct Phase{M, A, U} <: AbstractCustomComponent{M}
     end
 
     function Phase(
-            U::Type{<:AbstractArray{<:Complex, N}},
-            dims::NTuple{N, Integer},
+            u::U,
             ds::NTuple{Nd, Real},
             f::Function;
             trainable::Bool = false,
             prealloc_gradient::Bool = false,
             center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
-    ) where {N, Nd}
+    ) where {N, Nd, U <: AbstractArray{<:Complex, N}}
         check_trainable_combination(trainable, prealloc_gradient)
         @assert Nd in (1, 2)
         @assert N >= Nd
         P = adapt_dim(U, Nd, real)
-        xs = spatial_vectors(dims[1:Nd], ds; center = center)
+        xs = spatial_vectors(size(u)[1:Nd], ds; center = center)
         ϕ = Nd == 2 ? P(f.(xs[1], xs[2]')) : P(f.(xs[1]))
         ∂p = prealloc_gradient ? (; ϕ = similar(ϕ)) : nothing
-        u = trainable ? U(undef, dims) : nothing
+        u = trainable ? similar(u) : nothing
         Phase(ϕ, ∂p, u)
     end
 
     function Phase(
-            u::Union{U, ScalarField{U}},
-            ds::NTuple{Nd, Real},
+            u::ScalarField{U, Nd},
             f::Function;
             trainable::Bool = false,
             prealloc_gradient::Bool = false,
             center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
     ) where {U <: AbstractArray{<:Complex}, Nd}
-        Phase(U, size(u), ds, f; trainable = trainable,
+        Phase(u.data, u.ds, f; trainable = trainable,
             prealloc_gradient = prealloc_gradient, center = center)
     end
 end
@@ -104,8 +102,7 @@ end
 function compute_phase_gradient!(
         ∂ϕ::P,
         ∂u::U,
-        u::U) where {T <: Real,
-        Nd,
+        u::U) where {T <: Real, Nd,
         P <: AbstractArray{T, Nd},
         U <: AbstractArray{<:Complex{T}}}
     sdims = (Nd + 1):ndims(∂u)

@@ -7,7 +7,7 @@ using ..OpticalComponents
 using ..Fields
 
 function CUDA.cu(u::ScalarField)
-    ScalarField(cu(u.data), u.lambdas)
+    ScalarField(cu(u.data), u.ds, u.lambdas)
 end
 
 function compute_thread_config()

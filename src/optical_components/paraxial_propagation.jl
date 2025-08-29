@@ -17,13 +17,12 @@ end
 
 # Careful that z != 0
 function ParaxialProp(u::ScalarField{U},
-        ds::NTuple{Nd, Real},
         ds′::NTuple{Nd, Real},
         z::Real,
         use_cache::Bool = false;
         double_precision_kernel::Bool = true
 ) where {Nd, U <: AbstractArray{<:Complex}}
-    CollinsProp(u, ds, ds′, (1, z, 1), use_cache;
+    CollinsProp(u, ds′, (1, z, 1), use_cache;
         double_precision_kernel = double_precision_kernel)
 end
 
@@ -40,13 +39,12 @@ function ParaxialProp(u::AbstractArray{<:Complex},
 end
 
 function ParaxialProp(u::ScalarField{U},
-        ds::NTuple{Nd, Real},
         z::Real,
         use_cache::Bool = false;
         filter::H = nothing,
         double_precision_kernel::Bool = true
-) where {Nd, H, U <: AbstractArray{<:Complex}}
-    ASProp(u, ds, z, use_cache;
+) where {H, U <: AbstractArray{<:Complex}}
+    ASProp(u, z, use_cache;
         filter = filter, paraxial = true,
         double_precision_kernel = double_precision_kernel)
 end

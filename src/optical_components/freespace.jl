@@ -60,6 +60,10 @@ function propagate!(u::AbstractArray, p::AbstractPropagator{M, <:AbstractKernel{
     u
 end
 
+function set_ds_out(p::AbstractPropagator, u::ScalarField, ::Type{<:Direction})
+    u
+end
+
 function propagate!(u::ScalarField, p::AbstractPropagator{M, <:AbstractKernel{Nothing}},
         direction::Type{<:Direction}) where {M}
     kernels = get_kernels(p)
@@ -70,7 +74,7 @@ function propagate!(u::ScalarField, p::AbstractPropagator{M, <:AbstractKernel{No
             v, kernel, direction, compute_kernel, kernel_args),
         kernels)
     _propagate_core!(apply_kernel_fns, u.data, p, direction)
-    u
+    set_ds_out(p, u, direction)
 end
 
 function propagate!(u::ScalarField, p::AbstractPropagator{M, <:AbstractKernel{K}},
@@ -83,7 +87,7 @@ function propagate!(u::ScalarField, p::AbstractPropagator{M, <:AbstractKernel{K}
             v, kernel, kernel_keys, direction, compute_kernel, kernel_args),
         kernels)
     _propagate_core!(apply_kernel_fns, u.data, p, direction)
-    u
+    set_ds_out(p, u, direction)
 end
 
 function backpropagate!(u, p::AbstractPropagator, direction::Type{<:Direction})

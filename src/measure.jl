@@ -17,7 +17,7 @@ function vec_array2D(u::ScalarField)
 end
 
 function intensity(x::T) where {T <: Number}
-    abs(x)^2
+    abs2(x)
 end
 
 function phase(x::T) where {T <: Number}
@@ -31,7 +31,7 @@ end
 function intensity2D(u::AbstractArray)
     @assert ndims(u) >= 2
     ur = array3D(u)
-    @views sum(intensity.(ur), dims = 3)[:, :, 1]
+    @views sum(intensity, ur, dims = 3)[:, :, 1]
 end
 
 function phase(u::AbstractArray)
@@ -39,7 +39,7 @@ function phase(u::AbstractArray)
 end
 
 function rms_error(u, v)
-    return sqrt(mean(abs.(u .- v) .^ 2))
+    return sqrt(mean(abs2.(u .- v)))
 end
 
 function correlation(u, v)

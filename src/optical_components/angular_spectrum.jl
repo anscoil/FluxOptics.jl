@@ -52,18 +52,16 @@ struct ASProp{M, K, T, Tp, H} <: AbstractPropagator{M, K}
         new{Static, typeof(kernel), T, Tp, H}(kernel, paraxial, Tp(z), filter)
     end
 
-    function ASProp(u::ScalarField{U},
-            ds::NTuple{Nd, Real},
+    function ASProp(u::ScalarField{U, Nd},
             z::Real,
             use_cache::Bool = false;
             filter::H = nothing,
             paraxial::Bool = false,
             double_precision_kernel::Bool = true
-    ) where {N, Nd, T, H, U <: AbstractArray{Complex{T}, N}}
-        @assert N >= Nd
+    ) where {Nd, T, H, U <: AbstractArray{Complex{T}}}
         ns = size(u)[1:Nd]
         cache_size = use_cache ? length(unique(u.lambdas)) : 0
-        kernel = FourierKernel(u.data, ns, ds, cache_size)
+        kernel = FourierKernel(u.data, ns, u.ds, cache_size)
         Tp = double_precision_kernel ? Float64 : T
         new{Static, typeof(kernel), T, Tp, H}(kernel, paraxial, Tp(z), filter)
     end
@@ -114,18 +112,16 @@ struct ASPropZ{M, A, V, H} <: AbstractPureComponent{M}
         new{Static, A, V, H}(z, is_paraxial, f_vec, filter)
     end
 
-    function ASPropZ(u::ScalarField{U},
-            ds::NTuple{Nd, Real},
+    function ASPropZ(u::ScalarField{U, Nd},
             z::Real;
             trainable::Bool = false,
             paraxial::Bool = false,
             filter::H = nothing,
             double_precision_kernel::Bool = true
-    ) where {N, Nd, T, H, U <: AbstractArray{Complex{T}, N}}
-        @assert N >= Nd
+    ) where {Nd, T, H, U <: AbstractArray{Complex{T}}}
         ns = size(u)[1:Nd]
         F = adapt_dim(U, 1, real)
-        fs = [fftfreq(nx, 1/dx) |> F for (nx, dx) in zip(ns, ds)]
+        fs = [fftfreq(nx, 1/dx) |> F for (nx, dx) in zip(ns, u.ds)]
         f_vec = Nd == 2 ? (; x = fs[1], y = fs[2]') : (; x = fs[1])
         V = typeof(f_vec)
         M = trainable ? Trainable{GradNoAlloc} : Static
@@ -148,5 +144,5 @@ function propagate(u::ScalarField, p::ASPropZ, direction::Type{<:Direction})
         kernel = @. as_kernel(p.f_vec..., u.lambdas, p.z, p.filter)
     end
     data = ifft(fft(u.data, dims) .* kernel_direction(kernel, direction), dims)
-    ScalarField(data, u.lambdas, u.lambdas_collection)
+    ScalarField(data, u.ds, u.lambdas, u.lambdas_collection)
 end

@@ -2,47 +2,46 @@ module Fields
 
 export ScalarField
 export get_data, collect_data
+export power, normalize_power!
 
 import Base: +, -, *, /
 
-struct ScalarField{U, T, C}
+struct ScalarField{U, Nd, S, T, C}
     data::U
+    ds::S
     lambdas::T
     lambdas_collection::C # useful if lambdas is a CuArray
 
-    function ScalarField(u::U,
-            lambdas::T,
-            lambdas_collection::C) where {
-            N, U <: AbstractArray{<:Complex, N},
-            T <: AbstractArray{<:Real, N},
-            C <: AbstractArray{<:Real, N}}
-        new{U, T, C}(u, lambdas, lambdas_collection)
+    function ScalarField(u::U, ds::S, lambdas::T,
+            lambdas_collection::C) where {U, Nd, S <: NTuple{Nd}, T, C}
+        new{U, Nd, S, T, C}(u, ds, lambdas, lambdas_collection)
     end
 
     function ScalarField(u::U,
-            lambdas::T,
-            lambdas_collection::T) where {
-            N, U <: AbstractArray{<:Complex, N},
-            T <: Real}
-        new{U, T, T}(u, lambdas, lambdas_collection)
+            ds::NTuple{Nd, Real},
+            lambdas::T) where {
+            Nd, N, U <: AbstractArray{<:Complex, N},
+            T <: AbstractArray{<:Real}}
+        @assert N >= Nd
+        ns = size(u)[1:Nd]
+        nr = div(length(u), prod(ns))
+        @assert length(lambdas) == nr
+        lambdas = reshape(lambdas, (1, 1, size(u)[(Nd + 1):end]...)) |> U |> real
+        lambdas_collection = collect(lambdas)
+        new{U, Nd, typeof(ds), typeof(lambdas), typeof(lambdas_collection)}(
+            u, ds, lambdas, lambdas_collection)
+    end
+
+    function ScalarField(u::U, ds::NTuple{Nd, Real},
+            lambda::Real) where {Nd, N, T, U <: AbstractArray{Complex{T}, N}}
+        @assert N >= Nd
+        new{U, Nd, typeof(ds), T, T}(u, ds, T(lambda), T(lambda))
     end
 
     function ScalarField(
-            u::U, lambdas::T
-    ) where {N, U <: AbstractArray{<:Complex, N},
-            T <: AbstractArray{<:Real}}
-        @assert N >= 2
-        nx, ny = size(u)
-        nr = div(length(u), nx*ny)
-        @assert length(lambdas) == nr
-        lambdas = reshape(lambdas, (1, 1, size(u)[3:end]...)) |> U |> real
-        lambdas_collection = collect(lambdas)
-        new{U, typeof(lambdas), typeof(lambdas_collection)}(u, lambdas, lambdas_collection)
-    end
-
-    function ScalarField(u::U, lambda::Real) where {U <: AbstractArray{<:Complex}}
-        V = real(eltype(u))
-        new{U, V, V}(u, V(lambda), V(lambda))
+            nd::NTuple{N, Integer}, ds::NTuple{Nd, Real}, lambdas) where {N, Nd}
+        u = zeros(ComplexF64, nd)
+        ScalarField(u, ds, lambdas)
     end
 end
 
@@ -55,26 +54,14 @@ function Base.broadcasted(f, a::ScalarField, b::AbstractArray)
 end
 
 function +(a::ScalarField, b::ScalarField)
-    ScalarField(a.data + b.data, a.lambdas)
+    ScalarField(a.data + b.data, a.ds, a.lambdas)
 end
 
-function +(a::ScalarField, b::AbstractArray)
-    ScalarField(a.data + b, a.lambdas)
-end
-
-function -(a::ScalarField, b::ScalarField)
-    ScalarField(a.data - b.data, a.lambdas)
-end
-
-function -(a::ScalarField, b::AbstractArray)
-    ScalarField(a.data - b, a.lambdas)
-end
-
-Base.getindex(u::ScalarField, i...) = u.data[i...]
+Base.getindex(u::ScalarField, i...) = view(u.data, i...)
 Base.size(u::ScalarField) = size(u.data)
 
 function Base.copy(u::ScalarField)
-    ScalarField(copy(u.data), u.lambdas, u.lambdas_collection)
+    ScalarField(copy(u.data), u.ds, u.lambdas, u.lambdas_collection)
 end
 
 function Base.copyto!(u::ScalarField, v::ScalarField)
@@ -83,7 +70,7 @@ function Base.copyto!(u::ScalarField, v::ScalarField)
 end
 
 function Base.similar(u::ScalarField)
-    ScalarField(similar(u.data), u.lambdas, u.lambdas_collection)
+    ScalarField(similar(u.data), u.ds, u.lambdas, u.lambdas_collection)
 end
 
 function get_data(u::ScalarField)
@@ -96,6 +83,26 @@ end
 
 function Base.collect(u::ScalarField)
     collect(u.data)
+end
+
+function power(u::AbstractArray{T, N}, ds::NTuple{Nd, Real}) where {T, N, Nd}
+    @assert N >= Nd
+    dims = ntuple(k -> k, Nd)
+    sum(abs2, u; dims = dims) .* prod(ds)
+end
+
+function power(u::ScalarField)
+    power(u.data, u.ds)
+end
+
+function normalize_power!(u::AbstractArray, ds::NTuple, v = 1)
+    u .*= sqrt.(v ./ power(u, ds))
+    u
+end
+
+function normalize_power!(u::ScalarField, v = 1)
+    normalize_power!(u.data, u.ds, v)
+    u
 end
 
 end

@@ -1,30 +1,28 @@
 module ProximalOperators
 
+using ..Fields
 export AbstractProximalOperator
-export IstaProx, ClampProx, PositiveProx
+export IstaProx, ClampProx, PositiveProx, NormalizePowerProx
 
 abstract type AbstractProximalOperator end
-abstract type StatelessProximalOperator <: AbstractProximalOperator end
+abstract type PointwiseProximalOperator <: AbstractProximalOperator end
 
 function init(prox::AbstractProximalOperator, x::AbstractArray)
+    ()
+end
+
+function get_prox_fun(prox::AbstractProximalOperator)
     error("Not implemented")
 end
 
 function apply!(prox::AbstractProximalOperator, state, x::AbstractArray)
-    error("Not implemented")
-end
-
-function init(prox::StatelessProximalOperator, x::AbstractArray)
-    ()
-end
-
-function get_prox_fun(prox::StatelessProximalOperator)
-    error("Not implemented")
-end
-
-function apply!(prox::StatelessProximalOperator, state, x::AbstractArray)
     f = get_prox_fun(prox)
-    @. x = f(x)
+    x = f(x, state...)
+end
+
+function apply!(prox::PointwiseProximalOperator, state, x::AbstractArray)
+    f = get_prox_fun(prox)
+    @. x = f(x, state...)
 end
 
 struct CompositeProx <: AbstractProximalOperator
@@ -54,5 +52,6 @@ end
 include("ista_prox.jl")
 include("clamp_prox.jl")
 include("positive_prox.jl")
+include("normalize_power_prox.jl")
 
 end
