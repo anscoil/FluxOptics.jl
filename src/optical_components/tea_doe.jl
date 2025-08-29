@@ -94,8 +94,6 @@ struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
     end
 end
 
-Functors.@functor TeaDOE (h,)
-
 function TeaReflector(
         u::Union{U, ScalarField{U}},
         ds::NTuple{Nd, Real},
@@ -105,9 +103,14 @@ function TeaReflector(
         prealloc_gradient::Bool = false,
         center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
 ) where {U <: AbstractArray{<:Complex}, Nd}
-    TeaDOE(U, size(u), ds, _ -> 2, f; r = r, trainable = trainable,
+    TeaDOE(U, size(u), ds, x -> 2, f; r = r, trainable = trainable,
         prealloc_gradient = prealloc_gradient, center = center)
 end
+
+Functors.@functor TeaDOE (h,)
+
+Base.collect(p::TeaDOE) = collect(p.h)
+Base.size(p::TeaDOE) = size(p.h)
 
 trainable(p::TeaDOE{<:Trainable}) = (; h = p.h)
 

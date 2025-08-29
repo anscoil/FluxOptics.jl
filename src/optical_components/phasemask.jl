@@ -68,6 +68,9 @@ end
 
 Functors.@functor Phase (ϕ,)
 
+Base.collect(p::Phase) = collect(p.ϕ)
+Base.size(p::Phase) = size(p.ϕ)
+
 trainable(p::Phase{<:Trainable}) = (; ϕ = p.ϕ)
 
 get_preallocated_gradient(p::Phase{Trainable{GradAllocated}}) = p.∂p

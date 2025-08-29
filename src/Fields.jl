@@ -94,12 +94,8 @@ function get_data(u::AbstractArray)
     u
 end
 
-function collect_data(u::ScalarField)
+function Base.collect(u::ScalarField)
     collect(u.data)
-end
-
-function collect_data(u::AbstractArray)
-    collect(u)
 end
 
 end

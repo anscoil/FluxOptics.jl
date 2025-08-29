@@ -5,8 +5,9 @@ using Makie.Colors
 using Makie.ColorSchemes
 using LaTeXStrings
 using ..Fields
+using ..OpticalComponents
 
-export plot_fields, plot_fields_slider
+export visualize, visualize_slider
 
 function complex_to_rgb(
         A::AbstractArray{Complex{T}}; colormap = :dark, rmax = nothing) where {T}
@@ -94,7 +95,9 @@ function parse_args(args, n_cols, n_fields_per_col)
     end
 end
 
-function plot_fields(u_vec, fs::Union{Function, Tuple};
+Plottable = Union{ScalarField, AbstractOpticalComponent, AbstractArray{T, 2} where {T <: Number}}
+
+function visualize(u_vec, fs::Union{Function, Tuple};
         colormap = :viridis, ratio = 1, max_width = 1024, width = nothing, height = nothing,
         show_colorbars = false)
     n_lines = length(u_vec)
@@ -127,7 +130,7 @@ function plot_fields(u_vec, fs::Union{Function, Tuple};
                 ax = Axis(cell[1, 1])
                 hidedecorations!(ax)
                 ax.aspect = DataAspect()
-                hm, is_complex, factor = fill_heatmap!(ax, f[k], collect_data(u), cmap[k])
+                hm, is_complex, factor = fill_heatmap!(ax, f[k], collect(u), cmap[k])
                 if show_colorbars && !is_complex
                     Colorbar(cell[1, 2], hm; width = 10,
                         height = fig_height-n_fields_per_col*20, tickformat = "{:.1f}")
@@ -143,55 +146,48 @@ function plot_fields(u_vec, fs::Union{Function, Tuple};
     fig
 end
 
-function plot_fields(
+function visualize(
         u_vec::Union{AbstractVector{U}, Tuple{Vararg{U}}},
         fs::Union{Function, Tuple};
         colormap = :viridis, ratio = 1, max_width = 1024,
         width = nothing, height = nothing,
-        show_colorbars = false) where {
-        U <: Union{ScalarField, AbstractArray{<:Number}}}
-    plot_fields(map(u -> (collect_data(u),), u_vec), fs; colormap = colormap,
+        show_colorbars = false) where {U <: Plottable}
+    visualize(map(u -> (collect(u),), u_vec), fs; colormap = colormap,
         ratio = ratio, max_width = max_width,
         width = width, height = height, show_colorbars = show_colorbars)
 end
 
-function plot_fields(u::Union{ScalarField, AbstractArray{T}}, fs::Union{Function, Tuple};
+function visualize(u::Plottable,
+        fs::Union{Function, Tuple};
         colormap = :viridis, ratio = 1, max_width = 1024,
-        width = nothing, height = nothing, show_colorbars = false
-) where {T <: Number}
-    plot_fields(((collect_data(u),),), fs; colormap = colormap, ratio = ratio,
+        width = nothing, height = nothing, show_colorbars = false)
+    visualize(((collect(u),),), fs; colormap = colormap, ratio = ratio,
         max_width = max_width, width = width, height = height,
         show_colorbars = show_colorbars)
 end
 
-function plot_fields_slider(u_vec, fs::Union{Function, Tuple};
+function visualize_slider(u_vec, fs::Union{Function, Tuple};
         colormap = :viridis, ratio = 1, max_width = Inf, width = nothing, height = nothing)
     n_lines = length(u_vec)
     @assert n_lines > 0
     n_fields_per_col = length(first(u_vec))
+    n_cols = isa(fs, Tuple) ? length(fs) : 1
     @assert n_fields_per_col > 0
+    fs = parse_args(fs, n_cols, n_fields_per_col)
 
-    fs = isa(fs, Function) ? (fs,) : fs
-    ls = length(fs)
-
-    cmaps = parse_colormap(colormap, ls, n_fields_per_col)
+    cmaps = parse_args(colormap, n_cols, n_fields_per_col)
 
     nx, ny = size(first(first(u_vec)))
     fig_width,
     fig_height = get_fig_size(
-        ratio*n_fields_per_col*nx*ls, ratio*ny, max_width, width, height)
+        ratio*n_fields_per_col*nx*n_cols, ratio*ny, max_width, width, height)
 
     fig = Figure(size = (fig_width, fig_height + 80))  # + extra for slider
-
-    for (j, f) in enumerate(fs)
-        fig[1, j] = Label(fig, string(f), halign = :center)
-        colsize!(fig.layout, j, fig_width / ls - 30)
-    end
 
     heatmaps = []
 
     for (j, (f, cmap)) in enumerate(zip(fs, cmaps))
-        subgrid = fig[2, j] = GridLayout()
+        subgrid = fig[1, j] = GridLayout()
         for k in 1:n_fields_per_col
             ax = Axis(subgrid[1, k])
             hidedecorations!(ax)
@@ -200,14 +196,14 @@ function plot_fields_slider(u_vec, fs::Union{Function, Tuple};
         end
     end
 
-    sl = Slider(fig[3, 1:ls], range = 1:n_lines, startvalue = 1)
+    sl = Slider(fig[2, 1:n_cols], range = 1:n_lines, startvalue = 1)
 
     u_vec = collect(u_vec)
     on(sl.value) do i
         u_fields = collect(u_vec[i])
         for (ax, f, cmap, k) in heatmaps
-            u = collect_data(u_fields[k])
-            fill_heatmap!(ax, f, u, cmap[k])
+            u = collect(u_fields[k])
+            fill_heatmap!(ax, f[k], u, cmap[k])
         end
     end
 
@@ -216,12 +212,12 @@ function plot_fields_slider(u_vec, fs::Union{Function, Tuple};
     fig
 end
 
-function plot_fields_slider(
+function visualize_slider(
         u_vec::Union{AbstractVector{U}, Tuple{Vararg{U}}},
         fs::Union{Function, Tuple};
         colormap = :viridis, ratio = 1, max_width = 2048,
-        width = nothing, height = nothing) where {T <: Number, U <: AbstractArray{T}}
-    plot_fields_slider(map(u -> (collect_data(u),), u_vec), fs; colormap = colormap,
+        width = nothing, height = nothing) where {U <: Plottable}
+    visualize_slider(map(u -> (collect(u),), u_vec), fs; colormap = colormap,
         ratio = ratio, max_width = max_width,
         width = width, height = height)
 end

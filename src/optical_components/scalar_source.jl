@@ -28,6 +28,9 @@ end
 
 Functors.@functor ScalarSource (u0,)
 
+Base.collect(p::ScalarSource) = collect(p.u0)
+Base.size(p::ScalarSource) = size(p.u0)
+
 trainable(p::ScalarSource{<:Trainable}) = (; u0 = p.u0)
 
 get_preallocated_gradient(p::ScalarSource{Trainable{GradAllocated}}) = p.∂p

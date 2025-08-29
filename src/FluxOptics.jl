@@ -60,7 +60,7 @@ function __init__()
     @require Makie="ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a" begin
         include("plotting/Plotting.jl")
         using .Plotting
-        export plot_fields, plot_fields_slider
+        export visualize, visualize_slider
     end
 end
 
