@@ -43,7 +43,7 @@ export FieldProbe
 
 include("proximal_operators/ProximalOperators.jl")
 using .ProximalOperators
-export IstaProx, ClampProx, PositiveProx
+export PointwiseProx, IstaProx, ClampProx, PositiveProx
 
 include("optimisers_ext.jl")
 export rules_dict, ProxRule, Fista

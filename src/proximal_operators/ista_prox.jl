@@ -13,14 +13,6 @@ function ista(p, c)
     return shrink
 end
 
-struct IstaProx{F} <: PointwiseProximalOperator
-    f::F
-    function IstaProx(s::Real, c::Real = 0)
-        f = ista(s, c)
-        new{typeof(f)}(f)
-    end
-end
-
-function get_prox_fun(prox::IstaProx)
-    prox.f
+function IstaProx(s::Real, c::Real = 0)
+    PointwiseProx(ista(s, c))
 end
