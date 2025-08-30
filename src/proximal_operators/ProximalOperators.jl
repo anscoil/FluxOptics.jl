@@ -2,7 +2,7 @@ module ProximalOperators
 
 using ..Fields
 export AbstractProximalOperator
-export IstaProx, ClampProx, PositiveProx, NormalizePowerProx
+export IstaProx, ClampProx, PositiveProx
 
 abstract type AbstractProximalOperator end
 abstract type PointwiseProximalOperator <: AbstractProximalOperator end
@@ -52,6 +52,5 @@ end
 include("ista_prox.jl")
 include("clamp_prox.jl")
 include("positive_prox.jl")
-include("normalize_power_prox.jl")
 
 end

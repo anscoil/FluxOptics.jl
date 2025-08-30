@@ -1,5 +1,7 @@
 module Fields
 
+using Functors
+
 export ScalarField
 export get_data, collect_data
 export power, normalize_power!
@@ -44,6 +46,8 @@ struct ScalarField{U, Nd, S, T, C}
         ScalarField(u, ds, lambdas)
     end
 end
+
+Functors.@functor ScalarField (data,)
 
 function Base.broadcastable(sf::ScalarField)
     return Ref(sf)

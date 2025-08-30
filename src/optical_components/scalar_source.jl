@@ -1,17 +1,17 @@
-struct ScalarSource{M, U, S} <: AbstractCustomSource{M}
-    u0::U
+struct ScalarSource{M, S} <: AbstractCustomSource{M}
+    u0::S
     uf::S
-    ∂p::Union{Nothing, @NamedTuple{u0::U}}
+    ∂p::Union{Nothing, @NamedTuple{u0::S}}
 
-    function ScalarSource(u0::U, uf::S, ∂p) where {U, S}
-        new{Static, U, S}(u0, uf, ∂p)
+    function ScalarSource(u0::S, uf::S, ∂p) where {S}
+        new{Static, S}(u0, uf, ∂p)
     end
 
-    function ScalarSource(u::Union{U, ScalarField{U}};
+    function ScalarSource(u::S;
             trainable::Bool = false,
             prealloc_gradient::Bool = false
-    ) where {U <: AbstractArray{<:Complex}}
-        u0 = copy(get_data(u))
+    ) where {U <: AbstractArray{<:Complex}, S <: Union{U, ScalarField{U}}}
+        u0 = copy(u)
         uf = similar(u)
 
         M = trainable ?
@@ -21,8 +21,7 @@ struct ScalarSource{M, U, S} <: AbstractCustomSource{M}
             Static
 
         ∂p = (trainable && prealloc_gradient) ? (; u0 = similar(u0)) : nothing
-
-        new{M, U, typeof(uf)}(u0, uf, ∂p)
+        new{M, S}(u0, uf, ∂p)
     end
 end
 
@@ -36,7 +35,7 @@ trainable(p::ScalarSource{<:Trainable}) = (; u0 = p.u0)
 get_preallocated_gradient(p::ScalarSource{Trainable{GradAllocated}}) = p.∂p
 
 function propagate(p::ScalarSource, direction::Type{<:Direction})
-    copyto!(get_data(p.uf), p.u0)
+    copyto!(get_data(p.uf), get_data(p.u0))
     p.uf
 end
 
@@ -46,12 +45,16 @@ end
 
 function backpropagate_with_gradient!(∂v, ∂p::NamedTuple, p::ScalarSource{<:Trainable},
         direction::Type{<:Direction})
-    copyto!(∂p.u0, get_data(∂v))
+    copyto!(get_data(∂p.u0), get_data(∂v))
     ∂p
 end
 
 function init_source!(s::ScalarSource,
         u0::Union{U, ScalarField{U}}
 ) where {U <: AbstractArray{<: Complex}}
-    copyto!(s.u0, get_data(u0))
+    copyto!(get_data(s.u0), get_data(u0))
+end
+
+function get_source(s::ScalarSource)
+    s.u0
 end

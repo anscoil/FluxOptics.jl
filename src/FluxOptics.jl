@@ -38,12 +38,12 @@ export propagate_and_save!, propagate_and_save
 export backpropagate!, backpropagate
 export backpropagate_with_gradient!, backpropagate_with_gradient
 export ASProp, ASPropZ, RSProp, CollinsProp, FourierLens, ParaxialProp
-export ScalarSource, init_source!, Phase, TeaDOE, TeaReflector
+export ScalarSource, init_source!, get_source, Phase, TeaDOE, TeaReflector
 export FieldProbe
 
 include("proximal_operators/ProximalOperators.jl")
 using .ProximalOperators
-export IstaProx, ClampProx, PositiveProx, NormalizePowerProx
+export IstaProx, ClampProx, PositiveProx
 
 include("optimisers_ext.jl")
 export rules_dict, ProxRule, Fista

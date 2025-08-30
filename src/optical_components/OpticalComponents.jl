@@ -54,7 +54,7 @@ end
 abstract type AbstractCustomComponent{M} <: AbstractOpticalComponent{M} end
 
 function get_preallocated_gradient(p::AbstractCustomComponent{<:Trainable{GradNoAlloc}})
-    fmap(similar, trainable(p))
+    map(similar, trainable(p))
 end
 
 function get_preallocated_gradient(p::AbstractCustomComponent{<:Trainable{GradAllocated}})
@@ -132,7 +132,7 @@ abstract type AbstractPureSource{M} <: AbstractOpticalSource{M} end
 abstract type AbstractCustomSource{M} <: AbstractOpticalSource{M} end
 
 function get_preallocated_gradient(p::AbstractCustomSource{<:Trainable{GradNoAlloc}})
-    fmap(similar, trainable(p))
+    map(similar, trainable(p))
 end
 
 function get_preallocated_gradient(p::AbstractCustomSource{<:Trainable{GradAllocated}})
@@ -163,7 +163,7 @@ include("freespace.jl")
 export ASProp, ASPropZ, RSProp, CollinsProp, FourierLens, ParaxialProp
 
 include("scalar_source.jl")
-export ScalarSource, init_source!
+export ScalarSource, init_source!, get_source
 
 include("phasemask.jl")
 export Phase
