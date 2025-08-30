@@ -109,6 +109,16 @@ Functors.@functor TeaDOE (h,)
 Base.collect(p::TeaDOE) = collect(p.h)
 Base.size(p::TeaDOE) = size(p.h)
 
+function init!(p::TeaDOE, v::Real)
+    p.h .= v
+    p
+end
+
+function init!(p::TeaDOE, v::AbstractArray)
+    copyto!(p.h, v)
+    p
+end
+
 trainable(p::TeaDOE{<:Trainable}) = (; h = p.h)
 
 get_preallocated_gradient(p::TeaDOE{Trainable{GradAllocated}}) = p.∂p

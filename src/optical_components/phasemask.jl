@@ -69,6 +69,16 @@ Functors.@functor Phase (ϕ,)
 Base.collect(p::Phase) = collect(p.ϕ)
 Base.size(p::Phase) = size(p.ϕ)
 
+function init!(p::Phase, v::Real)
+    p.ϕ .= v
+    p
+end
+
+function init!(p::Phase, v::AbstractArray)
+    copyto!(p.ϕ, v)
+    p
+end
+
 trainable(p::Phase{<:Trainable}) = (; ϕ = p.ϕ)
 
 get_preallocated_gradient(p::Phase{Trainable{GradAllocated}}) = p.∂p

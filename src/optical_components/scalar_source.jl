@@ -49,7 +49,7 @@ function backpropagate_with_gradient!(∂v, ∂p::NamedTuple, p::ScalarSource{<:
     ∂p
 end
 
-function init_source!(s::ScalarSource,
+function init!(s::ScalarSource,
         u0::Union{U, ScalarField{U}}
 ) where {U <: AbstractArray{<: Complex}}
     copyto!(get_data(s.u0), get_data(u0))

@@ -143,6 +143,6 @@ function propagate(u::ScalarField, p::ASPropZ, direction::Type{<:Direction})
     else
         kernel = @. as_kernel(p.f_vec..., u.lambdas, p.z, p.filter)
     end
-    data = ifft(fft(u.data, dims) .* kernel_direction(kernel, direction), dims)
+    data = ifft(fft(u.data, dims) .* conj_direction(kernel, direction), dims)
     ScalarField(data, u.ds, u.lambdas, u.lambdas_collection)
 end

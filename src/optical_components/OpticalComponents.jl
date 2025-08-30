@@ -12,7 +12,7 @@ export Trainability, Trainable, Static
 export AbstractOpticalComponent, AbstractOpticalSource
 export AbstractCustomComponent, AbstractCustomSource
 export AbstractPureComponent, AbstractPureSource
-export propagate!, propagate
+export init!, propagate!, propagate
 export propagate_and_save!, propagate_and_save
 export backpropagate!, backpropagate
 export backpropagate_with_gradient!, backpropagate_with_gradient
@@ -44,6 +44,10 @@ function check_trainable_combination(trainable::Bool, prealloc_gradient::Bool)
 end
 
 abstract type AbstractOpticalComponent{M <: Trainability} end
+
+function init!(p::AbstractOpticalComponent, v)
+    error("Not implemented")
+end
 
 trainable(p::AbstractOpticalComponent{Static}) = NamedTuple{}()
 
@@ -157,16 +161,27 @@ function backpropagate_with_gradient(
     backpropagate_with_gradient!(∂v, ∂p, p, direction)
 end
 
+function conj_direction(mask, ::Type{Forward})
+    mask
+end
+
+function conj_direction(mask, ::Type{Backward})
+    conj(mask)
+end
+
 include("abstract_kernel.jl")
 
 include("freespace.jl")
 export ASProp, ASPropZ, RSProp, CollinsProp, FourierLens, ParaxialProp
 
 include("scalar_source.jl")
-export ScalarSource, init_source!, get_source
+export ScalarSource, get_source
 
 include("phasemask.jl")
 export Phase
+
+include("complex_mask.jl")
+export ComplexMask
 
 include("tea_doe.jl")
 export TeaDOE, TeaReflector

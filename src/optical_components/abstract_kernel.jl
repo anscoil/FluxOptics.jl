@@ -1,13 +1,5 @@
 abstract type AbstractKernel{K, V, N} end
 
-function kernel_direction(kernel, ::Type{Forward})
-    kernel
-end
-
-function kernel_direction(kernel, ::Type{Backward})
-    conj(kernel)
-end
-
 function get_kernel_cache(kernel::AbstractKernel)
     error("Not implemented")
 end
@@ -37,7 +29,7 @@ function apply_kernel!(u::AbstractArray, kernel::AbstractKernel{Nothing},
     k_vec = get_kernel_vectors(kernel)
     kernel_val = transform_kernel!(
         Base.broadcasted(compute_kernel, k_vec..., args...), kernel)
-    @. u *= kernel_direction(kernel_val, direction)
+    @. u *= conj_direction(kernel_val, direction)
 end
 
 function apply_kernel!(u::AbstractArray,
@@ -47,7 +39,7 @@ function apply_kernel!(u::AbstractArray,
 ) where {K <: AbstractArray}
     kernel_cache = get_kernel_cache(kernel)
     kernel_val = kernel_cache[kernel_key]
-    @. u *= kernel_direction(kernel_val, direction)
+    @. u *= conj_direction(kernel_val, direction)
 end
 
 function apply_kernel!(u::AbstractArray,
@@ -63,7 +55,7 @@ function apply_kernel!(u::AbstractArray,
     else
         kernel_val = fill_kernel_cache(
             kernel, kernel_key, compute_kernel, args)
-        @. u *= kernel_direction(kernel_val, direction)
+        @. u *= conj_direction(kernel_val, direction)
     end
     u
 end

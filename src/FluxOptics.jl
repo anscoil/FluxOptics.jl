@@ -33,12 +33,12 @@ using .FFTutils
 include("optical_components/OpticalComponents.jl")
 using .OpticalComponents
 export Forward, Backward
-export propagate!, propagate
+export init!, propagate!, propagate
 export propagate_and_save!, propagate_and_save
 export backpropagate!, backpropagate
 export backpropagate_with_gradient!, backpropagate_with_gradient
 export ASProp, ASPropZ, RSProp, CollinsProp, FourierLens, ParaxialProp
-export ScalarSource, init_source!, get_source, Phase, TeaDOE, TeaReflector
+export ScalarSource, get_source, Phase, ComplexMask, TeaDOE, TeaReflector
 export FieldProbe
 
 include("proximal_operators/ProximalOperators.jl")
