@@ -10,7 +10,6 @@ struct PointLayout <: AbstractLayout2D
     end
 end
 
-Base.eltype(::Type{PointLayout}) = Tuple{Float64, Float64}
 Base.length(l::PointLayout) = l.n
 
 function Base.iterate(l::PointLayout, state = 1)
@@ -35,7 +34,6 @@ struct GridLayout <: AbstractLayout2D
     end
 end
 
-Base.eltype(::Type{GridLayout}) = Tuple{Float64, Float64}
 Base.length(l::GridLayout) = l.nx * l.ny
 
 function Base.iterate(l::GridLayout, state = (1, 1))
@@ -106,11 +104,11 @@ function Base.iterate(l::CustomLayout, state = 1)
     point, next_state
 end
 
-function generate_mode_stack(layout::AbstractLayout2D, nx, ny, dx, dy, m::Mode;
-        t::AbstractAffineMap = Id2D(), normalize = true)
+function generate_mode_stack(layout::AbstractLayout2D, nx, ny, dx, dy, m::Mode{Nd, T};
+        t::AbstractAffineMap = Id2D(), normalize = true) where {Nd, T}
     n_modes = length(layout)
     xv, yv = spatial_vectors(nx, ny, dx, dy)
-    modes = zeros(eltype(m), (nx, ny, n_modes))
+    modes = zeros(Complex{T}, (nx, ny, n_modes))
     for (k, pos) in enumerate(layout)
         mode = m(@view(modes[:, :, k]), xv, yv, Shift2D(pos...) ∘ t)
         if normalize
@@ -126,7 +124,8 @@ function generate_mode_stack(
     @assert length(layout) == length(m_v)
     n_modes = length(layout)
     xv, yv = spatial_vectors(nx, ny, dx, dy)
-    modes = zeros(reduce(promote_type, eltype.(m_v)), (nx, ny, n_modes))
+    T = reduce(promote_type, [m.parameters[1] for m in typeof.(m_v)])
+    modes = zeros(Complex{T}, (nx, ny, n_modes))
     for (k, (pos, m)) in enumerate(zip(layout, m_v))
         mode = m(@view(modes[:, :, k]), xv, yv, Shift2D(pos...) ∘ t)
         if normalize

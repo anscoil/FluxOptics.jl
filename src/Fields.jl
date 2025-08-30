@@ -63,6 +63,7 @@ end
 
 Base.getindex(u::ScalarField, i...) = view(u.data, i...)
 Base.size(u::ScalarField) = size(u.data)
+Base.ndims(u::ScalarField) = ndims(u.data)
 
 function Base.copy(u::ScalarField)
     ScalarField(copy(u.data), u.ds, u.lambdas, u.lambdas_collection)
@@ -87,6 +88,11 @@ end
 
 function Base.collect(u::ScalarField)
     collect(u.data)
+end
+
+function Base.vec(u::ScalarField{U, Nd}) where {U, Nd}
+    [ScalarField(data, u.ds, u.lambdas, u.lambdas_collection)
+     for data in eachslice(u.data; dims = Tuple((Nd + 1):ndims(u)))]
 end
 
 function power(u::AbstractArray{T, N}, ds::NTuple{Nd, Real}) where {T, N, Nd}

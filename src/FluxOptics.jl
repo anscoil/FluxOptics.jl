@@ -12,7 +12,7 @@ export get_data, collect_data
 export power, normalize_power!
 
 include("measure.jl")
-export vec_array2D
+export vec2D
 export intensity, intensity2D, phase, rms_error, correlation
 
 include("GridUtils.jl")

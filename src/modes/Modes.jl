@@ -2,11 +2,7 @@ module Modes
 
 using ..GridUtils
 
-abstract type Mode{N} end
-
-function Base.eltype(m::Mode)
-    error("Not implemented for $(typeof(m))")
-end
+abstract type Mode{N, T} end
 
 function eval_mode(m::Mode{1}, x)
     error("Not implemented for $(typeof(m))")
@@ -23,7 +19,7 @@ function (m::Mode{1})(x_vec::AbstractVector; xc = 0.0)
     [eval_mode(m, x) for x in x_vec]
 end
 
-function (m::Mode{2})(u::AbstractArray{T, 2},
+function (m::Mode{2, T})(u::AbstractArray{Complex{T}, 2},
         x_vec::AbstractVector,
         y_vec::AbstractVector,
         t::AbstractAffineMap = Id2D()) where {T}
@@ -38,11 +34,11 @@ function (m::Mode{2})(u::AbstractArray{T, 2},
     u
 end
 
-function (m::Mode{2})(
-        x_vec::AbstractVector, y_vec::AbstractVector, t::AbstractAffineMap = Id2D())
+function (m::Mode{2, T})(x_vec::AbstractVector, y_vec::AbstractVector,
+        t::AbstractAffineMap = Id2D()) where {T}
     nx = length(x_vec)
     ny = length(y_vec)
-    u = zeros(eltype(m), (nx, ny))
+    u = zeros(Complex{T}, (nx, ny))
     m(u, x_vec, y_vec, t)
 end
 

@@ -1,19 +1,8 @@
 using Statistics
 
-function array3D(u::AbstractArray)
+function vec2D(u::AbstractArray)
     @assert ndims(u) >= 2
-    nx, ny = size(u)
-    reshape(u, (nx, ny, div(length(u), nx*ny)))
-end
-
-function vec_array2D(u::AbstractArray)
-    @assert ndims(u) >= 3
-    ur = array3D(u)
-    [@view(u[:, :, k]) for k in 1:size(ur, 3)]
-end
-
-function vec_array2D(u::ScalarField)
-    vec_array2D(u.data)
+    eachslice(u; dims = Tuple(3:ndims(u)))
 end
 
 function intensity(x::T) where {T <: Number}
@@ -30,8 +19,7 @@ end
 
 function intensity2D(u::AbstractArray)
     @assert ndims(u) >= 2
-    ur = array3D(u)
-    @views sum(intensity, ur, dims = 3)[:, :, 1]
+    @views sum(intensity, u, dims = Tuple(3:ndims(u)))[:, :, 1]
 end
 
 function phase(u::AbstractArray)

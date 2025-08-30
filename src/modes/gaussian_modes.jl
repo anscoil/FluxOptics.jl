@@ -35,7 +35,7 @@ function lg_normalisation_constant(w0, p, l)
     sqrt(2*factorial(p) / (π*factorial(p + abs(l))))/w0
 end
 
-struct Gaussian1D{T, P <: Union{Nothing, <:NamedTuple}} <: Mode{1}
+struct Gaussian1D{T, P <: Union{Nothing, <:NamedTuple}} <: Mode{1, T}
     w0::T
     C::Complex{T}
     data::P
@@ -59,10 +59,6 @@ struct Gaussian1D{T, P <: Union{Nothing, <:NamedTuple}} <: Mode{1}
     end
 end
 
-function Base.eltype(m::Gaussian1D{T}) where {T}
-    Complex{T}
-end
-
 function eval_exp_arg(m::Gaussian1D{<:Real, Nothing}, x)
     -(x/m.w0)^2
 end
@@ -81,7 +77,7 @@ function eval_mode(m::Gaussian1D{<:Real, <:NamedTuple}, x)
     sqrt(m.C) * exp(eval_exp_arg(m, x)) * d.eikz
 end
 
-struct Gaussian{G <: Gaussian1D} <: Mode{2}
+struct Gaussian{T, G <: Gaussian1D{T}} <: Mode{2, T}
     gx::G
     gy::G
 
@@ -90,13 +86,14 @@ struct Gaussian{G <: Gaussian1D} <: Mode{2}
         gx = Gaussian1D(T(w0x), λ, z; constant_phase = constant_phase)
         gy = Gaussian1D(T(w0y), λ, z; constant_phase = false)
         # We don't want to account for constant phase twice
-        new{typeof(gx)}(gx, gy)
+        new{T, typeof(gx)}(gx, gy)
     end
 
     function Gaussian(w0x::Real, w0y::Real)
+        T = float(promote_type(typeof(w0x), typeof(w0y)))
         gx = Gaussian1D(w0x)
         gy = Gaussian1D(w0y)
-        new{typeof(gx)}(gx, gy)
+        new{T, typeof(gx)}(gx, gy)
     end
 
     function Gaussian(w0::Real, λ::Real, z::Real; constant_phase = true)
@@ -106,10 +103,6 @@ struct Gaussian{G <: Gaussian1D} <: Mode{2}
     function Gaussian(w0::Real)
         Gaussian(w0, w0)
     end
-end
-
-function Base.eltype(m::Gaussian)
-    promote_type(eltype(m.gx), eltype(m.gy))
 end
 
 function eval_constant_phase(m::Gaussian1D{T, Nothing}) where {T <: Real}
@@ -138,7 +131,7 @@ function hermite_polynomial(n::Integer)
     end
 end
 
-struct HermiteGaussian1D{T, G <: Gaussian1D{T}, P} <: Mode{1}
+struct HermiteGaussian1D{T, G <: Gaussian1D{T}, P} <: Mode{1, T}
     g::G
     C::Complex{T}
     hn::P
@@ -163,10 +156,6 @@ struct HermiteGaussian1D{T, G <: Gaussian1D{T}, P} <: Mode{1}
     end
 end
 
-function Base.eltype(m::HermiteGaussian1D{T}) where {T}
-    Complex{T}
-end
-
 function eval_wz(m::HermiteGaussian1D{T, <:Gaussian1D{T, Nothing}}) where {T}
     m.g.w0
 end
@@ -180,7 +169,7 @@ function eval_mode(m::HermiteGaussian1D, x)
     m.C * m.hn(sqrt(2)*x/wz) * eval_mode(m.g, x)
 end
 
-struct HermiteGaussian{G <: HermiteGaussian1D} <: Mode{2}
+struct HermiteGaussian{T, G <: HermiteGaussian1D{T}} <: Mode{2, T}
     hgx::G
     hgy::G
 
@@ -191,13 +180,14 @@ struct HermiteGaussian{G <: HermiteGaussian1D} <: Mode{2}
         hgx = HermiteGaussian1D(T(w0x), m, λ, z; constant_phase = constant_phase)
         hgy = HermiteGaussian1D(T(w0y), n, λ, z; constant_phase = false)
         # We don't want to account for constant phase twice
-        new{typeof(hgx)}(hgx, hgy)
+        new{T, typeof(hgx)}(hgx, hgy)
     end
 
     function HermiteGaussian(w0x::Real, w0y::Real, m::Integer, n::Integer)
+        T = float(promote_type(typeof(w0x), typeof(w0y)))
         hgx = HermiteGaussian1D(w0x, m)
         hgy = HermiteGaussian1D(w0y, n)
-        new{typeof(hgx)}(hgx, hgy)
+        new{T, typeof(hgx)}(hgx, hgy)
     end
 
     function HermiteGaussian(w0::Real, m::Integer, n::Integer, λ::Real, z::Real;
@@ -208,10 +198,6 @@ struct HermiteGaussian{G <: HermiteGaussian1D} <: Mode{2}
     function HermiteGaussian(w0::Real, m::Integer, n::Integer)
         HermiteGaussian(w0, w0, m, n)
     end
-end
-
-function Base.eltype(m::HermiteGaussian)
-    promote_type(eltype(m.hgx), eltype(m.hgy))
 end
 
 function eval_mode(m::HermiteGaussian, x, y)
@@ -249,7 +235,7 @@ function laguerre_polynomial(p::Integer, l::Integer)
     end
 end
 
-struct LaguerreGaussian{T, P <: Union{Nothing, <:NamedTuple}, K, L} <: Mode{2}
+struct LaguerreGaussian{T, P <: Union{Nothing, <:NamedTuple}, K, L} <: Mode{2, T}
     w0::T
     C::Complex{T}
     lp::L
