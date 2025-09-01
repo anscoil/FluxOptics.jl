@@ -28,16 +28,22 @@ struct RSProp{M, K, T, Tp} <: AbstractPropagator{M, K}
     end
 
     function RSProp(u::ScalarField{U, Nd},
+            ds::NTuple{Nd, Real},
             z::Real,
             use_cache::Bool = false;
             double_precision_kernel::Bool = true
     ) where {Nd, T, U <: AbstractArray{Complex{T}}}
         ns = size(u)[1:Nd]
         cache_size = use_cache ? length(unique(u.lambdas)) : 0
-        kernel = ConvolutionKernel(u.data, ns, u.ds, cache_size)
+        kernel = ConvolutionKernel(u.data, ns, ds, cache_size)
         Tp = double_precision_kernel ? Float64 : T
-        nrm_f = Tp(prod(u.ds)/2π)
+        nrm_f = Tp(prod(ds)/2π)
         new{Static, typeof(kernel), T, Tp}(kernel, Tp(z), nrm_f)
+    end
+
+    function RSProp(u::ScalarField, z::Real, use_cache::Bool = false;
+            double_precision_kernel::Bool = true)
+        RSProp(u, u.ds, z, use_cache; double_precision_kernel = double_precision_kernel)
     end
 end
 

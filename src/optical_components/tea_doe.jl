@@ -69,7 +69,7 @@ struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
         @assert Nd in (1, 2)
         @assert N >= Nd
         P = adapt_dim(U, Nd, real)
-        xs = spatial_vectors(size(u)[1:Nd], ds; center = center)
+        xs = spatial_vectors(size(u)[1:Nd], ds; center = (-).(center))
         h = Nd == 2 ? P(f.(xs[1], xs[2]')) : P(f.(xs[1]))
         ∂p = prealloc_gradient ? (; h = similar(h)) : nothing
         u = trainable ? similar(u) : nothing
@@ -109,12 +109,12 @@ Functors.@functor TeaDOE (h,)
 Base.collect(p::TeaDOE) = collect(p.h)
 Base.size(p::TeaDOE) = size(p.h)
 
-function init!(p::TeaDOE, v::Real)
+function Base.fill!(p::TeaDOE, v::Real)
     p.h .= v
     p
 end
 
-function init!(p::TeaDOE, v::AbstractArray)
+function Base.fill!(p::TeaDOE, v::AbstractArray)
     copyto!(p.h, v)
     p
 end
@@ -155,10 +155,10 @@ end
 function compute_surface_gradient!(
         ∂h::P,
         ∂u::U,
+        u::U,
         lambdas,
         dn::Function,
-        r::Function,
-        u::U) where {T <: Real,
+        r::Function) where {T <: Real,
         Nd,
         P <: AbstractArray{T, Nd},
         U <: AbstractArray{<:Complex{T}}}
@@ -170,6 +170,6 @@ end
 function backpropagate_with_gradient!(∂v::ScalarField, ∂p::NamedTuple,
         p::TeaDOE{<:Trainable}, direction::Type{<:Direction})
     ∂u = backpropagate!(∂v, p, direction)
-    compute_surface_gradient!(∂p.h, ∂u.data, ∂u.lambdas, p.dn, p.r, p.u)
+    compute_surface_gradient!(∂p.h, ∂u.data, p.u, ∂u.lambdas, p.dn, p.r)
     (∂u, ∂p)
 end

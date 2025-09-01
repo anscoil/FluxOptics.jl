@@ -116,10 +116,10 @@ function visualize(u_vec, fs::Union{Function, Tuple};
         ratio*n_fields_per_col*nx*n_cols, ratio*ny, max_width, width, height)
 
     width_offset = show_colorbars ? n_cols*(25 + n_fields_per_col*20) : 0
-    height_offset = 0
-    if show_colorbars
-        height_offset += 40 * (n_lines-1)
-    end
+    height_offset = 10
+    # if show_colorbars
+    #     height_offset += 10 * (n_lines-1)
+    # end
     fig = Figure(size = (fig_width + width_offset, n_lines*fig_height + height_offset))
 
     for (i, u_fields) in enumerate(u_vec)
@@ -134,7 +134,7 @@ function visualize(u_vec, fs::Union{Function, Tuple};
                 hm, is_complex, factor = fill_heatmap!(ax, f[k], collect(u), cmap[k])
                 if show_colorbars && !is_complex
                     Colorbar(cell[1, 2], hm; width = 10,
-                        height = fig_height-n_fields_per_col*20, tickformat = "{:.1f}")
+                        height = fig_height-(n_fields_per_col*n_cols)*20, tickformat = "{:.1f}")
                     if !iszero(factor)
                         lbl = Label(cell[1, 2, Top()], LaTeXString("\\times 10^{$factor}"))
                         lbl.padding[] = (0, 0, 2, 0)

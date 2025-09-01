@@ -2,14 +2,18 @@ module Modes
 
 using ..GridUtils
 
-abstract type Mode{N, T} end
+abstract type Mode{N, T} <: Function end
 
-function eval_mode(m::Mode{1}, x)
+function Base.eltype(m::Mode{N, T}) where {N, T <: Real}
+    Complex{T}
+end
+
+function eval_mode(m::Mode, x...)
     error("Not implemented for $(typeof(m))")
 end
 
-function eval_mode(m::Mode{2}, x, y)
-    error("Not implemented for $(typeof(m))")
+function (m::Mode{N})(x::Vararg{Real, N}) where {N}
+    eval_mode(m, x...)
 end
 
 function (m::Mode{1})(x_vec::AbstractVector; xc = 0.0)
@@ -63,6 +67,10 @@ end
 include("gaussian_modes.jl")
 export Gaussian1D, Gaussian, HermiteGaussian1D, HermiteGaussian, LaguerreGaussian
 export hermite_gaussian_groups
+
+using AbstractFFTs
+include("speckle_generator.jl")
+export generate_speckle
 
 include("layouts.jl")
 export PointLayout, GridLayout, TriangleLayout, CustomLayout

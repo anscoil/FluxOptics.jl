@@ -2,6 +2,9 @@ module OpticalComponents
 
 using Functors
 using AbstractFFTs
+using EllipsisNotation
+using LRUCache
+using ..FluxOptics: get_data, intensity
 using ..GridUtils
 using ..Fields
 using ..FFTutils
@@ -12,7 +15,7 @@ export Trainability, Trainable, Static
 export AbstractOpticalComponent, AbstractOpticalSource
 export AbstractCustomComponent, AbstractCustomSource
 export AbstractPureComponent, AbstractPureSource
-export init!, propagate!, propagate
+export propagate!, propagate
 export propagate_and_save!, propagate_and_save
 export backpropagate!, backpropagate
 export backpropagate_with_gradient!, backpropagate_with_gradient
@@ -45,7 +48,7 @@ end
 
 abstract type AbstractOpticalComponent{M <: Trainability} end
 
-function init!(p::AbstractOpticalComponent, v)
+function Base.fill!(p::AbstractOpticalComponent, v)
     error("Not implemented")
 end
 
@@ -169,9 +172,7 @@ function conj_direction(mask, ::Type{Backward})
     conj(mask)
 end
 
-include("abstract_kernel.jl")
-
-include("freespace.jl")
+include("freespace_propagators/freespace.jl")
 export ASProp, ASPropZ, RSProp, CollinsProp, FourierLens, ParaxialProp
 
 include("scalar_source.jl")
@@ -188,5 +189,8 @@ export TeaDOE, TeaReflector
 
 include("field_probe.jl")
 export FieldProbe
+
+include("active_media/active_media.jl")
+export GainSheet
 
 end

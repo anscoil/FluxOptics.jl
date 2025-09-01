@@ -1,9 +1,9 @@
 module Fields
 
 using Functors
+using ..FluxOptics
 
 export ScalarField
-export get_data, collect_data
 export power, normalize_power!
 
 import Base: +, -, *, /
@@ -78,12 +78,8 @@ function Base.similar(u::ScalarField)
     ScalarField(similar(u.data), u.ds, u.lambdas, u.lambdas_collection)
 end
 
-function get_data(u::ScalarField)
+function FluxOptics.get_data(u::ScalarField)
     u.data
-end
-
-function get_data(u::AbstractArray)
-    u
 end
 
 function Base.collect(u::ScalarField)
@@ -92,25 +88,18 @@ end
 
 function Base.vec(u::ScalarField{U, Nd}) where {U, Nd}
     [ScalarField(data, u.ds, u.lambdas, u.lambdas_collection)
-     for data in eachslice(u.data; dims = Tuple((Nd + 1):ndims(u)))]
+     for data in reshape(eachslice(u.data; dims = Tuple((Nd + 1):ndims(u))), :)]
 end
 
-function power(u::AbstractArray{T, N}, ds::NTuple{Nd, Real}) where {T, N, Nd}
-    @assert N >= Nd
-    dims = ntuple(k -> k, Nd)
-    sum(abs2, u; dims = dims) .* prod(ds)
+function FluxOptics.intensity(u::ScalarField{U, Nd}) where {U, Nd}
+    reshape(sum(intensity, u.data; dims = Tuple((Nd + 1):ndims(u))), size(u)[1:Nd])
 end
 
-function power(u::ScalarField)
+function FluxOptics.power(u::ScalarField)
     power(u.data, u.ds)
 end
 
-function normalize_power!(u::AbstractArray, ds::NTuple, v = 1)
-    u .*= sqrt.(v ./ power(u, ds))
-    u
-end
-
-function normalize_power!(u::ScalarField, v = 1)
+function FluxOptics.normalize_power!(u::ScalarField, v = 1)
     normalize_power!(u.data, u.ds, v)
     u
 end

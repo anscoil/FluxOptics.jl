@@ -19,19 +19,19 @@ function get_q(w0, λ, z)
     z - im*zR
 end
 
-function gaussian_normalisation_constant(w0)
+function gaussian_normalization_constant(w0)
     sqrt(sqrt(2/π)/w0)
 end
 
-function hg_normalisation_constant(m)
+function hg_normalization_constant(m)
     1 / sqrt(2^m*factorial(m))
 end
 
-function hg_normalisation_constant(w0, m)
-    gaussian_normalisation_constant(w0) * hg_normalisation_constant(m)
+function hg_normalization_constant(w0, m)
+    gaussian_normalization_constant(w0) * hg_normalization_constant(m)
 end
 
-function lg_normalisation_constant(w0, p, l)
+function lg_normalization_constant(w0, p, l)
     sqrt(2*factorial(p) / (π*factorial(p + abs(l))))/w0
 end
 
@@ -40,21 +40,26 @@ struct Gaussian1D{T, P <: Union{Nothing, <:NamedTuple}} <: Mode{1, T}
     C::Complex{T}
     data::P
 
-    function Gaussian1D(w0::Real, λ::Real, z::Real; constant_phase = true)
+    function Gaussian1D(w0::Real, λ::Real, z::Real; constant_phase = true,
+            norm_constant = nothing)
         T = float(eltype(w0))
         q0 = Complex{T}(get_q(w0, λ, 0))
         qz = Complex{T}(get_q(w0, λ, z))
         wz = Complex{T}(get_w(w0, λ, z))
         k = T(2π/λ)
         eikz = constant_phase ? Complex{T}(exp(im*k*z)) : Complex{T}(1)
-        C = gaussian_normalisation_constant(w0) * sqrt(q0 / qz)
+        normalization_constant = isnothing(norm_constant) ?
+                                 gaussian_normalization_constant(w0) : norm_constant
+        C = normalization_constant * sqrt(q0 / qz)
         data = (λ = λ, z = z, wz = wz, qz = qz, eikz = eikz, e_arg = im*k/(2*qz))
         new{T, typeof(data)}(w0, C, data)
     end
 
-    function Gaussian1D(w0::Real)
+    function Gaussian1D(w0::Real; norm_constant = nothing)
         T = float(eltype(w0))
-        C = Complex{T}(gaussian_normalisation_constant(w0))
+        normalization_constant = isnothing(norm_constant) ?
+                                 gaussian_normalization_constant(w0) : norm_constant
+        C = Complex{T}(normalization_constant)
         new{T, Nothing}(w0, C, nothing)
     end
 end
@@ -81,27 +86,31 @@ struct Gaussian{T, G <: Gaussian1D{T}} <: Mode{2, T}
     gx::G
     gy::G
 
-    function Gaussian(w0x::Real, w0y::Real, λ::Real, z::Real; constant_phase = true)
+    function Gaussian(w0x::Real, w0y::Real, λ::Real, z::Real;
+            constant_phase = true, norm_constant = nothing)
         T = float(promote_type(typeof(w0x), typeof(w0y)))
-        gx = Gaussian1D(T(w0x), λ, z; constant_phase = constant_phase)
-        gy = Gaussian1D(T(w0y), λ, z; constant_phase = false)
+        gx = Gaussian1D(
+            T(w0x), λ, z; constant_phase = constant_phase, norm_constant = norm_constant)
+        gy = Gaussian1D(T(w0y), λ, z; constant_phase = false, norm_constant = norm_constant)
         # We don't want to account for constant phase twice
         new{T, typeof(gx)}(gx, gy)
     end
 
-    function Gaussian(w0x::Real, w0y::Real)
+    function Gaussian(w0x::Real, w0y::Real; norm_constant = nothing)
         T = float(promote_type(typeof(w0x), typeof(w0y)))
-        gx = Gaussian1D(w0x)
-        gy = Gaussian1D(w0y)
+        gx = Gaussian1D(w0x; norm_constant = norm_constant)
+        gy = Gaussian1D(w0y; norm_constant = norm_constant)
         new{T, typeof(gx)}(gx, gy)
     end
 
-    function Gaussian(w0::Real, λ::Real, z::Real; constant_phase = true)
-        Gaussian(w0, w0, λ, z; constant_phase = constant_phase)
+    function Gaussian(w0::Real, λ::Real, z::Real;
+            constant_phase = true, norm_constant = nothing)
+        Gaussian(w0, w0, λ, z;
+            constant_phase = constant_phase, norm_constant = norm_constant)
     end
 
-    function Gaussian(w0::Real)
-        Gaussian(w0, w0)
+    function Gaussian(w0::Real; norm_constant = nothing)
+        Gaussian(w0, w0, norm_constant = norm_constant)
     end
 end
 
@@ -143,7 +152,7 @@ struct HermiteGaussian1D{T, G <: Gaussian1D{T}, P} <: Mode{1, T}
         g = Gaussian1D(w0, λ, z; constant_phase = constant_phase)
         hn = hermite_polynomial(n)
         qz = g.data.qz
-        C = hg_normalisation_constant(n)*(-conj(qz)/qz)^(n/2)
+        C = hg_normalization_constant(n)*(-conj(qz)/qz)^(n/2)
         new{T, typeof(g), typeof(hn)}(g, C, hn, n)
     end
 
@@ -151,7 +160,7 @@ struct HermiteGaussian1D{T, G <: Gaussian1D{T}, P} <: Mode{1, T}
         T = float(eltype(w0))
         g = Gaussian1D(w0)
         hn = hermite_polynomial(n)
-        C = hg_normalisation_constant(n)
+        C = hg_normalization_constant(n)
         new{T, typeof(g), typeof(hn)}(g, C, hn, n)
     end
 end
@@ -252,7 +261,7 @@ struct LaguerreGaussian{T, P <: Union{Nothing, <:NamedTuple}, K, L} <: Mode{2, T
         wz = Complex{T}(get_w(w0, λ, z))
         k = T(2π/λ)
         eikz = constant_phase ? Complex{T}(exp(im*k*z)) : Complex{T}(1)
-        C = lg_normalisation_constant(w0, p, l) * (q0/qz) * (-conj(qz)/qz)^(p+abs(l)/2)
+        C = lg_normalization_constant(w0, p, l) * (q0/qz) * (-conj(qz)/qz)^(p+abs(l)/2)
         lp = laguerre_polynomial(p, abs(l))
         data = (λ = λ, z = z, wz = wz, eikz = eikz, e_arg = im*k/(2*qz))
         kind = parse_kind(kind)
@@ -264,7 +273,7 @@ struct LaguerreGaussian{T, P <: Union{Nothing, <:NamedTuple}, K, L} <: Mode{2, T
 
     function LaguerreGaussian(w0::Real, p::Integer, l::Integer; kind = :vortex)
         T = float(eltype(w0))
-        C = Complex{T}(lg_normalisation_constant(w0, p, l))
+        C = Complex{T}(lg_normalization_constant(w0, p, l))
         lp = laguerre_polynomial(p, abs(l))
         kind = parse_kind(kind)
         L = typeof(lp)

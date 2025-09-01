@@ -5,15 +5,14 @@ __precompile__()
 using Requires
 using LinearAlgebra
 
-include("Fields.jl")
-using .Fields
-export ScalarField
-export get_data, collect_data
-export power, normalize_power!
-
 include("measure.jl")
 export vec2D
 export intensity, intensity2D, phase, rms_error, correlation
+export get_data, power, normalize_power!
+
+include("Fields.jl")
+using .Fields
+export ScalarField
 
 include("GridUtils.jl")
 using .GridUtils
@@ -25,7 +24,7 @@ using .Modes
 export Gaussian1D, Gaussian, HermiteGaussian1D, HermiteGaussian, LaguerreGaussian
 export hermite_gaussian_groups
 export PointLayout, GridLayout, TriangleLayout, CustomLayout
-export generate_mode_stack
+export generate_speckle, generate_mode_stack
 
 include("FFTutils.jl")
 using .FFTutils
@@ -33,13 +32,14 @@ using .FFTutils
 include("optical_components/OpticalComponents.jl")
 using .OpticalComponents
 export Forward, Backward
-export init!, propagate!, propagate
+export propagate!, propagate
 export propagate_and_save!, propagate_and_save
 export backpropagate!, backpropagate
 export backpropagate_with_gradient!, backpropagate_with_gradient
 export ASProp, ASPropZ, RSProp, CollinsProp, FourierLens, ParaxialProp
 export ScalarSource, get_source, Phase, ComplexMask, TeaDOE, TeaReflector
 export FieldProbe
+export GainSheet
 
 include("proximal_operators/ProximalOperators.jl")
 using .ProximalOperators

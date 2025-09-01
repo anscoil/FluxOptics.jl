@@ -16,13 +16,33 @@ function ParaxialProp(u::AbstractArray{<:Complex},
 end
 
 # Careful that z != 0
-function ParaxialProp(u::ScalarField{U},
+function ParaxialProp(u::ScalarField{U, Nd},
+        ds::NTuple{Nd, Real},
         ds′::NTuple{Nd, Real},
         z::Real,
         use_cache::Bool = false;
+        filter = nothing,
         double_precision_kernel::Bool = true
 ) where {Nd, U <: AbstractArray{<:Complex}}
-    CollinsProp(u, ds′, (1, z, 1), use_cache;
+    if ds == ds′
+        ASProp(u, ds, z, use_cache;
+            filter = filter, paraxial = true,
+            double_precision_kernel = double_precision_kernel)
+    else
+        CollinsProp(u, ds, ds′, (1, z, 1), use_cache;
+            double_precision_kernel = double_precision_kernel)
+    end
+end
+
+# Careful that z != 0
+function ParaxialProp(u::ScalarField{U, Nd},
+        ds′::NTuple{Nd, Real},
+        z::Real,
+        use_cache::Bool = false;
+        filter = nothing,
+        double_precision_kernel::Bool = true
+) where {Nd, U <: AbstractArray{<:Complex}}
+    ParaxialProp(u, u.ds, ds′, z, use_cache;
         double_precision_kernel = double_precision_kernel)
 end
 
@@ -30,20 +50,19 @@ function ParaxialProp(u::AbstractArray{<:Complex},
         ds::NTuple{Nd, Real},
         z::Real,
         λ::Real;
-        filter::H = nothing,
+        filter = nothing,
         double_precision_kernel::Bool = true
-) where {Nd, H}
+) where {Nd}
     ASProp(u, ds, z, λ;
         filter = filter, paraxial = true,
         double_precision_kernel = double_precision_kernel)
 end
 
-function ParaxialProp(u::ScalarField{U},
+function ParaxialProp(u::ScalarField,
         z::Real,
         use_cache::Bool = false;
-        filter::H = nothing,
-        double_precision_kernel::Bool = true
-) where {H, U <: AbstractArray{<:Complex}}
+        filter = nothing,
+        double_precision_kernel::Bool = true)
     ASProp(u, z, use_cache;
         filter = filter, paraxial = true,
         double_precision_kernel = double_precision_kernel)

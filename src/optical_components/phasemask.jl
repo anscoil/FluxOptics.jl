@@ -45,7 +45,7 @@ struct Phase{M, A, U} <: AbstractCustomComponent{M}
         @assert Nd in (1, 2)
         @assert N >= Nd
         P = adapt_dim(U, Nd, real)
-        xs = spatial_vectors(size(u)[1:Nd], ds; center = center)
+        xs = spatial_vectors(size(u)[1:Nd], ds; center = (-).(center))
         ϕ = Nd == 2 ? P(f.(xs[1], xs[2]')) : P(f.(xs[1]))
         ∂p = prealloc_gradient ? (; ϕ = similar(ϕ)) : nothing
         u = trainable ? similar(u) : nothing
@@ -69,12 +69,12 @@ Functors.@functor Phase (ϕ,)
 Base.collect(p::Phase) = collect(p.ϕ)
 Base.size(p::Phase) = size(p.ϕ)
 
-function init!(p::Phase, v::Real)
+function Base.fill!(p::Phase, v::Real)
     p.ϕ .= v
     p
 end
 
-function init!(p::Phase, v::AbstractArray)
+function Base.fill!(p::Phase, v::AbstractArray)
     copyto!(p.ϕ, v)
     p
 end

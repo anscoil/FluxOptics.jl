@@ -53,6 +53,7 @@ struct ASProp{M, K, T, Tp, H} <: AbstractPropagator{M, K}
     end
 
     function ASProp(u::ScalarField{U, Nd},
+            ds::NTuple{Nd, Real},
             z::Real,
             use_cache::Bool = false;
             filter::H = nothing,
@@ -61,9 +62,17 @@ struct ASProp{M, K, T, Tp, H} <: AbstractPropagator{M, K}
     ) where {Nd, T, H, U <: AbstractArray{Complex{T}}}
         ns = size(u)[1:Nd]
         cache_size = use_cache ? length(unique(u.lambdas)) : 0
-        kernel = FourierKernel(u.data, ns, u.ds, cache_size)
+        kernel = FourierKernel(u.data, ns, ds, cache_size)
         Tp = double_precision_kernel ? Float64 : T
         new{Static, typeof(kernel), T, Tp, H}(kernel, paraxial, Tp(z), filter)
+    end
+
+    function ASProp(u::ScalarField, z::Real, use_cache::Bool = false;
+            filter = nothing,
+            paraxial::Bool = false,
+            double_precision_kernel::Bool = true)
+        ASProp(u, u.ds, z, use_cache; filter = filter, paraxial = paraxial,
+            double_precision_kernel = double_precision_kernel)
     end
 end
 
@@ -113,6 +122,7 @@ struct ASPropZ{M, A, V, H} <: AbstractPureComponent{M}
     end
 
     function ASPropZ(u::ScalarField{U, Nd},
+            ds::NTuple{Nd, Real},
             z::Real;
             trainable::Bool = false,
             paraxial::Bool = false,
@@ -121,13 +131,22 @@ struct ASPropZ{M, A, V, H} <: AbstractPureComponent{M}
     ) where {Nd, T, H, U <: AbstractArray{Complex{T}}}
         ns = size(u)[1:Nd]
         F = adapt_dim(U, 1, real)
-        fs = [fftfreq(nx, 1/dx) |> F for (nx, dx) in zip(ns, u.ds)]
+        fs = [fftfreq(nx, 1/dx) |> F for (nx, dx) in zip(ns, ds)]
         f_vec = Nd == 2 ? (; x = fs[1], y = fs[2]') : (; x = fs[1])
         V = typeof(f_vec)
         M = trainable ? Trainable{GradNoAlloc} : Static
         Tp = double_precision_kernel ? Float64 : T
         z_arr = Tp.([z] |> F)
         new{M, typeof(z_arr), V, H}(z_arr, paraxial, f_vec, filter)
+    end
+
+    function ASPropZ(u::ScalarField, z::Real;
+            trainable::Bool = false,
+            paraxial::Bool = false,
+            filter = nothing,
+            double_precision_kernel::Bool = true)
+        ASPropZ(u, u.ds, z; trainable = trainable, paraxial = paraxial, filter = filter,
+            double_precision_kernel = double_precision_kernel)
     end
 end
 

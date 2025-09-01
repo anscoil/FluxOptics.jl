@@ -1,5 +1,4 @@
-using EllipsisNotation
-using LRUCache
+include("abstract_kernel.jl")
 
 abstract type AbstractPropagator{M, K} <: AbstractCustomComponent{M} end
 

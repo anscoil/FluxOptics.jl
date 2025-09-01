@@ -68,27 +68,37 @@ struct CollinsProp{M, K, T, Tp, Nd} <: AbstractPropagator{M, K}
         new{Static, typeof(kernel), T, Tp, Nd}(kernel, αs, ds, ds′, abd, nrm_fwd, nrm_bwd)
     end
 
-    function CollinsProp(u::ScalarField{U},
+    function CollinsProp(u::ScalarField{U, Nd},
+            ds::NTuple{Nd, Real},
             ds′::NTuple{Nd, Real},
             abd::Tuple{<:Real, <:Real, <:Real},
             use_cache::Bool = false;
             double_precision_kernel::Bool = true
     ) where {N, Nd, T, U <: AbstractArray{Complex{T}, N}}
         @assert N >= Nd
-        @assert length(u.ds) == Nd
         ns = size(u)[1:Nd]
         cache_size = use_cache ? length(unique(u.lambdas)) : 0
-        a_chirp = ChirpKernel(u.data, ns, u.ds, cache_size)
-        d_chirp = ChirpKernel(u.data, ns, u.ds, cache_size)
-        conv_kernel = ConvolutionKernel(u.data, ns, u.ds, cache_size)
+        a_chirp = ChirpKernel(u.data, ns, ds, cache_size)
+        d_chirp = ChirpKernel(u.data, ns, ds, cache_size)
+        conv_kernel = ConvolutionKernel(u.data, ns, ds, cache_size)
         kernel = CollinsKernel(a_chirp, d_chirp, conv_kernel)
         Tp = double_precision_kernel ? Float64 : T
-        αs = Tuple([Tp(dx′/dx) for (dx, dx′) in zip(u.ds, ds′)])
+        αs = Tuple([Tp(dx′/dx) for (dx, dx′) in zip(ds, ds′)])
         _, b = abd
-        nrm_fwd = Complex{Tp}(prod(u.ds ./ sqrt(im*b)))
+        nrm_fwd = Complex{Tp}(prod(ds ./ sqrt(im*b)))
         nrm_bwd = Complex{Tp}(prod(ds′ ./ sqrt(-im*b)))
         new{Static, typeof(kernel), T, Tp, Nd}(
-            kernel, αs, u.ds, ds′, Tp.(abd), nrm_fwd, nrm_bwd)
+            kernel, αs, ds, ds′, Tp.(abd), nrm_fwd, nrm_bwd)
+    end
+
+    function CollinsProp(u::ScalarField{U, Nd},
+            ds′::NTuple{Nd, Real},
+            abd::Tuple{<:Real, <:Real, <:Real},
+            use_cache::Bool = false;
+            double_precision_kernel::Bool = true
+    ) where {Nd, U <: AbstractArray{<:Complex}}
+        CollinsProp(u, u.ds, ds′, abd, use_cache;
+            double_precision_kernel = double_precision_kernel)
     end
 end
 

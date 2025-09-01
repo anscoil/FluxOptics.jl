@@ -2,7 +2,7 @@ using Statistics
 
 function vec2D(u::AbstractArray)
     @assert ndims(u) >= 2
-    eachslice(u; dims = Tuple(3:ndims(u)))
+    reshape(eachslice(u; dims = Tuple(3:ndims(u))), :)
 end
 
 function intensity(x::T) where {T <: Number}
@@ -32,4 +32,19 @@ end
 
 function correlation(u, v)
     abs(dot(u, v)/(norm(u)*norm(v)))^2
+end
+
+function get_data(u::AbstractArray)
+    u
+end
+
+function power(u::AbstractArray{T, N}, ds::NTuple{Nd, Real}) where {T, N, Nd}
+    @assert N >= Nd
+    dims = ntuple(k -> k, Nd)
+    sum(abs2, u; dims = dims) .* prod(ds)
+end
+
+function normalize_power!(u::AbstractArray, ds::NTuple, v = 1)
+    u .*= sqrt.(v ./ power(u, ds))
+    u
 end

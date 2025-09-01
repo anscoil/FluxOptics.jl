@@ -124,8 +124,8 @@ function generate_mode_stack(
     @assert length(layout) == length(m_v)
     n_modes = length(layout)
     xv, yv = spatial_vectors(nx, ny, dx, dy)
-    T = reduce(promote_type, [m.parameters[1] for m in typeof.(m_v)])
-    modes = zeros(Complex{T}, (nx, ny, n_modes))
+    T = reduce(promote_type, eltype.(m_v))
+    modes = zeros(T, (nx, ny, n_modes))
     for (k, (pos, m)) in enumerate(zip(layout, m_v))
         mode = m(@view(modes[:, :, k]), xv, yv, Shift2D(pos...) ∘ t)
         if normalize
