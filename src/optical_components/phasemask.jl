@@ -8,29 +8,8 @@ struct Phase{M, A, U} <: AbstractCustomComponent{M}
             ∂p::@NamedTuple{ϕ::A},
             u::U
     ) where {A <: AbstractArray{<:Real, 2}, U <: AbstractArray{<:Complex}}
-        @assert size(∂p.ϕ) == size(ϕ)
-        @assert size(u)[1:ndims(ϕ)] == size(ϕ)
-        new{Trainable{GradAllocated}, A, U}(ϕ, ∂p, u)
-    end
-
-    function Phase(
-            ϕ::A, u::U) where {A <: AbstractArray{<:Real, 2},
-            U <: AbstractArray{<:Complex}}
-        @assert size(u)[1:ndims(ϕ)] == size(ϕ)
-        new{Trainable{GradNoAlloc}, A, U}(ϕ, nothing, u)
-    end
-
-    function Phase(ϕ::A) where {A <: AbstractArray{<:Real, 2}}
-        new{Static, A, Nothing}(ϕ, nothing, nothing)
-    end
-
-    function Phase(ϕ::A, ∂p::Nothing,
-            u::U) where {A <: AbstractArray{<:Real, 2}, U <: AbstractArray{<:Complex}}
-        Phase(ϕ, u)
-    end
-
-    function Phase(ϕ::A, ∂p::Nothing, u::Nothing) where {A <: AbstractArray{<:Real, 2}}
-        Phase(ϕ)
+        M = isnothing(u) ? Trainable{Unbuffered} : Trainable{Buffered}
+        new{M, A, U}(ϕ, ∂p, u)
     end
 
     function Phase(
@@ -38,29 +17,29 @@ struct Phase{M, A, U} <: AbstractCustomComponent{M}
             ds::NTuple{Nd, Real},
             f::Function;
             trainable::Bool = false,
-            prealloc_gradient::Bool = false,
+            buffered::Bool = false,
             center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
     ) where {N, Nd, U <: AbstractArray{<:Complex, N}}
-        check_trainable_combination(trainable, prealloc_gradient)
+        M = trainability(trainable, buffered)
         @assert Nd in (1, 2)
         @assert N >= Nd
         P = adapt_dim(U, Nd, real)
         xs = spatial_vectors(size(u)[1:Nd], ds; center = (-).(center))
         ϕ = Nd == 2 ? P(f.(xs[1], xs[2]')) : P(f.(xs[1]))
-        ∂p = prealloc_gradient ? (; ϕ = similar(ϕ)) : nothing
-        u = trainable ? similar(u) : nothing
-        Phase(ϕ, ∂p, u)
+        ∂p = (trainable && buffered) ? (; ϕ = similar(ϕ)) : nothing
+        u = (trainable && buffered) ? similar(u) : nothing
+        A = typeof(ϕ)
+        new{M, A, U}(ϕ, ∂p, u)
     end
 
     function Phase(
             u::ScalarField{U, Nd},
             f::Function;
             trainable::Bool = false,
-            prealloc_gradient::Bool = false,
+            buffered::Bool = false,
             center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
     ) where {U <: AbstractArray{<:Complex}, Nd}
-        Phase(u.data, u.ds, f; trainable = trainable,
-            prealloc_gradient = prealloc_gradient, center = center)
+        Phase(u.data, u.ds, f; trainable = trainable, buffered = buffered, center = center)
     end
 end
 
@@ -81,7 +60,9 @@ end
 
 trainable(p::Phase{<:Trainable}) = (; ϕ = p.ϕ)
 
-get_preallocated_gradient(p::Phase{Trainable{GradAllocated}}) = p.∂p
+get_preallocated_gradient(p::Phase{Trainable{Buffered}}) = p.∂p
+
+get_saved_buffer(p::Phase{Trainable{Buffered}}) = p.u
 
 function apply_phase!(u::AbstractArray, p::Phase, ::Type{Forward})
     @. u *= cis(p.ϕ)
@@ -116,7 +97,7 @@ function compute_phase_gradient!(
         P <: AbstractArray{T, Nd},
         U <: AbstractArray{<:Complex{T}}}
     sdims = (Nd + 1):ndims(∂u)
-    @views ∂ϕ .= sum(imag.(∂u .* conj.(u)), dims = sdims)
+    ∂ϕ .= sum(imag.(∂u .* conj.(u)), dims = sdims)
 end
 
 function compute_phase_gradient!(
@@ -138,9 +119,9 @@ function compute_phase_gradient!(
     ∂ϕ
 end
 
-function backpropagate_with_gradient!(∂v, ∂p::NamedTuple, p::Phase{<:Trainable},
-        direction::Type{<:Direction})
+function backpropagate_with_gradient!(∂v, u_saved, ∂p::NamedTuple,
+        p::Phase{<:Trainable}, direction::Type{<:Direction})
     ∂u = backpropagate!(∂v, p, direction)
-    compute_phase_gradient!(∂p.ϕ, get_data(∂u), p.u)
+    compute_phase_gradient!(∂p.ϕ, get_data(∂u), get_data(u_saved))
     (∂u, ∂p)
 end

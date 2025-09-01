@@ -113,12 +113,8 @@ struct ASPropZ{M, A, V, H} <: AbstractPureComponent{M}
     f_vec::V
     filter::H
 
-    # After functor destructuring, ASPropZ is always re-instantiated
-    # as `Static`.  Even if the original instance was trainable, the
-    # restructured version does not require to expose its trainable
-    # parameters, since they are no longer optimized.
     function ASPropZ(z::A, is_paraxial::Bool, f_vec::V, filter::H) where {A, V, H}
-        new{Static, A, V, H}(z, is_paraxial, f_vec, filter)
+        new{Trainable, A, V, H}(z, is_paraxial, f_vec, filter)
     end
 
     function ASPropZ(u::ScalarField{U, Nd},
@@ -134,7 +130,7 @@ struct ASPropZ{M, A, V, H} <: AbstractPureComponent{M}
         fs = [fftfreq(nx, 1/dx) |> F for (nx, dx) in zip(ns, ds)]
         f_vec = Nd == 2 ? (; x = fs[1], y = fs[2]') : (; x = fs[1])
         V = typeof(f_vec)
-        M = trainable ? Trainable{GradNoAlloc} : Static
+        M = trainable ? Trainable : Static
         Tp = double_precision_kernel ? Float64 : T
         z_arr = Tp.([z] |> F)
         new{M, typeof(z_arr), V, H}(z_arr, paraxial, f_vec, filter)

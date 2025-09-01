@@ -2,7 +2,7 @@ struct ComplexMask{M, A} <: AbstractPureComponent{M}
     m::A
 
     function ComplexMask(m::A) where {A}
-        new{Static, A}(m)
+        new{Trainable, A}(m)
     end
 
     function ComplexMask(u::U,
@@ -15,7 +15,7 @@ struct ComplexMask{M, A} <: AbstractPureComponent{M}
         A = adapt_dim(U, Nd)
         xs = spatial_vectors(ns, ds; center = (-).(center))
         m = Nd == 2 ? A(f.(xs[1], xs[2]')) : A(f.(xs[1]))
-        M = trainable ? Trainable{GradNoAlloc} : Static
+        M = trainable ? Trainable : Static
         new{M, A}(m)
     end
 

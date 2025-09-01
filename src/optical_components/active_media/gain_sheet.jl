@@ -4,7 +4,7 @@ struct GainSheet{M, T, A} <: AbstractPureComponent{M}
     Isat::T
 
     function GainSheet(g0::A, dz::T, Isat::T) where {T, A}
-        new{Static, T, A}(g0, dz, Isat)
+        new{Trainable, T, A}(g0, dz, Isat)
     end
 
     function GainSheet(u::U,
@@ -19,7 +19,7 @@ struct GainSheet{M, T, A} <: AbstractPureComponent{M}
         A = adapt_dim(U, Nd, real)
         xs = spatial_vectors(ns, ds; center = (-).(center))
         g0 = Nd == 2 ? A(f.(xs[1], xs[2]')) : A(f.(xs[1]))
-        M = trainable ? Trainable{GradNoAlloc} : Static
+        M = trainable ? Trainable : Static
         new{M, T, A}(g0, dz, Isat)
     end
 

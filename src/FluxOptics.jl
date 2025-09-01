@@ -33,9 +33,10 @@ include("optical_components/OpticalComponents.jl")
 using .OpticalComponents
 export Forward, Backward
 export propagate!, propagate
-export propagate_and_save!, propagate_and_save
-export backpropagate!, backpropagate
-export backpropagate_with_gradient!, backpropagate_with_gradient
+export get_saved_buffer
+export AbstractOpticalComponent, AbstractOpticalSource
+export AbstractCustomComponent, AbstractCustomSource
+export AbstractPureComponent, AbstractPureSource
 export ASProp, ASPropZ, RSProp, CollinsProp, FourierLens, ParaxialProp
 export ScalarSource, get_source, Phase, ComplexMask, TeaDOE, TeaReflector
 export FieldProbe
@@ -51,6 +52,12 @@ export rules_dict, ProxRule, Fista
 include("flux_ext.jl")
 export OpticalChain, set_kwargs!
 
+using .OpticalComponents: Buffering, Buffered, Unbuffered
+using .OpticalComponents: Trainability, Trainable, Static
+using .OpticalComponents: propagate_and_save!, propagate_and_save
+using .OpticalComponents: backpropagate!, backpropagate
+using .OpticalComponents: backpropagate_with_gradient!, backpropagate_with_gradient
+using .OpticalComponents: get_preallocated_gradient, alloc_gradient
 include("chainrulescore_ext.jl")
 
 function __init__()

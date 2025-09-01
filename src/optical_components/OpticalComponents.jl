@@ -10,15 +10,11 @@ using ..Fields
 using ..FFTutils
 
 export Direction, Forward, Backward
-export GradientAllocation, GradNoAlloc, GradAllocated
-export Trainability, Trainable, Static
 export AbstractOpticalComponent, AbstractOpticalSource
 export AbstractCustomComponent, AbstractCustomSource
 export AbstractPureComponent, AbstractPureSource
 export propagate!, propagate
-export propagate_and_save!, propagate_and_save
-export backpropagate!, backpropagate
-export backpropagate_with_gradient!, backpropagate_with_gradient
+export get_saved_buffer
 
 abstract type Direction end
 struct Forward <: Direction end
@@ -32,17 +28,27 @@ function Base.reverse(::Type{Backward})
     Forward
 end
 
-abstract type GradientAllocation end
-struct GradNoAlloc <: GradientAllocation end
-struct GradAllocated <: GradientAllocation end
+abstract type Buffering end
+struct Buffered <: Buffering end
+struct Unbuffered <: Buffering end
 
 abstract type Trainability end
 struct Static <: Trainability end
-struct Trainable{A <: GradientAllocation} <: Trainability end
+struct Trainable{A <: Buffering} <: Trainability end
 
-function check_trainable_combination(trainable::Bool, prealloc_gradient::Bool)
-    if !trainable && prealloc_gradient
-        error("Invalid combination: `prealloc_gradient=true` only makes sense when `trainable=true`.")
+function trainability(trainable::Bool, buffered::Bool)
+    if trainable
+        if buffered
+            Trainable{Buffered}
+        else
+            Trainable{Unbuffered}
+        end
+    else
+        if buffered
+            @warn "Invalid combination: `bufferd=true` only makes sense when \
+            `trainable=true`.\nIgnoring buffering."
+        end
+        Static
     end
 end
 
@@ -60,11 +66,15 @@ end
 
 abstract type AbstractCustomComponent{M} <: AbstractOpticalComponent{M} end
 
-function get_preallocated_gradient(p::AbstractCustomComponent{<:Trainable{GradNoAlloc}})
+function alloc_gradient(p::AbstractCustomComponent{Trainable{Unbuffered}})
     map(similar, trainable(p))
 end
 
-function get_preallocated_gradient(p::AbstractCustomComponent{<:Trainable{GradAllocated}})
+function get_preallocated_gradient(p::AbstractCustomComponent{Trainable{Buffered}})
+    error("Not implemented")
+end
+
+function get_saved_buffer(p::AbstractCustomComponent{Trainable{Buffered}})
     error("Not implemented")
 end
 
@@ -72,7 +82,7 @@ function propagate!(u, p::AbstractCustomComponent, direction::Type{<:Direction})
     error("Not implemented")
 end
 
-function propagate_and_save!(u, p::AbstractCustomComponent{<:Trainable},
+function propagate_and_save!(u, p::AbstractCustomComponent{Trainable{Buffered}},
         direction::Type{<:Direction})
     error("Not implemented")
 end
@@ -82,7 +92,7 @@ function backpropagate!(u, p::AbstractCustomComponent, direction::Type{<:Directi
 end
 
 function backpropagate_with_gradient!(
-        ∂v, ∂p::NamedTuple, p::AbstractCustomComponent{<:Trainable},
+        ∂v, u_saved, ∂p::NamedTuple, p::AbstractCustomComponent{<:Trainable},
         direction::Type{<:Direction})
     error("Not implemented")
 end
@@ -96,7 +106,7 @@ function propagate(u::AbstractArray, p::AbstractCustomComponent,
     propagate!(copy(u), p, λ, direction)
 end
 
-function propagate_and_save(u, p::AbstractCustomComponent{<:Trainable},
+function propagate_and_save(u, p::AbstractCustomComponent{Trainable{Buffered}},
         direction::Type{<:Direction})
     propagate_and_save!(copy(u), p, direction)
 end
@@ -105,17 +115,10 @@ function backpropagate(u, p::AbstractCustomComponent, direction::Type{<:Directio
     backpropagate!(copy(u), p, direction)
 end
 
-function backpropagate_with_gradient!(
-        ∂v, p::AbstractCustomComponent{<:Trainable},
-        direction::Type{<:Direction})
-    ∂p = get_preallocated_gradient(p)
-    backpropagate_with_gradient!(∂v, ∂p, p, direction)
-end
-
 function backpropagate_with_gradient(
-        ∂v, p::AbstractCustomComponent{<:Trainable},
+        ∂v, u_saved, ∂p::NamedTuple, p::AbstractCustomComponent{<:Trainable},
         direction::Type{<:Direction})
-    backpropagate_with_gradient!(copy(∂v), p, direction)
+    backpropagate_with_gradient!(copy(∂v), u_saved, ∂p, p, direction)
 end
 
 abstract type AbstractPureComponent{M} <: AbstractOpticalComponent{M} end
@@ -138,30 +141,23 @@ abstract type AbstractPureSource{M} <: AbstractOpticalSource{M} end
 
 abstract type AbstractCustomSource{M} <: AbstractOpticalSource{M} end
 
-function get_preallocated_gradient(p::AbstractCustomSource{<:Trainable{GradNoAlloc}})
+function alloc_gradient(p::AbstractCustomSource{Trainable{Unbuffered}})
     map(similar, trainable(p))
 end
 
-function get_preallocated_gradient(p::AbstractCustomSource{<:Trainable{GradAllocated}})
+function get_preallocated_gradient(p::AbstractCustomSource{Trainable{Buffered}})
     error("Not implemented")
 end
 
-function propagate_and_save(p::AbstractCustomSource{<:Trainable},
-        direction::Type{<:Direction})
-    error("Not implemented")
-end
-
-function backpropagate_with_gradient!(
-        ∂v, ∂p::NamedTuple, p::AbstractCustomSource{<:Trainable},
+function propagate_and_save(p::AbstractCustomSource{Trainable{Buffered}},
         direction::Type{<:Direction})
     error("Not implemented")
 end
 
 function backpropagate_with_gradient(
-        ∂v, p::AbstractCustomSource{<:Trainable},
+        ∂v, ∂p::NamedTuple, p::AbstractCustomSource{<:Trainable},
         direction::Type{<:Direction})
-    ∂p = get_preallocated_gradient(p)
-    backpropagate_with_gradient!(∂v, ∂p, p, direction)
+    error("Not implemented")
 end
 
 function conj_direction(mask, ::Type{Forward})
