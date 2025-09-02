@@ -31,7 +31,7 @@ function rms_error(u, v)
 end
 
 function correlation(u, v)
-    abs(dot(u, v)/(norm(u)*norm(v)))^2
+    abs2(dot(u, v)/(norm(u)*norm(v)))
 end
 
 function get_data(u::AbstractArray)

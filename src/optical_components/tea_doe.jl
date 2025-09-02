@@ -12,7 +12,7 @@ struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
             ∂p::Union{Nothing, @NamedTuple{h::A}},
             u::U;
     ) where {Fn <: Function, Fr <: Function, T <: Real,
-            A <: AbstractArray{T, 2}, U <: AbstractArray{Complex{T}}}
+            A <: AbstractArray{T, 2}, U <: Union{Nothing, AbstractArray{Complex{T}}}}
         M = isnothing(u) ? Trainable{Unbuffered} : Trainable{Buffered}
         new{M, Fn, Fr, A, U}(dn, r, h, ∂p, u)
     end
@@ -45,6 +45,7 @@ struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
 
     function TeaDOE(
             u::ScalarField{U, Nd},
+            ds::NTuple{Nd, Real},
             dn::Union{Real, Function},
             f::Function;
             r::Union{Number, Function} = 1,
@@ -52,9 +53,32 @@ struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
             buffered::Bool = false,
             center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
     ) where {U <: AbstractArray{<:Complex}, Nd}
-        TeaDOE(u.data, u.ds, dn, f; r = r, trainable = trainable, buffered = buffered,
-            center = center)
+        TeaDOE(u.data, ds, dn, f; r, trainable, buffered, center)
     end
+
+    function TeaDOE(
+            u::ScalarField{U, Nd},
+            dn::Union{Real, Function},
+            f::Function;
+            r::Union{Number, Function} = 1,
+            trainable::Bool = false,
+            buffered::Bool = false,
+            center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
+    ) where {U <: AbstractArray{<:Complex}, Nd}
+        TeaDOE(u.data, u.ds, dn, f; r, trainable, buffered, center)
+    end
+end
+
+function TeaReflector(
+        u::ScalarField{U, Nd},
+        ds::NTuple{Nd, Real},
+        f::Function;
+        r::Union{Number, Function} = 1,
+        trainable::Bool = false,
+        buffered::Bool = false,
+        center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
+) where {U <: AbstractArray{<:Complex}, Nd}
+    TeaDOE(u, ds, 2, f; r, trainable, buffered, center)
 end
 
 function TeaReflector(
@@ -65,7 +89,7 @@ function TeaReflector(
         buffered::Bool = false,
         center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
 ) where {U <: AbstractArray{<:Complex}, Nd}
-    TeaDOE(u, 2, f; r = r, trainable = trainable, buffered = buffered, center = center)
+    TeaDOE(u, 2, f; r, trainable, buffered, center)
 end
 
 Functors.@functor TeaDOE (h,)
@@ -129,7 +153,7 @@ function compute_surface_gradient!(
         P <: AbstractArray{T, Nd},
         U <: AbstractArray{<:Complex{T}}}
     sdims = (Nd + 1):ndims(∂u)
-    g = @. (T(2)*π*dn(lambdas)/lambdas)*imag(∂u * conj(r(lambdas)*u))
+    g = @. (T(2)*π*dn(lambdas)/lambdas)*imag(∂u*conj(u))
     copyto!(∂h, sum(g; dims = sdims))
 end
 

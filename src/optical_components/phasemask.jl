@@ -5,9 +5,10 @@ struct Phase{M, A, U} <: AbstractCustomComponent{M}
 
     function Phase(
             ϕ::A,
-            ∂p::@NamedTuple{ϕ::A},
+            ∂p::Union{Nothing, @NamedTuple{ϕ::A}},
             u::U
-    ) where {A <: AbstractArray{<:Real, 2}, U <: AbstractArray{<:Complex}}
+    ) where {T <: Real,
+            A <: AbstractArray{T, 2}, U <: Union{Nothing, AbstractArray{Complex{T}}}}
         M = isnothing(u) ? Trainable{Unbuffered} : Trainable{Buffered}
         new{M, A, U}(ϕ, ∂p, u)
     end
@@ -34,12 +35,23 @@ struct Phase{M, A, U} <: AbstractCustomComponent{M}
 
     function Phase(
             u::ScalarField{U, Nd},
+            ds::NTuple{Nd, Real},
             f::Function;
             trainable::Bool = false,
             buffered::Bool = false,
             center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
     ) where {U <: AbstractArray{<:Complex}, Nd}
-        Phase(u.data, u.ds, f; trainable = trainable, buffered = buffered, center = center)
+        Phase(u.data, ds, f; trainable, buffered, center)
+    end
+
+    function Phase(
+            u::ScalarField{U, Nd},
+            f::Function;
+            trainable::Bool = false,
+            buffered::Bool = false,
+            center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
+    ) where {U <: AbstractArray{<:Complex}, Nd}
+        Phase(u.data, u.ds, f; trainable, buffered, center)
     end
 end
 

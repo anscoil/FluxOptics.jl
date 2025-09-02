@@ -97,8 +97,7 @@ struct CollinsProp{M, K, T, Tp, Nd} <: AbstractPropagator{M, K}
             use_cache::Bool = false;
             double_precision_kernel::Bool = true
     ) where {Nd, U <: AbstractArray{<:Complex}}
-        CollinsProp(u, u.ds, ds′, abd, use_cache;
-            double_precision_kernel = double_precision_kernel)
+        CollinsProp(u, u.ds, ds′, abd, use_cache; double_precision_kernel)
     end
 end
 

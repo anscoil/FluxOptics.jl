@@ -95,6 +95,12 @@ function FluxOptics.intensity(u::ScalarField{U, Nd}) where {U, Nd}
     reshape(sum(intensity, u.data; dims = Tuple((Nd + 1):ndims(u))), size(u)[1:Nd])
 end
 
+function FluxOptics.correlation(u::ScalarField{U, Nd}, v::ScalarField{U, Nd}) where {U, Nd}
+    u_vec = vec(u)
+    v_vec = vec(v)
+    [correlation(u.data, v.data) for (u, v) in zip(u_vec, v_vec)]
+end
+
 function FluxOptics.power(u::ScalarField)
     power(u.data, u.ds)
 end
@@ -102,6 +108,10 @@ end
 function FluxOptics.normalize_power!(u::ScalarField, v = 1)
     normalize_power!(u.data, u.ds, v)
     u
+end
+
+function Base.conj(u::ScalarField)
+    ScalarField(conj(u.data), u.ds, u.lambdas, u.lambdas_collection)
 end
 
 end

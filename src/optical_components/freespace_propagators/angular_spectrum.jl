@@ -71,8 +71,7 @@ struct ASProp{M, K, T, Tp, H} <: AbstractPropagator{M, K}
             filter = nothing,
             paraxial::Bool = false,
             double_precision_kernel::Bool = true)
-        ASProp(u, u.ds, z, use_cache; filter = filter, paraxial = paraxial,
-            double_precision_kernel = double_precision_kernel)
+        ASProp(u, u.ds, z, use_cache; filter, paraxial, double_precision_kernel)
     end
 end
 
@@ -141,8 +140,7 @@ struct ASPropZ{M, A, V, H} <: AbstractPureComponent{M}
             paraxial::Bool = false,
             filter = nothing,
             double_precision_kernel::Bool = true)
-        ASPropZ(u, u.ds, z; trainable = trainable, paraxial = paraxial, filter = filter,
-            double_precision_kernel = double_precision_kernel)
+        ASPropZ(u, u.ds, z; trainable, paraxial, filter, double_precision_kernel)
     end
 end
 

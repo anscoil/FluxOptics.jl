@@ -38,7 +38,7 @@ export AbstractOpticalComponent, AbstractOpticalSource
 export AbstractCustomComponent, AbstractCustomSource
 export AbstractPureComponent, AbstractPureSource
 export ASProp, ASPropZ, RSProp, CollinsProp, FourierLens, ParaxialProp
-export ScalarSource, get_source, Phase, ComplexMask, TeaDOE, TeaReflector
+export ScalarSource, get_source, Phase, Mask, TeaDOE, TeaReflector
 export FieldProbe
 export GainSheet
 

@@ -43,7 +43,7 @@ struct RSProp{M, K, T, Tp} <: AbstractPropagator{M, K}
 
     function RSProp(u::ScalarField, z::Real, use_cache::Bool = false;
             double_precision_kernel::Bool = true)
-        RSProp(u, u.ds, z, use_cache; double_precision_kernel = double_precision_kernel)
+        RSProp(u, u.ds, z, use_cache; double_precision_kernel)
     end
 end
 

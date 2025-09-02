@@ -139,5 +139,5 @@ function generate_mode_stack(nx, ny, dx, dy, m_v::AbstractVector{<:Mode};
         t::AbstractAffineMap = Id2D(), normalize = true)
     n = length(m_v)
     layout = PointLayout(n)
-    generate_mode_stack(layout, nx, ny, dx, dy, m_v; t = t, normalize = normalize)
+    generate_mode_stack(layout, nx, ny, dx, dy, m_v; t, normalize)
 end

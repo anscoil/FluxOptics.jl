@@ -177,8 +177,8 @@ export ScalarSource, get_source
 include("phasemask.jl")
 export Phase
 
-include("complex_mask.jl")
-export ComplexMask
+include("mask.jl")
+export Mask
 
 include("tea_doe.jl")
 export TeaDOE, TeaReflector

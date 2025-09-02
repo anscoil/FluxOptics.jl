@@ -94,7 +94,7 @@ Flux.@layer CollinsProp
 Flux.@layer ScalarSource
 
 Flux.@layer Phase
-Flux.@layer ComplexMask
+Flux.@layer Mask
 Flux.@layer TeaDOE
 
 Flux.@layer FieldProbe
