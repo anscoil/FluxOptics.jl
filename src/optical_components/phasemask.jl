@@ -3,12 +3,7 @@ struct Phase{M, A, U} <: AbstractCustomComponent{M}
     ∂p::Union{Nothing, @NamedTuple{ϕ::A}}
     u::Union{Nothing, U}
 
-    function Phase(
-            ϕ::A,
-            ∂p::Union{Nothing, @NamedTuple{ϕ::A}},
-            u::U
-    ) where {T <: Real,
-            A <: AbstractArray{T, 2}, U <: Union{Nothing, AbstractArray{Complex{T}}}}
+    function Phase(ϕ::A, ∂p::Union{Nothing, @NamedTuple{ϕ::A}}, u::U) where {A, U}
         M = isnothing(u) ? Trainable{Unbuffered} : Trainable{Buffered}
         new{M, A, U}(ϕ, ∂p, u)
     end

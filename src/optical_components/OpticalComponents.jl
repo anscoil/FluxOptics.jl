@@ -183,6 +183,9 @@ export Mask
 include("tea_doe.jl")
 export TeaDOE, TeaReflector
 
+include("bulk_propagators/bulk_propagators.jl")
+export BPM, AS_BPM, TiltedAS_BPM
+
 include("field_probe.jl")
 export FieldProbe
 

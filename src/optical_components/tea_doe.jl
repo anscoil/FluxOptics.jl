@@ -5,14 +5,9 @@ struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
     ∂p::Union{Nothing, @NamedTuple{h::A}}
     u::Union{Nothing, U}
 
-    function TeaDOE(
-            dn::Fn,
-            r::Fr,
-            h::A,
+    function TeaDOE(dn::Fn, r::Fr, h::A,
             ∂p::Union{Nothing, @NamedTuple{h::A}},
-            u::U;
-    ) where {Fn <: Function, Fr <: Function, T <: Real,
-            A <: AbstractArray{T, 2}, U <: Union{Nothing, AbstractArray{Complex{T}}}}
+            u::U) where {Fn, Fr, A, U}
         M = isnothing(u) ? Trainable{Unbuffered} : Trainable{Buffered}
         new{M, Fn, Fr, A, U}(dn, r, h, ∂p, u)
     end

@@ -88,8 +88,11 @@ Flux.@layer OpticalChain
 
 Flux.@layer ASProp
 Flux.@layer ASPropZ
+Flux.@layer TiltedASProp
 Flux.@layer RSProp
 Flux.@layer CollinsProp
+
+Flux.@layer BPM
 
 Flux.@layer ScalarSource
 
