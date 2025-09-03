@@ -169,7 +169,7 @@ function conj_direction(mask, ::Type{Backward})
 end
 
 include("freespace_propagators/freespace.jl")
-export ASProp, ASPropZ, RSProp, CollinsProp, FourierLens, ParaxialProp
+export ASProp, ASPropZ, TiltedASProp, RSProp, CollinsProp, FourierLens, ParaxialProp
 
 include("scalar_source.jl")
 export ScalarSource, get_source

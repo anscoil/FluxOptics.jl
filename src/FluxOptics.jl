@@ -37,7 +37,7 @@ export get_saved_buffer
 export AbstractOpticalComponent, AbstractOpticalSource
 export AbstractCustomComponent, AbstractCustomSource
 export AbstractPureComponent, AbstractPureSource
-export ASProp, ASPropZ, RSProp, CollinsProp, FourierLens, ParaxialProp
+export ASProp, ASPropZ, TiltedASProp, RSProp, CollinsProp, FourierLens, ParaxialProp
 export ScalarSource, get_source, Phase, Mask, TeaDOE, TeaReflector
 export FieldProbe
 export GainSheet

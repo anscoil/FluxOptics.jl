@@ -1,4 +1,4 @@
-abstract type AbstractKernel{K, V, N} end
+abstract type AbstractKernel{K, V} end
 
 function get_kernel_cache(kernel::AbstractKernel)
     error("Not implemented")
@@ -62,19 +62,19 @@ end
 
 function apply_kernel!(u::AbstractArray,
         kernel::AbstractKernel{K},
+        n_keys::Integer,
         kernel_keys::AbstractArray{UInt},
         direction::Type{<:Direction},
         compute_kernel::F,
-        args::A,
-        nhead::Integer = 1
+        args::A
 ) where {K <: AbstractArray, F, A}
     k_vec = get_kernel_vectors(kernel)
     n = length(k_vec)
     inds = CartesianIndices(size(u)[(n + 1):end])
-    args_head = args[1:nhead]
-    args_tail = args[(nhead + 1):end]
+    args_head = args[1:n_keys]
+    args_tail = args[(n_keys + 1):end]
     for i in inds
-        args = (ntuple(k -> args_head[k][i], nhead)..., args_tail...)
+        args = (ntuple(k -> args_head[k][i], n_keys)..., args_tail...)
         kernel_key = kernel_keys[i]
         apply_kernel!(
             @view(u[.., i]), kernel, kernel_key, direction, compute_kernel, args)

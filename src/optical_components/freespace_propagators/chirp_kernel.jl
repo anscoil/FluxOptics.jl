@@ -1,4 +1,4 @@
-struct ChirpKernel{K, V} <: AbstractKernel{K, V, 1}
+struct ChirpKernel{K, V} <: AbstractKernel{K, V}
     s_vec::V
     kernel_cache::Union{Nothing, LRU{UInt, K}}
 

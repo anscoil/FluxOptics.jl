@@ -1,4 +1,4 @@
-struct ConvolutionKernel{K, V, P, U} <: AbstractKernel{K, V, 1}
+struct ConvolutionKernel{K, V, P, U} <: AbstractKernel{K, V}
     s_vec::V
     kernel_cache::Union{Nothing, LRU{UInt, K}}
     p_f::P

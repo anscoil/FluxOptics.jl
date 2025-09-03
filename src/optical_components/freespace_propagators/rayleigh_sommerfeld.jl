@@ -6,7 +6,7 @@ function rs_kernel(x::T, y::T, λ::T, z::Tp, nrm_f::Tp
     Complex{T}(nrm_f*(cis(k*r)/r)*(z/r)*(1/r-im*k))
 end
 
-struct RSProp{M, K, T, Tp} <: AbstractPropagator{M, K}
+struct RSProp{M, K, T, Tp} <: AbstractPropagator{M, K, T}
     kernel::K
     z::Tp
     nrm_f::Tp
@@ -18,6 +18,7 @@ struct RSProp{M, K, T, Tp} <: AbstractPropagator{M, K}
             double_precision_kernel::Bool = true
     ) where {N, Nd, T}
         @assert N >= Nd
+        @assert z >= 0
         ns = size(u)[1:Nd]
         kernel = ConvolutionKernel(u, ns, ds, 1)
         kernel_key = hash(T(λ))
@@ -33,6 +34,7 @@ struct RSProp{M, K, T, Tp} <: AbstractPropagator{M, K}
             use_cache::Bool = false;
             double_precision_kernel::Bool = true
     ) where {Nd, T, U <: AbstractArray{Complex{T}}}
+        @assert z >= 0
         ns = size(u)[1:Nd]
         cache_size = use_cache ? length(unique(u.lambdas)) : 0
         kernel = ConvolutionKernel(u.data, ns, ds, cache_size)
@@ -49,21 +51,15 @@ end
 
 Functors.@functor RSProp ()
 
-function get_kernels(p::RSProp)
-    (p.kernel,)
-end
+get_kernels(p::RSProp) = (p.kernel,)
 
-function build_kernel_key_args(p::RSProp{M, K, T}, λ::Real) where {M, K, T}
-    hash(T(λ)), (T(λ), p.z, p.nrm_f)
-end
+build_kernel_keys(p::RSProp{M, K, T}, λ::Real) where {M, K, T} = hash(T(λ))
 
-function build_kernel_args(p::RSProp, u::ScalarField)
-    (u.lambdas, p.z, p.nrm_f)
-end
+build_kernel_keys(p::RSProp, lambdas::AbstractArray) = (1, hash.(lambdas))
 
-function build_kernel_key_args(p::RSProp, u::ScalarField)
-    hash.(u.lambdas_collection), (u.lambdas_collection, p.z, p.nrm_f)
-end
+build_kernel_args(p::RSProp) = (p.z, p.nrm_f)
+
+build_kernel_args_dict(p::RSProp) = build_kernel_args(p::RSProp)
 
 function _propagate_core!(
         apply_kernel_fns::F, u::AbstractArray, p::RSProp, ::Type{<:Direction}) where {F}

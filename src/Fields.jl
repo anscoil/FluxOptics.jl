@@ -8,7 +8,7 @@ export power, normalize_power!
 
 import Base: +, -, *, /
 
-struct ScalarField{U, Nd, S, T, C}
+struct ScalarField{U, Nd, T, S, C}
     data::U
     ds::S
     lambdas::T
@@ -16,7 +16,7 @@ struct ScalarField{U, Nd, S, T, C}
 
     function ScalarField(u::U, ds::S, lambdas::T,
             lambdas_collection::C) where {U, Nd, S <: NTuple{Nd}, T, C}
-        new{U, Nd, S, T, C}(u, ds, lambdas, lambdas_collection)
+        new{U, Nd, T, S, C}(u, ds, lambdas, lambdas_collection)
     end
 
     function ScalarField(u::U,
@@ -28,16 +28,16 @@ struct ScalarField{U, Nd, S, T, C}
         ns = size(u)[1:Nd]
         nr = div(length(u), prod(ns))
         @assert length(lambdas) == nr
-        lambdas = reshape(lambdas, (1, 1, size(u)[(Nd + 1):end]...)) |> U |> real
+        lambdas = reshape(lambdas, ntuple(k -> k <= Nd ? 1 : size(u, k), N)) |> U |> real
         lambdas_collection = collect(lambdas)
-        new{U, Nd, typeof(ds), typeof(lambdas), typeof(lambdas_collection)}(
+        new{U, Nd, typeof(lambdas), typeof(ds), typeof(lambdas_collection)}(
             u, ds, lambdas, lambdas_collection)
     end
 
     function ScalarField(u::U, ds::NTuple{Nd, Real},
             lambda::Real) where {Nd, N, T, U <: AbstractArray{Complex{T}, N}}
         @assert N >= Nd
-        new{U, Nd, typeof(ds), T, T}(u, ds, T(lambda), T(lambda))
+        new{U, Nd, T, typeof(ds), T}(u, ds, T(lambda), T(lambda))
     end
 
     function ScalarField(

@@ -26,13 +26,13 @@ function collins_convolution_kernel(
     Complex{T}(cis(π*(x^2*αx + y^2*αy)/(b*λ)))
 end
 
-struct CollinsKernel{K, V, P, U} <: AbstractKernel{K, V, 2}
+struct CollinsKernel{K, V, P, U} <: AbstractKernel{K, V}
     a_chirp::ChirpKernel{K, V}
     d_chirp::ChirpKernel{K, V}
     convolution_kernel::ConvolutionKernel{K, V, P, U}
 end
 
-struct CollinsProp{M, K, T, Tp, Nd} <: AbstractPropagator{M, K}
+struct CollinsProp{M, K, T, Tp, Nd} <: AbstractPropagator{M, K, T}
     kernel::K
     αs::NTuple{Nd, Tp}
     ds::NTuple{Nd, Tp}
@@ -107,17 +107,13 @@ function get_kernels(p::CollinsProp)
     (p.kernel.a_chirp, p.kernel.d_chirp, p.kernel.convolution_kernel)
 end
 
-function build_kernel_key_args(p::CollinsProp{M, K, T}, λ::Real) where {M, K, T}
-    hash(T(λ)), (T(λ), p.αs..., p.abd...)
-end
+build_kernel_keys(p::CollinsProp{M, K, T}, λ::Real) where {M, K, T} = hash(T(λ))
 
-function build_kernel_args(p::CollinsProp, u::ScalarField)
-    (u.lambdas, p.αs..., p.abd...)
-end
+build_kernel_keys(p::CollinsProp, lambdas::AbstractArray) = (1, hash.(lambdas))
 
-function build_kernel_key_args(p::CollinsProp, u::ScalarField)
-    hash.(u.lambdas_collection), (u.lambdas_collection, p.αs..., p.abd...)
-end
+build_kernel_args(p::CollinsProp) = (p.αs..., p.abd...)
+
+build_kernel_args_dict(p::CollinsProp) = build_kernel_args(p::CollinsProp)
 
 function apply_collins_first_chirp!(u_tmp, apply_a_chirp!, apply_d_chirp!, ::Type{Forward})
     apply_a_chirp!(u_tmp, collins_a_chirp)

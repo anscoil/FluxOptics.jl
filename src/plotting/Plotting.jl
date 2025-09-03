@@ -99,7 +99,7 @@ Plottable = Union{
     ScalarField, AbstractOpticalComponent, AbstractArray{T, 2} where {T <: Number}}
 
 function visualize(u_vec, fs::Union{Function, Tuple};
-        colormap = :viridis, ratio = 1, max_width = 1024, width = nothing, height = nothing,
+        colormap = :viridis, ratio = 1, max_width = 1024, width = nothing, height = 200,
         show_colorbars = false)
     n_lines = length(u_vec)
     @assert n_lines > 0
@@ -116,7 +116,7 @@ function visualize(u_vec, fs::Union{Function, Tuple};
         ratio*n_fields_per_col*nx*n_cols, ratio*ny, max_width, width, height)
 
     width_offset = show_colorbars ? n_cols*(25 + n_fields_per_col*20) : 0
-    height_offset = 10
+    height_offset = 20
     # if show_colorbars
     #     height_offset += 10 * (n_lines-1)
     # end
@@ -134,7 +134,7 @@ function visualize(u_vec, fs::Union{Function, Tuple};
                 hm, is_complex, factor = fill_heatmap!(ax, f[k], collect(u), cmap[k])
                 if show_colorbars && !is_complex
                     Colorbar(cell[1, 2], hm; width = 10,
-                        height = fig_height-(n_fields_per_col*n_cols)*20, tickformat = "{:.1f}")
+                        height = fig_height-(n_fields_per_col*n_cols)*15, tickformat = "{:.1f}")
                     if !iszero(factor)
                         lbl = Label(cell[1, 2, Top()], LaTeXString("\\times 10^{$factor}"))
                         lbl.padding[] = (0, 0, 2, 0)
@@ -151,7 +151,7 @@ function visualize(
         u_vec::Union{AbstractVector{U}, Tuple{Vararg{U}}},
         fs::Union{Function, Tuple};
         colormap = :viridis, ratio = 1, max_width = 1024,
-        width = nothing, height = nothing,
+        width = nothing, height = 200,
         show_colorbars = false) where {U <: Plottable}
     visualize(map(u -> (collect(u),), u_vec), fs; colormap = colormap,
         ratio = ratio, max_width = max_width,
@@ -161,14 +161,14 @@ end
 function visualize(u::Plottable,
         fs::Union{Function, Tuple};
         colormap = :viridis, ratio = 1, max_width = 1024,
-        width = nothing, height = nothing, show_colorbars = false)
+        width = nothing, height = 200, show_colorbars = false)
     visualize(((collect(u),),), fs; colormap = colormap, ratio = ratio,
         max_width = max_width, width = width, height = height,
         show_colorbars = show_colorbars)
 end
 
 function visualize_slider(u_vec, fs::Union{Function, Tuple};
-        colormap = :viridis, ratio = 1, max_width = Inf, width = nothing, height = nothing)
+        colormap = :viridis, ratio = 1, max_width = Inf, width = nothing, height = 400)
     n_lines = length(u_vec)
     @assert n_lines > 0
     n_fields_per_col = length(first(u_vec))
@@ -217,7 +217,7 @@ function visualize_slider(
         u_vec::Union{AbstractVector{U}, Tuple{Vararg{U}}},
         fs::Union{Function, Tuple};
         colormap = :viridis, ratio = 1, max_width = 2048,
-        width = nothing, height = nothing) where {U <: Plottable}
+        width = nothing, height = 400) where {U <: Plottable}
     visualize_slider(map(u -> (collect(u),), u_vec), fs; colormap = colormap,
         ratio = ratio, max_width = max_width,
         width = width, height = height)
