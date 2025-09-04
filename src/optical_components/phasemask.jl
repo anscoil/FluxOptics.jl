@@ -69,6 +69,8 @@ trainable(p::Phase{<:Trainable}) = (; ϕ = p.ϕ)
 
 get_preallocated_gradient(p::Phase{Trainable{Buffered}}) = p.∂p
 
+alloc_saved_buffer(u, p::Phase{Trainable{Unbuffered}}) = similar(get_data(u))
+
 get_saved_buffer(p::Phase{Trainable{Buffered}}) = p.u
 
 function apply_phase!(u::AbstractArray, p::Phase, ::Type{Forward})
@@ -92,8 +94,14 @@ function backpropagate!(u, p::Phase, direction::Type{<:Direction})
     propagate!(u, p, reverse(direction))
 end
 
-function propagate_and_save!(u, p::Phase{<:Trainable}, direction::Type{<:Direction})
+function propagate_and_save!(u, p::Phase{Trainable{Buffered}}, direction::Type{<:Direction})
     copyto!(p.u, get_data(u))
+    propagate!(u, p, direction)
+end
+
+function propagate_and_save!(u, u_saved, p::Phase{Trainable{Unbuffered}},
+        direction::Type{<:Direction})
+    copyto!(u_saved, get_data(u))
     propagate!(u, p, direction)
 end
 

@@ -11,12 +11,12 @@ struct BPM{M, A, U, D, P} <: AbstractCustomComponent{M}
     function BPM(dn::A, aperture_mask::D, p_bpm::P, p_bpm_half::P,
             ∂p::Union{Nothing, @NamedTuple{dn::A}},
             u::U) where {A, D, P, U}
-        M = Trainable{Buffered} # Only possibility to call this constructor
+        M = isnothing(u) ? Trainable{Unbuffered} : Trainable{Buffered}
         new{M, A, U, D, P}(dn, aperture_mask, p_bpm, p_bpm_half, ∂p, u)
     end
 
     function _init(u::U, ds::NTuple{Nd, Real}, thickness::Real,
-            dn0::AbstractArray{<:Real, Nv}, trainable::Bool,
+            dn0::AbstractArray{<:Real, Nv}, trainable::Bool, buffered::Bool,
             aperture::Function
     ) where {Nd, Nv, N, T, U <: AbstractArray{Complex{T}, N}}
         @assert Nd in (1, 2)
@@ -25,25 +25,25 @@ struct BPM{M, A, U, D, P} <: AbstractCustomComponent{M}
         n_slices = size(dn0, Nv)
         @assert n_slices >= 2
         dz = thickness / n_slices
-        M = trainable ? Trainable{Buffered} : Static # This propagator requires buffering
+        M = trainability(trainable, buffered)
         A = adapt_dim(U, Nv, real)
         D = adapt_dim(U, Nd, real)
         dn = A(dn0)
         xs = spatial_vectors(size(u)[1:Nd], ds)
         aperture_mask = Nd == 2 ? D(aperture.(xs[1], xs[2]')) : D(aperture.(xs[1]))
-        ∂p = trainable ? (; dn = similar(dn)) : nothing
-        u = trainable ? similar(u, (size(u)..., n_slices)) : nothing
+        ∂p = (trainable && buffered) ? (; dn = similar(dn)) : nothing
+        u = (trainable && buffered) ? similar(u, (size(u)..., n_slices)) : nothing
         ((M, A, U, D, P), (dn, dz, aperture_mask, ∂p, u))
     end
 
     function BPM(Prop::BPMProp, u::AbstractArray{<:Complex}, ds::NTuple,
             thickness::Real, λ::Real, n0::Real, dn0::AbstractArray{<:Real};
-            trainable::Bool = false,
+            trainable::Bool = false, buffered::Bool = false,
             aperture::Function = (_...) -> 1,
             double_precision_kernel::Bool = true, args = (), kwargs = (;))
         ((M, A, U, D, P),
             (dn, dz, aperture_mask, ∂p, u)
-        ) = _init(u, ds, thickness, dn0, trainable, aperture)
+        ) = _init(u, ds, thickness, dn0, trainable, buffered, aperture)
         p_bpm = Prop(u, ds, dz, args..., λ; n0, double_precision_kernel, kwargs...)
         p_bpm_half = Prop(u, ds, dz/2, args..., λ; n0, double_precision_kernel, kwargs...)
         P = typeof(p_bpm)
@@ -52,12 +52,12 @@ struct BPM{M, A, U, D, P} <: AbstractCustomComponent{M}
 
     function BPM(Prop::BPMProp, use_cache::Bool, u::ScalarField, thickness::Real,
             n0::Real, dn0::AbstractArray{<:Real};
-            trainable::Bool = false,
+            trainable::Bool = false, buffered::Bool = false,
             aperture::Function = (_...) -> 1,
             double_precision_kernel::Bool = true, args = (), kwargs = (;))
         ((M, A, U, D, P),
             (dn, dz, aperture_mask, ∂p, u)
-        ) = _init(u.data, u.ds, thickness, dn0, trainable, aperture)
+        ) = _init(u.data, u.ds, thickness, dn0, trainable, buffered, aperture)
         p_bpm = Prop(u, dz, args..., use_cache; n0, double_precision_kernel, kwargs...)
         p_bpm_half = Prop(u, dz/2, args..., use_cache;
             n0, double_precision_kernel, kwargs...)
@@ -68,19 +68,19 @@ end
 
 function AS_BPM(u::AbstractArray{<:Complex}, ds::NTuple,
         thickness::Real, λ::Real, n0::Real, dn0::AbstractArray{<:Real};
-        trainable::Bool = false,
+        trainable::Bool = false, buffered::Bool = false,
         aperture::Function = (_...) -> 1,
         double_precision_kernel::Bool = true)
-    BPM(ASProp, u, ds, thickness, λ, n0, dn0; trainable, aperture, double_precision_kernel,
-        kwargs = (; paraxial = true))
+    BPM(ASProp, u, ds, thickness, λ, n0, dn0; trainable, buffered, aperture,
+        double_precision_kernel, kwargs = (; paraxial = true))
 end
 
 function AS_BPM(u::ScalarField, thickness::Real, n0::Real,
         dn0::AbstractArray{<:Real}, use_cache::Bool = false;
-        trainable::Bool = false,
+        trainable::Bool = false, buffered::Bool = false,
         aperture::Function = (_...) -> 1,
         double_precision_kernel::Bool = true)
-    BPM(ASProp, use_cache, u, thickness, n0, dn0; trainable, aperture,
+    BPM(ASProp, use_cache, u, thickness, n0, dn0; trainable, buffered, aperture,
         double_precision_kernel, kwargs = (; paraxial = true))
 end
 

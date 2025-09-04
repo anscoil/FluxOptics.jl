@@ -106,6 +106,8 @@ trainable(p::TeaDOE{<:Trainable}) = (; h = p.h)
 
 get_preallocated_gradient(p::TeaDOE{Trainable{Buffered}}) = p.∂p
 
+alloc_saved_buffer(u, p::TeaDOE{Trainable{Unbuffered}}) = similar(get_data(u))
+
 get_saved_buffer(p::TeaDOE{Trainable{Buffered}}) = p.u
 
 function apply_phase!(
@@ -131,9 +133,15 @@ function backpropagate!(u::ScalarField, p::TeaDOE, direction::Type{<:Direction})
     propagate!(u, p, reverse(direction))
 end
 
-function propagate_and_save!(
-        u::ScalarField, p::TeaDOE{<:Trainable}, direction::Type{<:Direction})
+function propagate_and_save!(u::ScalarField, p::TeaDOE{Trainable{Buffered}},
+        direction::Type{<:Direction})
     copyto!(p.u, u.data)
+    propagate!(u, p, direction)
+end
+
+function propagate_and_save!(u::ScalarField, u_saved, p::TeaDOE{Trainable{Unbuffered}},
+        direction::Type{<:Direction})
+    copyto!(u_saved, u.data)
     propagate!(u, p, direction)
 end
 

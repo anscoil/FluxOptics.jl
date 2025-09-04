@@ -33,11 +33,11 @@ function ChainRulesCore.rrule(
         ::typeof(propagate), u, p::P,
         direction::Type{<:Direction}
 ) where {P <: AbstractCustomComponent{Trainable{Unbuffered}}}
-    v = propagate(u, p, direction)
+    u_saved = alloc_saved_buffer(u, p)
+    v = propagate_and_save(u, u_saved, p, direction)
 
     function pullback(∂v)
         ∂p = alloc_gradient(p)
-        u_saved = u
         ∂u, ∂p = backpropagate_with_gradient(∂v, u_saved, ∂p, p, direction)
         return (NoTangent(), ∂u, Tangent{P}(; ∂p...), NoTangent())
     end
@@ -78,8 +78,8 @@ function ChainRulesCore.rrule(
         ::typeof(propagate!), u, p::P,
         direction::Type{<:Direction}
 ) where {P <: AbstractCustomComponent{Trainable{Unbuffered}}}
-    u_saved = copy(u)
-    v = propagate!(u, p, direction)
+    u_saved = alloc_saved_buffer(u, p)
+    v = propagate_and_save!(u, u_saved, p, direction)
 
     function pullback(∂v)
         ∂p = alloc_gradient(p)

@@ -33,7 +33,6 @@ include("optical_components/OpticalComponents.jl")
 using .OpticalComponents
 export Forward, Backward
 export propagate!, propagate
-export get_saved_buffer
 export AbstractOpticalComponent, AbstractOpticalSource
 export AbstractCustomComponent, AbstractCustomSource
 export AbstractPureComponent, AbstractPureSource

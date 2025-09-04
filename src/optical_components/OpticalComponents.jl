@@ -14,7 +14,7 @@ export AbstractOpticalComponent, AbstractOpticalSource
 export AbstractCustomComponent, AbstractCustomSource
 export AbstractPureComponent, AbstractPureSource
 export propagate!, propagate
-export get_saved_buffer
+export alloc_saved_buffer, get_saved_buffer
 
 abstract type Direction end
 struct Forward <: Direction end
@@ -74,6 +74,10 @@ function get_preallocated_gradient(p::AbstractCustomComponent{Trainable{Buffered
     error("Not implemented")
 end
 
+function alloc_saved_buffer(u, p::AbstractCustomComponent{Trainable{Unbuffered}})
+    error("Not implemented")
+end
+
 function get_saved_buffer(p::AbstractCustomComponent{Trainable{Buffered}})
     error("Not implemented")
 end
@@ -83,6 +87,11 @@ function propagate!(u, p::AbstractCustomComponent, direction::Type{<:Direction})
 end
 
 function propagate_and_save!(u, p::AbstractCustomComponent{Trainable{Buffered}},
+        direction::Type{<:Direction})
+    error("Not implemented")
+end
+
+function propagate_and_save!(u, u_saved, p::AbstractCustomComponent{Trainable{Unbuffered}},
         direction::Type{<:Direction})
     error("Not implemented")
 end
@@ -108,7 +117,12 @@ end
 
 function propagate_and_save(u, p::AbstractCustomComponent{Trainable{Buffered}},
         direction::Type{<:Direction})
-    propagate_and_save!(copy(u), p, direction)
+    propagate_and_save!(copy(u), p, direction; saved_buffer)
+end
+
+function propagate_and_save(u, u_saved, p::AbstractCustomComponent{Trainable{Unbuffered}},
+        direction::Type{<:Direction})
+    propagate_and_save!(copy(u), u_saved, p, direction; saved_buffer)
 end
 
 function backpropagate(u, p::AbstractCustomComponent, direction::Type{<:Direction})
