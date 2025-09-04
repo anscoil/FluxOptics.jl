@@ -113,7 +113,7 @@ build_kernel_keys(p::CollinsProp, lambdas::AbstractArray) = (1, hash.(lambdas))
 
 build_kernel_args(p::CollinsProp) = (p.αs..., p.abd...)
 
-build_kernel_args_dict(p::CollinsProp) = build_kernel_args(p::CollinsProp)
+build_kernel_args_dict(p::CollinsProp) = build_kernel_args(p)
 
 function apply_collins_first_chirp!(u_tmp, apply_a_chirp!, apply_d_chirp!, ::Type{Forward})
     apply_a_chirp!(u_tmp, collins_a_chirp)

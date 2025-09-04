@@ -20,13 +20,10 @@ abstract type Direction end
 struct Forward <: Direction end
 struct Backward <: Direction end
 
-function Base.reverse(::Type{Forward})
-    Backward
-end
-
-function Base.reverse(::Type{Backward})
-    Forward
-end
+Base.reverse(::Type{Forward}) = Backward
+Base.reverse(::Type{Backward}) = Forward
+Base.sign(::Type{Forward}) = 1
+Base.sign(::Type{Backward}) = -1
 
 abstract type Buffering end
 struct Buffered <: Buffering end
@@ -147,7 +144,7 @@ end
 
 abstract type AbstractOpticalSource{M} <: AbstractOpticalComponent{M} end
 
-function propagate(p::AbstractOpticalSource, direction::Type{<:Direction})
+function propagate(p::AbstractOpticalSource)
     error("Not implemented")
 end
 
@@ -169,8 +166,7 @@ function propagate_and_save(p::AbstractCustomSource{Trainable{Buffered}},
 end
 
 function backpropagate_with_gradient(
-        ∂v, ∂p::NamedTuple, p::AbstractCustomSource{<:Trainable},
-        direction::Type{<:Direction})
+        ∂v, ∂p::NamedTuple, p::AbstractCustomSource{<:Trainable})
     error("Not implemented")
 end
 

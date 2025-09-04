@@ -73,12 +73,9 @@ alloc_saved_buffer(u, p::Phase{Trainable{Unbuffered}}) = similar(get_data(u))
 
 get_saved_buffer(p::Phase{Trainable{Buffered}}) = p.u
 
-function apply_phase!(u::AbstractArray, p::Phase, ::Type{Forward})
-    @. u *= cis(p.ϕ)
-end
-
-function apply_phase!(u::AbstractArray, p::Phase, ::Type{Backward})
-    @. u *= cis(-p.ϕ)
+function apply_phase!(u::AbstractArray, p::Phase, direction::Type{<:Direction})
+    s = sign(direction)
+    @. u *= cis(s*p.ϕ)
 end
 
 function apply_phase!(u::ScalarField, p::Phase, direction::Type{<:Direction})

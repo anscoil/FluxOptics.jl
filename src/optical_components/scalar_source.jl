@@ -28,17 +28,14 @@ trainable(p::ScalarSource{<:Trainable}) = (; u0 = p.u0)
 
 get_preallocated_gradient(p::ScalarSource{Trainable{Buffered}}) = p.∂p
 
-function propagate(p::ScalarSource, direction::Type{<:Direction})
+function propagate(p::ScalarSource)
     copyto!(get_data(p.uf), get_data(p.u0))
     p.uf
 end
 
-function propagate_and_save(p::ScalarSource, direction::Type{<:Direction})
-    propagate(p, direction)
-end
+propagate_and_save(p::ScalarSource) = propagate(p)
 
-function backpropagate_with_gradient(∂v, ∂p::NamedTuple, p::ScalarSource{<:Trainable},
-        direction::Type{<:Direction})
+function backpropagate_with_gradient(∂v, ∂p::NamedTuple, p::ScalarSource{<:Trainable})
     copyto!(get_data(∂p.u0), get_data(∂v))
     ∂p
 end

@@ -1,5 +1,5 @@
 function tilted_as_kernel(fx::T, fy::T, λ::T, θx::T, θy::T, n0::Tp, z::Tp,
-        filter::H) where {T <: Real, Tp <: Real, H}
+        filter::H, z_pos::Val{true}) where {T <: Real, Tp <: Real, H}
     fx, fy, λ = Tp(fx), Tp(fy), Tp(λ)/n0
     θx, θy = Tp(θx), Tp(θy)
     f² = complex(inv(λ)^2)
@@ -8,13 +8,32 @@ function tilted_as_kernel(fx::T, fy::T, λ::T, θx::T, θy::T, n0::Tp, z::Tp,
     Complex{T}(cis(Tp(2)*π*z*sqrt(f²-(fx+f0x)^2-(fy+f0y)^2)) * v)
 end
 
-function tilted_as_kernel(fx::T, λ::T, θx::T, n0::Tp, z::Tp, filter::H
-) where {T <: Real, Tp <: Real, H}
+function tilted_as_kernel(fx::T, fy::T, λ::T, θx::T, θy::T, n0::Tp, z::Tp,
+        filter::H, z_pos::Val{false}) where {T <: Real, Tp <: Real, H}
+    fx, fy, λ = Tp(fx), Tp(fy), Tp(λ)/n0
+    θx, θy = Tp(θx), Tp(θy)
+    f² = complex(inv(λ)^2)
+    v = isnothing(filter) ? Tp(1) : Tp(filter(fx, fy))
+    f0x, f0y = sin(θx)/λ, sin(θy)/λ
+    Complex{T}(conj(cis(Tp(2)*π*(-z)*sqrt(f²-(fx+f0x)^2-(fy+f0y)^2)) * v))
+end
+
+function tilted_as_kernel(fx::T, λ::T, θx::T, n0::Tp, z::Tp, filter::H,
+        z_pos::Val{true}) where {T <: Real, Tp <: Real, H}
     fx, λ, θx = Tp(fx), Tp(λ)/n0, Tp(θx)
     f² = complex(inv(λ^2))
     v = isnothing(filter) ? Tp(1) : Tp(filter(fx))
     f0x = sin(θx)/λ
     Complex{T}(cis(Tp(2)*π*z*sqrt(f²-(fx+f0x)^2)) * v)
+end
+
+function tilted_as_kernel(fx::T, λ::T, θx::T, n0::Tp, z::Tp, filter::H,
+        z_pos::Val{false}) where {T <: Real, Tp <: Real, H}
+    fx, λ, θx = Tp(fx), Tp(λ)/n0, Tp(θx)
+    f² = complex(inv(λ^2))
+    v = isnothing(filter) ? Tp(1) : Tp(filter(fx))
+    f0x = sin(θx)/λ
+    Complex{T}(conj(cis(Tp(2)*π*(-z)*sqrt(f²-(fx+f0x)^2)) * v))
 end
 
 function parse_tilt_vectors(u::U,
@@ -49,14 +68,13 @@ struct TiltedASProp{M, K, T, Tp, O, Oc, H} <: AbstractPropagator{M, K, T}
             filter::H = nothing,
             double_precision_kernel::Bool = true) where {N, Nd, T, H}
         @assert N >= Nd
-        @assert z >= 0
         ns = size(u)[1:Nd]
         Tp = double_precision_kernel ? Float64 : T
         θs = parse_tilt_vectors(u, θs)
         kernel = FourierKernel(u, ns, ds, 1, N)
         kernel_key = hash(T(λ))
         fill_kernel_cache(kernel, kernel_key, tilted_as_kernel,
-            (T(λ), θs..., Tp(n0), Tp(z), filter))
+            (T(λ), θs..., Tp(n0), Tp(z), filter, Val(sign(z > 0))))
         K = typeof(kernel)
         O = typeof(θs)
         new{Static, K, T, Tp, O, Nothing, H}(kernel, Tp(n0), Tp(z), θs, nothing, filter)
@@ -72,7 +90,6 @@ struct TiltedASProp{M, K, T, Tp, O, Oc, H} <: AbstractPropagator{M, K, T}
             paraxial::Bool = false,
             double_precision_kernel::Bool = true
     ) where {N, Nd, T, H, U <: AbstractArray{Complex{T}, N}}
-        @assert z >= 0
         ns = size(u)[1:Nd]
         Tp = double_precision_kernel ? Float64 : T
         if isa(u.lambdas, Real)
@@ -112,9 +129,11 @@ function build_kernel_keys(p::TiltedASProp, lambdas::AbstractArray)
         [hash((λ, θ...)) for (λ, θ...) in zip(lambdas, p.θs_collection...)])
 end
 
-build_kernel_args(p::TiltedASProp) = (p.θs..., p.n0, p.z, p.filter)
+build_kernel_args(p::TiltedASProp) = (p.θs..., p.n0, p.z, p.filter, Val(sign(p.z) > 0))
 
-build_kernel_args_dict(p::TiltedASProp) = (p.θs_collection..., p.n0, p.z, p.filter)
+function build_kernel_args_dict(p::TiltedASProp)
+    (p.θs_collection..., p.n0, p.z, p.filter, Val(sign(p.z > 0)))
+end
 
 function _propagate_core!(apply_kernel_fns::F, u::AbstractArray, p::TiltedASProp,
         ::Type{<:Direction}) where {F}

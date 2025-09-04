@@ -1,9 +1,17 @@
-function rs_kernel(x::T, y::T, λ::T, z::Tp, nrm_f::Tp
+function rs_kernel(x::T, y::T, λ::T, z::Tp, nrm_f::Tp, z_pos::Val{true}
 ) where {T <: Real, Tp <: Real}
     x, y = Tp(x), Tp(y)
     k = Tp(2π/λ)
     r = sqrt(x^2 + y^2 + z^2)
     Complex{T}(nrm_f*(cis(k*r)/r)*(z/r)*(1/r-im*k))
+end
+
+function rs_kernel(x::T, y::T, λ::T, z::Tp, nrm_f::Tp, z_pos::Val{false}
+) where {T <: Real, Tp <: Real}
+    x, y = Tp(x), Tp(y)
+    k = Tp(2π/λ)
+    r = sqrt(x^2 + y^2 + z^2)
+    Complex{T}(conj(nrm_f*(cis(k*r)/r)*(z/r)*(1/r-im*k)))
 end
 
 struct RSProp{M, K, T, Tp} <: AbstractPropagator{M, K, T}
@@ -18,13 +26,13 @@ struct RSProp{M, K, T, Tp} <: AbstractPropagator{M, K, T}
             double_precision_kernel::Bool = true
     ) where {N, Nd, T}
         @assert N >= Nd
-        @assert z >= 0
         ns = size(u)[1:Nd]
         kernel = ConvolutionKernel(u, ns, ds, 1)
         kernel_key = hash(T(λ))
         Tp = double_precision_kernel ? Float64 : T
         nrm_f = Tp(prod(ds)/2π)
-        fill_kernel_cache(kernel, kernel_key, rs_kernel, (T(λ), Tp(z), nrm_f))
+        fill_kernel_cache(kernel, kernel_key, rs_kernel,
+            (T(λ), Tp(z), nrm_f, Val(sign(z) > 0)))
         new{Static, typeof(kernel), T, Tp}(kernel, Tp(z), nrm_f)
     end
 
@@ -34,7 +42,6 @@ struct RSProp{M, K, T, Tp} <: AbstractPropagator{M, K, T}
             use_cache::Bool = false;
             double_precision_kernel::Bool = true
     ) where {Nd, T, U <: AbstractArray{Complex{T}}}
-        @assert z >= 0
         ns = size(u)[1:Nd]
         cache_size = use_cache ? length(unique(u.lambdas)) : 0
         kernel = ConvolutionKernel(u.data, ns, ds, cache_size)
@@ -57,9 +64,9 @@ build_kernel_keys(p::RSProp{M, K, T}, λ::Real) where {M, K, T} = hash(T(λ))
 
 build_kernel_keys(p::RSProp, lambdas::AbstractArray) = (1, hash.(lambdas))
 
-build_kernel_args(p::RSProp) = (p.z, p.nrm_f)
+build_kernel_args(p::RSProp) = (p.z, p.nrm_f, Val(sign(p.z) > 0))
 
-build_kernel_args_dict(p::RSProp) = build_kernel_args(p::RSProp)
+build_kernel_args_dict(p::RSProp) = build_kernel_args(p)
 
 function _propagate_core!(
         apply_kernel_fns::F, u::AbstractArray, p::RSProp, ::Type{<:Direction}) where {F}

@@ -91,40 +91,37 @@ function ChainRulesCore.rrule(
 end
 
 function ChainRulesCore.rrule(
-        ::typeof(propagate), p::AbstractCustomSource{Static},
-        direction::Type{<:Direction})
-    v = propagate(p, direction)
+        ::typeof(propagate), p::AbstractCustomSource{Static})
+    v = propagate(p)
 
     function pullback(∂v)
-        return (NoTangent(), NoTangent(), NoTangent())
+        return (NoTangent(), NoTangent())
     end
 
     return v, pullback
 end
 
-function ChainRulesCore.rrule(::typeof(propagate), p::P,
-        direction::Type{<:Direction}
+function ChainRulesCore.rrule(::typeof(propagate), p::P
 ) where {P <: AbstractCustomSource{Trainable{Buffered}}}
-    v = propagate_and_save(p, direction)
+    v = propagate_and_save(p)
 
     function pullback(∂v)
         ∂p = get_preallocated_gradient(p)
-        ∂p = backpropagate_with_gradient(∂v, ∂p, p, direction)
-        return (NoTangent(), Tangent{P}(; ∂p...), NoTangent())
+        ∂p = backpropagate_with_gradient(∂v, ∂p, p)
+        return (NoTangent(), Tangent{P}(; ∂p...))
     end
 
     return v, pullback
 end
 
-function ChainRulesCore.rrule(::typeof(propagate), p::P,
-        direction::Type{<:Direction}
+function ChainRulesCore.rrule(::typeof(propagate), p::P
 ) where {P <: AbstractCustomSource{Trainable{Unbuffered}}}
-    v = propagate_and_save(p, direction)
+    v = propagate_and_save(p)
 
     function pullback(∂v)
         ∂p = alloc_gradient(p)
-        ∂p = backpropagate_with_gradient(∂v, ∂p, p, direction)
-        return (NoTangent(), Tangent{P}(; ∂p...), NoTangent())
+        ∂p = backpropagate_with_gradient(∂v, ∂p, p)
+        return (NoTangent(), Tangent{P}(; ∂p...))
     end
 
     return v, pullback

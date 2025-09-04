@@ -12,8 +12,8 @@ function (p::AbstractOpticalComponent)(u; direction::Type{<:Direction} = Forward
     end
 end
 
-function (p::AbstractOpticalSource)(; direction::Type{<:Direction} = Forward)
-    propagate(p, direction)
+function (p::AbstractOpticalSource)()
+    propagate(p)
 end
 
 struct OpticalChain{N, T <: NTuple{N, AbstractOpticalComponent}, K}
@@ -75,8 +75,10 @@ end
 
 function (m::OpticalChain{N})(x = nothing; call_kwargs...) where {N}
     kwargs = merge(m.kwargs[], call_kwargs)
-    x = isnothing(x) ? m.layers[1](; call_kwargs...) : m.layers[1](x; kwargs...)
+    x = isnothing(x) ? m.layers[1]() : m.layers[1](x; kwargs...)
     d = IdDict{AbstractOpticalComponent, typeof(x)}()
+    # After the first layer, `inplace=true` must be safe
+    kwargs = merge(kwargs, (; inplace = true))
     iter_layers(m.layers[2:end], x, d; kwargs...)
 end
 

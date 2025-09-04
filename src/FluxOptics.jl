@@ -5,6 +5,10 @@ __precompile__()
 using Requires
 using LinearAlgebra
 
+Base.copyto!(::Nothing, u) = ()
+Base.getindex(::Iterators.Cycle{Nothing}, ::Integer) = nothing
+Base.lastindex(::Iterators.Cycle{Nothing}) = nothing
+
 include("measure.jl")
 export vec2D
 export intensity, intensity2D, phase, rms_error, correlation

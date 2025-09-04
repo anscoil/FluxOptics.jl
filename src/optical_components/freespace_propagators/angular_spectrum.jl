@@ -1,17 +1,35 @@
 function as_kernel(fx::T, fy::T, λ::T, n0::Tp, z::Tp,
-        filter::H) where {T <: Real, Tp <: Real, H}
+        filter::H, z_pos::Val{true}) where {T <: Real, Tp <: Real, H}
     fx, fy, λ = Tp(fx), Tp(fy), Tp(λ)/n0
     f² = complex(inv(λ^2))
     v = isnothing(filter) ? Tp(1) : Tp(filter(fx, fy))
     Complex{T}(cis(Tp(2)*π*z*sqrt(f² - fx^2 - fy^2)) * v)
 end
 
-function as_kernel(fx::T, λ::T, n0::Tp, z::Tp, filter::H
+function as_kernel(fx::T, fy::T, λ::T, n0::Tp, z::Tp,
+        filter::H, z_pos::Val{false}) where {T <: Real, Tp <: Real, H}
+    fx, fy, λ = Tp(fx), Tp(fy), Tp(λ)/n0
+    f² = complex(inv(λ^2))
+    v = isnothing(filter) ? Tp(1) : Tp(filter(fx, fy))
+    Complex{T}(conj(cis(Tp(2)*π*(-z)*sqrt(f² - fx^2 - fy^2)) * v))
+end
+
+function as_kernel(fx::T, λ::T, n0::Tp, z::Tp, filter::H,
+        z_pos::Val{true}
 ) where {T <: Real, Tp <: Real, H}
     fx, λ = Tp(fx), Tp(λ)/n0
     f² = complex(inv(λ)^2)
     v = isnothing(filter) ? Tp(1) : Tp(filter(fx))
     Complex{T}(cis(Tp(2)*π*z*sqrt(f² - fx^2)) * v)
+end
+
+function as_kernel(fx::T, λ::T, n0::Tp, z::Tp, filter::H,
+        z_pos::Val{false}
+) where {T <: Real, Tp <: Real, H}
+    fx, λ = Tp(fx), Tp(λ)/n0
+    f² = complex(inv(λ)^2)
+    v = isnothing(filter) ? Tp(1) : Tp(filter(fx))
+    Complex{T}(conj(cis(Tp(2)*π*(-z)*sqrt(f² - fx^2)) * v))
 end
 
 function as_paraxial_kernel(fx::T, fy::T, λ::T, n0::T, z::Tp,
@@ -45,13 +63,18 @@ struct ASProp{M, K, T, Tp, H} <: AbstractPropagator{M, K, T}
             double_precision_kernel::Bool = true
     ) where {N, Nd, T, H}
         @assert N >= Nd
-        @assert z >= 0
         ns = size(u)[1:Nd]
         kernel = FourierKernel(u, ns, ds, 1)
         kernel_key = hash(T(λ))
         Tp = double_precision_kernel ? Float64 : T
         compute_kernel = paraxial ? as_paraxial_kernel : as_kernel
-        fill_kernel_cache(kernel, kernel_key, compute_kernel, (T(λ), Tp(n0), Tp(z), filter))
+        if paraxial
+            fill_kernel_cache(kernel, kernel_key, compute_kernel,
+                (T(λ), Tp(n0), Tp(z), filter))
+        else
+            fill_kernel_cache(kernel, kernel_key, compute_kernel,
+                (T(λ), Tp(n0), Tp(z), filter, Val(sign(z > 0))))
+        end
         new{Static, typeof(kernel), T, Tp, H}(kernel, paraxial, Tp(n0), Tp(z), filter)
     end
 
@@ -64,7 +87,6 @@ struct ASProp{M, K, T, Tp, H} <: AbstractPropagator{M, K, T}
             paraxial::Bool = false,
             double_precision_kernel::Bool = true
     ) where {Nd, T, H, U <: AbstractArray{Complex{T}}}
-        @assert z >= 0
         ns = size(u)[1:Nd]
         cache_size = use_cache ? length(unique(u.lambdas)) : 0
         kernel = FourierKernel(u.data, ns, ds, cache_size)
@@ -89,9 +111,15 @@ build_kernel_keys(p::ASProp{M, K, T}, λ::Real) where {M, K, T} = hash(T(λ))
 
 build_kernel_keys(p::ASProp, lambdas::AbstractArray) = (1, hash.(lambdas))
 
-build_kernel_args(p::ASProp) = (p.n0, p.z, p.filter)
+function build_kernel_args(p::ASProp)
+    if p.is_paraxial
+        (p.n0, p.z, p.filter)
+    else
+        (p.n0, p.z, p.filter, Val(sign(p.z) > 0))
+    end
+end
 
-build_kernel_args_dict(p::ASProp) = build_kernel_args(p::ASProp)
+build_kernel_args_dict(p::ASProp) = build_kernel_args(p)
 
 function _propagate_core!(
         apply_kernel_fns::F, u::AbstractArray, p::ASProp, ::Type{<:Direction}) where {F}
@@ -126,7 +154,6 @@ struct ASPropZ{M, T, A, V, H} <: AbstractPureComponent{M}
             filter::H = nothing,
             double_precision_kernel::Bool = true
     ) where {Nd, T, H, U <: AbstractArray{Complex{T}}}
-        @assert z >= 0
         ns = size(u)[1:Nd]
         F = adapt_dim(U, 1, real)
         fs = [fftfreq(nx, 1/dx) |> F for (nx, dx) in zip(ns, ds)]
@@ -158,7 +185,7 @@ function propagate(u::ScalarField, p::ASPropZ, direction::Type{<:Direction})
     if p.is_paraxial
         kernel = @. as_paraxial_kernel(p.f_vec..., u.lambdas/p.n0, p.z, p.filter)
     else
-        kernel = @. as_kernel(p.f_vec..., u.lambdas/p.n0, p.z, p.filter)
+        kernel = @. as_kernel(p.f_vec..., u.lambdas/p.n0, p.z, p.filter, Val(sign(p.z) > 0))
     end
     data = ifft(fft(u.data, dims) .* conj_direction(kernel, direction), dims)
     ScalarField(data, u.ds, u.lambdas, u.lambdas_collection)
