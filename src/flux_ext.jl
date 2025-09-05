@@ -3,8 +3,8 @@ using Functors
 using AbstractFFTs
 using LRUCache
 
-function (p::AbstractOpticalComponent)(u; direction::Type{<:Direction} = Forward,
-        inplace::Bool = false)
+function (p::AbstractOpticalComponent)(u; forward::Bool = true, inplace::Bool = false)
+    direction = forward ? Forward : Backward
     if inplace
         propagate!(u, p, direction)
     else
@@ -24,11 +24,15 @@ end
 Functors.@functor OpticalChain (layers,)
 
 function OpticalChain(layers...)
-    OpticalChain(layers, Ref((; inplace = false)))
+    OpticalChain(layers, Ref((; forward = true, inplace = false)))
 end
 
 function set_kwargs!(m::OpticalChain; kwargs...)
     try
+        kwargs = NamedTuple([k == :direction ?
+                             (v == Forward ? (:forward, true)
+                              : (:forward, false)) : (k, v)
+                             for (k, v) in pairs(kwargs)])
         m.kwargs[] = merge(m.kwargs[], kwargs)
     catch _
         error("Wrong keyword arguments. Choices are $(keys(m.kwargs[])).")

@@ -5,9 +5,12 @@ __precompile__()
 using Requires
 using LinearAlgebra
 
-Base.copyto!(::Nothing, u) = ()
+Base.copyto!(::Nothing, u) = nothing
 Base.getindex(::Iterators.Cycle{Nothing}, ::Integer) = nothing
 Base.lastindex(::Iterators.Cycle{Nothing}) = nothing
+Base.iterate(::Nothing) = (nothing, nothing)
+Base.iterate(::Nothing, ::Nothing) = nothing
+Iterators.reverse(::Iterators.Cycle{Nothing}) = Iterators.cycle(nothing)
 
 include("measure.jl")
 export vec2D

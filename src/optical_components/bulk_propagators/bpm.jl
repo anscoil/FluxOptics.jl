@@ -43,22 +43,6 @@ struct BPM{M, A, U, D, P, K} <: AbstractCustomComponent{M}
         ((M, A, U, D, P), (dn, dz, aperture_mask, ∂p, u))
     end
 
-    function BPM(Prop::BPMProp, u::AbstractArray{<:Complex}, ds::NTuple,
-            thickness::Real, λ::Real, n0::Real, dn0::AbstractArray{<:Real};
-            trainable::Bool = false, buffered::Bool = false,
-            aperture::Function = (_...) -> 1,
-            double_precision_kernel::Bool = true, args = (), kwargs = (;))
-        ((M, A, U, D, P),
-            (dn, dz, aperture_mask, ∂p, u)
-        ) = _init(u, ds, thickness, dn0, trainable, buffered, aperture)
-        p_bpm = Prop(u, ds, dz, args..., λ; n0, double_precision_kernel, kwargs...)
-        p_bpm_half = Prop(u, ds, dz/2, args..., λ; n0, double_precision_kernel, kwargs...)
-        P = typeof(p_bpm)
-        kdz = (2π/λ*dz) ./ compute_cos_correction(u, p_bpm)
-        K = typeof(kdz)
-        new{M, A, U, D, P, K}(dn, kdz, aperture_mask, p_bpm, p_bpm_half, ∂p, u)
-    end
-
     function BPM(Prop::BPMProp, use_cache::Bool, u::ScalarField, thickness::Real,
             n0::Real, dn0::AbstractArray{<:Real};
             trainable::Bool = false, buffered::Bool = false,
@@ -77,15 +61,6 @@ struct BPM{M, A, U, D, P, K} <: AbstractCustomComponent{M}
     end
 end
 
-function AS_BPM(u::AbstractArray{<:Complex}, ds::NTuple,
-        thickness::Real, λ::Real, n0::Real, dn0::AbstractArray{<:Real};
-        trainable::Bool = false, buffered::Bool = false,
-        aperture::Function = (_...) -> 1,
-        double_precision_kernel::Bool = true)
-    BPM(ASProp, u, ds, thickness, λ, n0, dn0; trainable, buffered, aperture,
-        double_precision_kernel, kwargs = (; paraxial = true))
-end
-
 function AS_BPM(u::ScalarField, thickness::Real, n0::Real,
         dn0::AbstractArray{<:Real}, use_cache::Bool = false;
         trainable::Bool = false, buffered::Bool = false,
@@ -93,17 +68,6 @@ function AS_BPM(u::ScalarField, thickness::Real, n0::Real,
         double_precision_kernel::Bool = true)
     BPM(ASProp, use_cache, u, thickness, n0, dn0; trainable, buffered, aperture,
         double_precision_kernel, kwargs = (; paraxial = true))
-end
-
-function TiltedAS_BPM(u::AbstractArray{<:Complex}, ds::NTuple{Nd, Real}, thickness::Real,
-        θs::NTuple{Nd, Union{Real, AbstractVector{<:Real}}}, λ::Real,
-        n0::Real, dn0::AbstractArray{<:Real};
-        trainable::Bool = false,
-        aperture::Function = (_...) -> 1,
-        double_precision_kernel::Bool = true) where {Nd}
-    cos_correction = compute_cos_correction(u, θs)
-    BPM(TiltedASProp, u, ds, thickness, λ, n0, dn0; trainable, aperture,
-        double_precision_kernel, args = (θs,))
 end
 
 function TiltedAS_BPM(u::ScalarField, thickness::Real,
@@ -141,11 +105,10 @@ trainable(p::BPM{<:Trainable}) = (; dn = p.dn)
 
 get_preallocated_gradient(p::BPM{Trainable{Buffered}}) = p.∂p
 
-function alloc_saved_buffer(u, p::BPM{Trainable{Unbuffered}})
+function alloc_saved_buffer(u::ScalarField, p::BPM{Trainable{Unbuffered}})
     Nv = ndims(p.dn)
     n_slices = size(p.dn, Nv)
-    u_data = get_data(u)
-    similar(u_data, (size(u_data)..., n_slices))
+    similar(u.data, (size(u.data)..., n_slices))
 end
 
 get_saved_buffer(p::BPM{Trainable{Buffered}}) = p.u
@@ -156,13 +119,7 @@ function apply_dn_slice!(u::ScalarField, dn::AbstractArray, kdz,
     @. u.data *= cis(s*kdz/u.lambdas*dn)
 end
 
-function apply_dn_slice!(u::AbstractArray, dn::AbstractArray, kdz,
-        direction::Type{<:Direction})
-    s = sign(direction)
-    @. u *= cis(s*kdz*dn)
-end
-
-function propagate!(u, p::BPM, direction::Type{<:Direction}; u_saved = nothing)
+function propagate!(u::ScalarField, p::BPM, direction::Type{<:Direction}; u_saved = nothing)
     Nv = ndims(p.dn)
     n_slices = size(p.dn, Nv)
     dn_slices = eachslice(p.dn, dims = Nv)
@@ -170,34 +127,63 @@ function propagate!(u, p::BPM, direction::Type{<:Direction}; u_saved = nothing)
                      Iterators.cycle(nothing) : eachslice(u_saved, dims = Nv)
     propagate!(u, p.p_bpm_half, direction)
     for (dn, u_saved) in zip(@view(dn_slices[1:(end - 1)]), u_saved_slices)
-        copyto!(u_saved, get_data(u))
+        copyto!(u_saved, u.data)
         apply_dn_slice!(u, dn, p.kdz, direction)
         propagate!(u, p.p_bpm, direction)
     end
-    copyto!(u_saved_slices[end], get_data(u))
+    copyto!(u_saved_slices[end], u.data)
     apply_dn_slice!(u, dn_slices[end], p.kdz, direction)
     propagate!(u, p.p_bpm_half, direction)
     u
 end
 
-function propagate_and_save!(u, p::BPM{Trainable{Buffered}}, direction::Type{<:Direction})
+function propagate_and_save!(u::ScalarField, p::BPM{Trainable{Buffered}},
+        direction::Type{<:Direction})
     propagate!(u, p, direction; u_saved = p.u)
 end
 
-function propagate_and_save!(u, u_saved, p::BPM{Trainable{Unbuffered}},
-        direction::Type{<:Direction})
+function propagate_and_save!(u::ScalarField, u_saved::AbstractArray,
+        p::BPM{Trainable{Unbuffered}}, direction::Type{<:Direction})
     propagate!(u, p, direction; u_saved)
 end
 
-function backpropagate!(u, p::BPM, direction::Type{<:Direction};
-        u_saved = nothing, ∂p = nothing)
-    # propagate!(u, p, reverse(direction))
+function compute_dn_gradient!(∂dn::AbstractArray{T, Nd}, u_saved, ∂u::ScalarField,
+        kdz, direction) where {T <: Real, Nd}
+    sdims = (Nd + 1):ndims(∂u)
+    s = sign(direction)
+    g = @. s*kdz/∂u.lambdas*imag(∂u.data*conj(u_saved))
+    copyto!(∂dn, sum(g; dims = sdims))
 end
 
-function backpropagate_with_gradient!(∂v, u_saved, ∂p::NamedTuple,
-        p::BPM{<:Trainable}, direction::Type{<:Direction})
+compute_dn_gradient!(::Nothing, ::Nothing, ∂u, kdz, direction) = nothing
+
+function backpropagate!(u::ScalarField, p::BPM, direction::Type{<:Direction};
+        u_saved = nothing, ∂p = nothing)
+    Nv = ndims(p.dn)
+    n_slices = size(p.dn, Nv)
+    dn_slices = eachslice(p.dn, dims = Nv)
+    ∂dn_slices = isnothing(∂p) ?
+                 Iterators.cycle(nothing) :
+                 eachslice(∂p.dn, dims = Nv)
+    u_saved_slices = isnothing(u_saved) ?
+                     Iterators.cycle(nothing) :
+                     eachslice(u_saved, dims = Nv)
+    propagate!(u, p.p_bpm_half, reverse(direction))
+    for (dn, ∂dn, u_saved) in zip(
+        @view(dn_slices[end:-1:2]), Iterators.reverse(u_saved_slices),
+        Iterators.reverse(∂dn_slices))
+        apply_dn_slice!(u, dn, p.kdz, reverse(direction))
+        compute_dn_gradient!(∂dn, u_saved, u, p.kdz, direction)
+        propagate!(u, p.p_bpm, reverse(direction))
+    end
+    apply_dn_slice!(u, dn_slices[1], p.kdz, reverse(direction))
+    compute_dn_gradient!(∂dn_slices[1], u_saved_slices[1], u, p.kdz, direction)
+    propagate!(u, p.p_bpm_half, reverse(direction))
+    u
+end
+
+function backpropagate_with_gradient!(∂v::ScalarField, u_saved::AbstractArray,
+        ∂p::NamedTuple, p::BPM{<:Trainable}, direction::Type{<:Direction})
     ∂u = backpropagate!(∂v, p, direction; u_saved, ∂p)
-    # ∂u = backpropagate!(∂v, p, direction)
-    # compute_phase_gradient!(∂p.ϕ, get_data(∂u), get_data(u_saved))
-    # (∂u, ∂p)
+    (∂u, ∂p)
 end

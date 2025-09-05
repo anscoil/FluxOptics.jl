@@ -9,44 +9,31 @@ struct Phase{M, A, U} <: AbstractCustomComponent{M}
     end
 
     function Phase(
-            u::U,
+            u::ScalarField{U, Nd},
             ds::NTuple{Nd, Real},
-            f::Function;
+            f::Function = (x...) -> 0;
             trainable::Bool = false,
-            buffered::Bool = false,
-            center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
+            buffered::Bool = false
     ) where {N, Nd, U <: AbstractArray{<:Complex, N}}
         M = trainability(trainable, buffered)
         @assert Nd in (1, 2)
         @assert N >= Nd
         P = adapt_dim(U, Nd, real)
-        xs = spatial_vectors(size(u)[1:Nd], ds; center = (-).(center))
+        xs = spatial_vectors(size(u.data)[1:Nd], ds)
         ϕ = Nd == 2 ? P(f.(xs[1], xs[2]')) : P(f.(xs[1]))
         ∂p = (trainable && buffered) ? (; ϕ = similar(ϕ)) : nothing
-        u = (trainable && buffered) ? similar(u) : nothing
+        u = (trainable && buffered) ? similar(u.data) : nothing
         A = typeof(ϕ)
         new{M, A, U}(ϕ, ∂p, u)
     end
 
     function Phase(
             u::ScalarField{U, Nd},
-            ds::NTuple{Nd, Real},
-            f::Function;
+            f::Function = (x...) -> 0;
             trainable::Bool = false,
-            buffered::Bool = false,
-            center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
+            buffered::Bool = false
     ) where {U <: AbstractArray{<:Complex}, Nd}
-        Phase(u.data, ds, f; trainable, buffered, center)
-    end
-
-    function Phase(
-            u::ScalarField{U, Nd},
-            f::Function;
-            trainable::Bool = false,
-            buffered::Bool = false,
-            center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
-    ) where {U <: AbstractArray{<:Complex}, Nd}
-        Phase(u.data, u.ds, f; trainable, buffered, center)
+        Phase(u, u.ds, f; trainable, buffered)
     end
 end
 
@@ -69,36 +56,29 @@ trainable(p::Phase{<:Trainable}) = (; ϕ = p.ϕ)
 
 get_preallocated_gradient(p::Phase{Trainable{Buffered}}) = p.∂p
 
-alloc_saved_buffer(u, p::Phase{Trainable{Unbuffered}}) = similar(get_data(u))
+alloc_saved_buffer(u::ScalarField, p::Phase{Trainable{Unbuffered}}) = similar(u.data)
 
 get_saved_buffer(p::Phase{Trainable{Buffered}}) = p.u
 
-function apply_phase!(u::AbstractArray, p::Phase, direction::Type{<:Direction})
+function propagate!(u::ScalarField, p::Phase, direction::Type{<:Direction})
     s = sign(direction)
-    @. u *= cis(s*p.ϕ)
-end
-
-function apply_phase!(u::ScalarField, p::Phase, direction::Type{<:Direction})
-    apply_phase!(u.data, p, direction)
+    @. u.data *= cis(s*p.ϕ)
     u
 end
 
-function propagate!(u, p::Phase, direction::Type{<:Direction})
-    apply_phase!(u, p, direction)
-end
-
-function backpropagate!(u, p::Phase, direction::Type{<:Direction})
+function backpropagate!(u::ScalarField, p::Phase, direction::Type{<:Direction})
     propagate!(u, p, reverse(direction))
 end
 
-function propagate_and_save!(u, p::Phase{Trainable{Buffered}}, direction::Type{<:Direction})
-    copyto!(p.u, get_data(u))
+function propagate_and_save!(u::ScalarField, p::Phase{Trainable{Buffered}},
+        direction::Type{<:Direction})
+    copyto!(p.u, u.data)
     propagate!(u, p, direction)
 end
 
-function propagate_and_save!(u, u_saved, p::Phase{Trainable{Unbuffered}},
-        direction::Type{<:Direction})
-    copyto!(u_saved, get_data(u))
+function propagate_and_save!(u::ScalarField, u_saved::AbstractArray,
+        p::Phase{Trainable{Unbuffered}}, direction::Type{<:Direction})
+    copyto!(u_saved, u.data)
     propagate!(u, p, direction)
 end
 
@@ -131,9 +111,10 @@ function compute_phase_gradient!(
     ∂ϕ
 end
 
-function backpropagate_with_gradient!(∂v, u_saved, ∂p::NamedTuple,
-        p::Phase{<:Trainable}, direction::Type{<:Direction})
+function backpropagate_with_gradient!(∂v::ScalarField, u_saved::AbstractArray,
+        ∂p::NamedTuple, p::Phase{<:Trainable}, direction::Type{<:Direction})
     ∂u = backpropagate!(∂v, p, direction)
-    compute_phase_gradient!(∂p.ϕ, get_data(∂u), get_data(u_saved))
+    compute_phase_gradient!(∂p.ϕ, ∂u.data, get_data(u_saved))
+    ∂p.ϕ .*= sign(direction)
     (∂u, ∂p)
 end

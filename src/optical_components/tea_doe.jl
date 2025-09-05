@@ -13,23 +13,22 @@ struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
     end
 
     function TeaDOE(
-            u::U,
+            u::ScalarField{U, Nd},
             ds::NTuple{Nd, Real},
             dn::Union{Real, Function},
-            f::Function;
+            f::Function = (x...) -> 0;
             r::Union{Number, Function} = 1,
             trainable::Bool = false,
-            buffered::Bool = false,
-            center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
+            buffered::Bool = false
     ) where {N, Nd, T, U <: AbstractArray{Complex{T}, N}}
         @assert Nd in (1, 2)
         @assert N >= Nd
         M = trainability(trainable, buffered)
         P = adapt_dim(U, Nd, real)
-        xs = spatial_vectors(size(u)[1:Nd], ds; center = (-).(center))
+        xs = spatial_vectors(size(u.data)[1:Nd], ds)
         h = Nd == 2 ? P(f.(xs[1], xs[2]')) : P(f.(xs[1]))
         ∂p = (trainable && buffered) ? (; h = similar(h)) : nothing
-        u = (trainable && buffered) ? similar(u) : nothing
+        u = (trainable && buffered) ? similar(u.data) : nothing
         dn_f = isa(dn, Real) ? (λ -> T(dn)) : (λ -> T(dn(λ)))
         r_f = isa(r, Number) ? (λ -> Complex{T}(r)) : (λ -> Complex{T}(r(λ)))
         Fn = typeof(dn_f)
@@ -40,27 +39,13 @@ struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
 
     function TeaDOE(
             u::ScalarField{U, Nd},
-            ds::NTuple{Nd, Real},
             dn::Union{Real, Function},
-            f::Function;
+            f::Function = (x...) -> 0;
             r::Union{Number, Function} = 1,
             trainable::Bool = false,
-            buffered::Bool = false,
-            center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
+            buffered::Bool = false
     ) where {U <: AbstractArray{<:Complex}, Nd}
-        TeaDOE(u.data, ds, dn, f; r, trainable, buffered, center)
-    end
-
-    function TeaDOE(
-            u::ScalarField{U, Nd},
-            dn::Union{Real, Function},
-            f::Function;
-            r::Union{Number, Function} = 1,
-            trainable::Bool = false,
-            buffered::Bool = false,
-            center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
-    ) where {U <: AbstractArray{<:Complex}, Nd}
-        TeaDOE(u.data, u.ds, dn, f; r, trainable, buffered, center)
+        TeaDOE(u, u.ds, dn, f; r, trainable, buffered)
     end
 end
 
@@ -70,10 +55,9 @@ function TeaReflector(
         f::Function;
         r::Union{Number, Function} = 1,
         trainable::Bool = false,
-        buffered::Bool = false,
-        center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
+        buffered::Bool = false
 ) where {U <: AbstractArray{<:Complex}, Nd}
-    TeaDOE(u, ds, 2, f; r, trainable, buffered, center)
+    TeaDOE(u, ds, 2, f; r, trainable, buffered)
 end
 
 function TeaReflector(
@@ -81,10 +65,9 @@ function TeaReflector(
         f::Function;
         r::Union{Number, Function} = 1,
         trainable::Bool = false,
-        buffered::Bool = false,
-        center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)
+        buffered::Bool = false
 ) where {U <: AbstractArray{<:Complex}, Nd}
-    TeaDOE(u, 2, f; r, trainable, buffered, center)
+    TeaDOE(u, 2, f; r, trainable, buffered)
 end
 
 Functors.@functor TeaDOE (h,)
@@ -106,7 +89,7 @@ trainable(p::TeaDOE{<:Trainable}) = (; h = p.h)
 
 get_preallocated_gradient(p::TeaDOE{Trainable{Buffered}}) = p.∂p
 
-alloc_saved_buffer(u, p::TeaDOE{Trainable{Unbuffered}}) = similar(get_data(u))
+alloc_saved_buffer(u::ScalarField, p::TeaDOE{Trainable{Unbuffered}}) = similar(u.data)
 
 get_saved_buffer(p::TeaDOE{Trainable{Buffered}}) = p.u
 
@@ -118,10 +101,6 @@ end
 function apply_phase!(
         u::AbstractArray{T}, lambdas, p::TeaDOE, ::Type{Backward}) where {T}
     @. u *= conj(p.r(lambdas)) * cis(-(T(2)*π/lambdas)*p.dn(lambdas)*p.h)
-end
-
-function propagate!(u::AbstractArray, lambdas, p::TeaDOE, direction::Type{<:Direction})
-    apply_phase!(u, lambdas, p, direction)
 end
 
 function propagate!(u::ScalarField, p::TeaDOE, direction::Type{<:Direction})
@@ -145,24 +124,17 @@ function propagate_and_save!(u::ScalarField, u_saved, p::TeaDOE{Trainable{Unbuff
     propagate!(u, p, direction)
 end
 
-function compute_surface_gradient!(
-        ∂h::P,
-        ∂u::U,
-        u::U,
-        lambdas,
-        dn::Function,
-        r::Function) where {T <: Real,
-        Nd,
-        P <: AbstractArray{T, Nd},
-        U <: AbstractArray{<:Complex{T}}}
+function compute_surface_gradient!(∂h::P, u_saved, ∂u::ScalarField,
+        dn, r, direction) where {T <: Real, Nd, P <: AbstractArray{T, Nd}}
     sdims = (Nd + 1):ndims(∂u)
-    g = @. (T(2)*π*dn(lambdas)/lambdas)*imag(∂u*conj(u))
+    s = sign(direction)
+    g = @. (s*T(2)*π*dn(∂u.lambdas)/∂u.lambdas)*imag(∂u.data*conj(u_saved))
     copyto!(∂h, sum(g; dims = sdims))
 end
 
-function backpropagate_with_gradient!(∂v::ScalarField, u_saved,
+function backpropagate_with_gradient!(∂v::ScalarField, u_saved::AbstractArray,
         ∂p::NamedTuple, p::TeaDOE{<:Trainable}, direction::Type{<:Direction})
     ∂u = backpropagate!(∂v, p, direction)
-    compute_surface_gradient!(∂p.h, ∂u.data, get_data(u_saved), ∂u.lambdas, p.dn, p.r)
+    compute_surface_gradient!(∂p.h, u_saved, ∂u, p.dn, p.r, direction)
     (∂u, ∂p)
 end
