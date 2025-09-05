@@ -107,10 +107,6 @@ Functors.@functor ASProp ()
 
 get_kernels(p::ASProp) = (p.kernel,)
 
-build_kernel_keys(p::ASProp{M, K, T}, λ::Real) where {M, K, T} = hash(T(λ))
-
-build_kernel_keys(p::ASProp, lambdas::AbstractArray) = (1, hash.(lambdas))
-
 function build_kernel_args(p::ASProp)
     if p.is_paraxial
         (p.n0, p.z, p.filter)
@@ -119,7 +115,7 @@ function build_kernel_args(p::ASProp)
     end
 end
 
-build_kernel_args_dict(p::ASProp) = build_kernel_args(p)
+get_kernel_extra_key_params(p::ASProp) = ()
 
 function _propagate_core!(
         apply_kernel_fns::F, u::AbstractArray, p::ASProp, ::Type{<:Direction}) where {F}

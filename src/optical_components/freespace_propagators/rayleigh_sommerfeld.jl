@@ -60,13 +60,9 @@ Functors.@functor RSProp ()
 
 get_kernels(p::RSProp) = (p.kernel,)
 
-build_kernel_keys(p::RSProp{M, K, T}, λ::Real) where {M, K, T} = hash(T(λ))
-
-build_kernel_keys(p::RSProp, lambdas::AbstractArray) = (1, hash.(lambdas))
-
 build_kernel_args(p::RSProp) = (p.z, p.nrm_f, Val(sign(p.z) > 0))
 
-build_kernel_args_dict(p::RSProp) = build_kernel_args(p)
+get_kernel_extra_key_params(p::RSProp) = ()
 
 function _propagate_core!(
         apply_kernel_fns::F, u::AbstractArray, p::RSProp, ::Type{<:Direction}) where {F}

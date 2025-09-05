@@ -180,10 +180,6 @@ function propagate!(u, p::BPM, direction::Type{<:Direction}; u_saved = nothing)
     u
 end
 
-function backpropagate!(u, p::BPM, direction::Type{<:Direction})
-    # propagate!(u, p, reverse(direction))
-end
-
 function propagate_and_save!(u, p::BPM{Trainable{Buffered}}, direction::Type{<:Direction})
     propagate!(u, p, direction; u_saved = p.u)
 end
@@ -193,8 +189,14 @@ function propagate_and_save!(u, u_saved, p::BPM{Trainable{Unbuffered}},
     propagate!(u, p, direction; u_saved)
 end
 
+function backpropagate!(u, p::BPM, direction::Type{<:Direction};
+        u_saved = nothing, ∂p = nothing)
+    # propagate!(u, p, reverse(direction))
+end
+
 function backpropagate_with_gradient!(∂v, u_saved, ∂p::NamedTuple,
         p::BPM{<:Trainable}, direction::Type{<:Direction})
+    ∂u = backpropagate!(∂v, p, direction; u_saved, ∂p)
     # ∂u = backpropagate!(∂v, p, direction)
     # compute_phase_gradient!(∂p.ϕ, get_data(∂u), get_data(u_saved))
     # (∂u, ∂p)

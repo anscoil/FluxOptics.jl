@@ -122,18 +122,9 @@ Functors.@functor TiltedASProp ()
 
 get_kernels(p::TiltedASProp) = (p.kernel,)
 
-build_kernel_keys(p::TiltedASProp{M, K, T}, λ::Real) where {M, K, T} = hash(T(λ))
-
-function build_kernel_keys(p::TiltedASProp, lambdas::AbstractArray)
-    (1 + length(p.θs),
-        [hash((λ, θ...)) for (λ, θ...) in zip(lambdas, p.θs_collection...)])
-end
-
 build_kernel_args(p::TiltedASProp) = (p.θs..., p.n0, p.z, p.filter, Val(sign(p.z) > 0))
 
-function build_kernel_args_dict(p::TiltedASProp)
-    (p.θs_collection..., p.n0, p.z, p.filter, Val(sign(p.z > 0)))
-end
+get_kernel_extra_key_params(p::TiltedASProp) = p.θs_collection
 
 function _propagate_core!(apply_kernel_fns::F, u::AbstractArray, p::TiltedASProp,
         ::Type{<:Direction}) where {F}

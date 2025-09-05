@@ -6,22 +6,7 @@ function get_kernels(p::AbstractPropagator{M, <:AbstractKernel}) where {M}
     error("Not implemented")
 end
 
-function build_kernel_keys(p::AbstractPropagator{M, <:AbstractKernel},
-        lambdas::Union{Real, AbstractArray}) where {M}
-    error("Not implemented")
-end
-
-function build_kernel_keys(p::AbstractPropagator{M, <:AbstractKernel},
-        u::ScalarField) where {M}
-    build_kernel_keys(p, u.lambdas_collection)
-end
-
 function build_kernel_args(p::AbstractPropagator{M, <:AbstractKernel}) where {M}
-    error("Not implemented")
-end
-
-function build_kernel_args_dict(p::AbstractPropagator{M, <:AbstractKernel},
-        u::ScalarField) where {M}
     error("Not implemented")
 end
 
@@ -35,14 +20,29 @@ function build_kernel_args(p::AbstractPropagator{M, <:AbstractKernel},
     (lambdas, build_kernel_args(p)...)
 end
 
-function build_kernel_args(p::AbstractPropagator{M, <:AbstractKernel},
-        u::ScalarField{U, Nd, <:Real}) where {M, U, Nd}
-    (u.lambdas_collection, build_kernel_args(p)...)
+function get_kernel_extra_key_params(p::AbstractPropagator{M, <:AbstractKernel}) where {M}
+    error("Not implemented")
 end
 
-function build_kernel_args(p::AbstractPropagator{M, <:AbstractKernel},
-        u::ScalarField{U, Nd, <:AbstractArray}) where {M, U, Nd}
-    (u.lambdas_collection, build_kernel_args_dict(p)...)
+build_kernel_keys(p::AbstractPropagator{M, K, T}, λ::Real) where {M, K, T} = hash(T(λ))
+
+function build_kernel_keys(p::AbstractPropagator{M, <:AbstractKernel},
+        lambdas::AbstractArray) where {M}
+    key_params = get_kernel_extra_key_params(p)
+    (1 + length(key_params),
+        [hash((λ, params...)) for (λ, params...) in zip(lambdas, key_params...)])
+end
+
+function build_kernel_args_dict(p::AbstractPropagator{M, <:AbstractKernel},
+        λ::Real) where {M}
+    build_kernel_args(p, λ)
+end
+
+function build_kernel_args_dict(p::AbstractPropagator{M, <:AbstractKernel},
+        lambdas::AbstractArray) where {M}
+    params = get_kernel_extra_key_params(p)
+    n = length(params)
+    (lambdas, params..., build_kernel_args(p)[(n + 1):end]...)
 end
 
 function _propagate_core!(
@@ -103,7 +103,7 @@ function propagate!(u::ScalarField, p::AbstractPropagator{M, <:AbstractKernel{K}
         direction::Type{<:Direction}) where {M, K <: AbstractArray}
     kernels = get_kernels(p)
     kernel_keys = build_kernel_keys(p, u.lambdas_collection)
-    kernel_args = build_kernel_args(p, u)
+    kernel_args = build_kernel_args_dict(p, u.lambdas_collection)
     apply_kernel_fns = map(
         kernel -> (v,
             compute_kernel) -> apply_kernel!(
