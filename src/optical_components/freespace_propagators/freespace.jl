@@ -24,7 +24,7 @@ function get_kernel_extra_key_params(p::AbstractPropagator{M, <:AbstractKernel})
     error("Not implemented")
 end
 
-build_kernel_keys(p::AbstractPropagator{M, K, T}, λ::Real) where {M, K, T} = hash(T(λ))
+build_kernel_keys(p::AbstractPropagator{M, K, T}, λ::Real) where {M, K, T} = hash(T(λ)) # à revoir
 
 function build_kernel_keys(p::AbstractPropagator{M, <:AbstractKernel},
         lambdas::AbstractArray) where {M}
@@ -34,7 +34,7 @@ function build_kernel_keys(p::AbstractPropagator{M, <:AbstractKernel},
 end
 
 function build_kernel_args_dict(p::AbstractPropagator{M, <:AbstractKernel},
-        λ::Real) where {M}
+        λ::Real) where {M} # à revoir
     build_kernel_args(p, λ)
 end
 

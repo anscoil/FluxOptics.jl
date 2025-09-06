@@ -7,7 +7,7 @@ using LinearAlgebra
 
 Base.copyto!(::Nothing, u) = nothing
 Base.getindex(::Iterators.Cycle{Nothing}, ::Integer) = nothing
-Base.lastindex(::Iterators.Cycle{Nothing}) = nothing
+Base.lastindex(::Iterators.Cycle{Nothing}) = 1
 Base.iterate(::Nothing) = (nothing, nothing)
 Base.iterate(::Nothing, ::Nothing) = nothing
 Iterators.reverse(::Iterators.Cycle{Nothing}) = Iterators.cycle(nothing)
@@ -44,6 +44,7 @@ export AbstractOpticalComponent, AbstractOpticalSource
 export AbstractCustomComponent, AbstractCustomSource
 export AbstractPureComponent, AbstractPureSource
 export ASProp, ASPropZ, TiltedASProp, RSProp, CollinsProp, FourierLens, ParaxialProp
+export AS_BPM, TiltedAS_BPM
 export ScalarSource, get_source, Phase, Mask, TeaDOE, TeaReflector
 export FieldProbe
 export GainSheet

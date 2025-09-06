@@ -65,6 +65,16 @@ Base.getindex(u::ScalarField, i...) = view(u.data, i...)
 Base.size(u::ScalarField) = size(u.data)
 Base.ndims(u::ScalarField) = ndims(u.data)
 
+function Base.fill!(u::ScalarField, v)
+    u.data .= v
+    u
+end
+
+function Base.fill!(u::ScalarField, v::AbstractArray)
+    copyto!(u.data, v)
+    u
+end
+
 function Base.copy(u::ScalarField)
     ScalarField(copy(u.data), u.ds, u.lambdas, u.lambdas_collection)
 end
