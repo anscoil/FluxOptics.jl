@@ -104,8 +104,11 @@ Flux.@layer ScalarSource
 
 Flux.@layer Phase
 Flux.@layer Mask
+Flux.@layer FourierMask
 Flux.@layer TeaDOE
 
 Flux.@layer FieldProbe
+
+Flux.@layer BasisProjectionWrapper
 
 Flux.@layer GainSheet

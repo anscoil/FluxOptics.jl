@@ -16,7 +16,7 @@ struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
             u::ScalarField{U, Nd},
             ds::NTuple{Nd, Real},
             dn::Union{Real, Function},
-            f::Function = (x...) -> 0;
+            f::Function = (_...) -> 0;
             r::Union{Number, Function} = 1,
             trainable::Bool = false,
             buffered::Bool = false
@@ -40,7 +40,7 @@ struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
     function TeaDOE(
             u::ScalarField{U, Nd},
             dn::Union{Real, Function},
-            f::Function = (x...) -> 0;
+            f::Function = (_...) -> 0;
             r::Union{Number, Function} = 1,
             trainable::Bool = false,
             buffered::Bool = false
@@ -52,7 +52,7 @@ end
 function TeaReflector(
         u::ScalarField{U, Nd},
         ds::NTuple{Nd, Real},
-        f::Function;
+        f::Function = (_...) -> 0;
         r::Union{Number, Function} = 1,
         trainable::Bool = false,
         buffered::Bool = false
@@ -62,7 +62,7 @@ end
 
 function TeaReflector(
         u::ScalarField{U, Nd},
-        f::Function;
+        f::Function = (_...) -> 0;
         r::Union{Number, Function} = 1,
         trainable::Bool = false,
         buffered::Bool = false
@@ -72,18 +72,7 @@ end
 
 Functors.@functor TeaDOE (h,)
 
-Base.collect(p::TeaDOE) = collect(p.h)
-Base.size(p::TeaDOE) = size(p.h)
-
-function Base.fill!(p::TeaDOE, v::Real)
-    p.h .= v
-    p
-end
-
-function Base.fill!(p::TeaDOE, v::AbstractArray)
-    copyto!(p.h, v)
-    p
-end
+get_data(p::TeaDOE) = p.h
 
 trainable(p::TeaDOE{<:Trainable}) = (; h = p.h)
 

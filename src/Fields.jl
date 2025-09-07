@@ -88,10 +88,6 @@ function Base.similar(u::ScalarField)
     ScalarField(similar(u.data), u.ds, u.lambdas, u.lambdas_collection)
 end
 
-function FluxOptics.get_data(u::ScalarField)
-    u.data
-end
-
 function Base.collect(u::ScalarField)
     collect(u.data)
 end
@@ -111,12 +107,13 @@ function FluxOptics.correlation(u::ScalarField{U, Nd}, v::ScalarField{U, Nd}) wh
     [correlation(u.data, v.data) for (u, v) in zip(u_vec, v_vec)]
 end
 
-function FluxOptics.power(u::ScalarField)
-    power(u.data, u.ds)
+function power(u::ScalarField{U, Nd}) where {U, Nd}
+    dims = ntuple(k -> k, Nd)
+    sum(abs2, u.data; dims = dims) .* prod(u.ds)
 end
 
-function FluxOptics.normalize_power!(u::ScalarField, v = 1)
-    normalize_power!(u.data, u.ds, v)
+function normalize_power!(u::ScalarField, v = 1)
+    u.data .*= sqrt.(v ./ power(u))
     u
 end
 

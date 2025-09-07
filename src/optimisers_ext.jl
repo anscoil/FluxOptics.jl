@@ -1,5 +1,6 @@
-using Optimisers
-import Optimisers: mapvalue, _trainable, isnumeric, subtract!, Leaf
+import Optimisers
+using Optimisers: AbstractRule, mapvalue, _trainable, isnumeric, subtract!, Leaf
+import Flux
 
 function Optimisers.setup(
         rules::IdDict{K, <:AbstractRule}, default_rule::AbstractRule, model
@@ -9,6 +10,16 @@ function Optimisers.setup(
     isempty(cache) && @warn "setup found no trainable parameters in this model"
     tree
 end
+
+function Optimisers.setup(rules::IdDict{K, <:AbstractRule}, model) where {K}
+    Optimisers.setup(rules, NoDescent(), model)
+end
+
+function Flux.setup(rules::IdDict, default_rules, model)
+    Optimisers.setup(rules, default_rules, model)
+end
+
+Flux.setup(rules::IdDict, model) = Optimisers.setup(rules, model)
 
 function Optimisers._setup(rules, default_rule, x; cache)
     haskey(cache, x) && return cache[x]
@@ -26,8 +37,12 @@ function Optimisers._setup(rules, default_rule, x; cache)
     end
 end
 
-function rules_dict(pairs::Pair{K, <:AbstractRule}...) where {K}
-    return IdDict{Any, AbstractRule}(pairs)
+function make_rules(pairs::Pair{
+        <:K, <:AbstractRule}...) where {
+        K <: Union{AbstractArray, AbstractOpticalComponent}}
+    pairs = map(
+        ((x, v),) -> isa(x, AbstractOpticalComponent) ? (get_data(x), v) : (x, v), pairs)
+    IdDict{AbstractArray, AbstractRule}(pairs)
 end
 
 struct ProxRule{R <: AbstractRule, F <: AbstractProximalOperator} <: AbstractRule
@@ -81,3 +96,9 @@ function Optimisers.apply!(o::Fista, (tk, xk, newdx), x::AbstractArray{T}, dx) w
 
     (tkn, xk, newdx), newdx
 end
+
+struct NoDescent <: AbstractRule end
+
+Optimisers.init(o::NoDescent, x) = ()
+
+Optimisers.apply!(o::NoDescent, _, x, dx) = ((), 0)

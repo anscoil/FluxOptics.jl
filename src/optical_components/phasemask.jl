@@ -11,7 +11,7 @@ struct Phase{M, A, U} <: AbstractCustomComponent{M}
     function Phase(
             u::ScalarField{U, Nd},
             ds::NTuple{Nd, Real},
-            f::Function = (x...) -> 0;
+            f::Function = (_...) -> 0;
             trainable::Bool = false,
             buffered::Bool = false
     ) where {N, Nd, U <: AbstractArray{<:Complex, N}}
@@ -29,7 +29,7 @@ struct Phase{M, A, U} <: AbstractCustomComponent{M}
 
     function Phase(
             u::ScalarField{U, Nd},
-            f::Function = (x...) -> 0;
+            f::Function = (_...) -> 0;
             trainable::Bool = false,
             buffered::Bool = false
     ) where {U <: AbstractArray{<:Complex}, Nd}
@@ -39,18 +39,7 @@ end
 
 Functors.@functor Phase (ϕ,)
 
-Base.collect(p::Phase) = collect(p.ϕ)
-Base.size(p::Phase) = size(p.ϕ)
-
-function Base.fill!(p::Phase, v::Real)
-    p.ϕ .= v
-    p
-end
-
-function Base.fill!(p::Phase, v::AbstractArray)
-    copyto!(p.ϕ, v)
-    p
-end
+get_data(p::Phase) = p.ϕ
 
 trainable(p::Phase{<:Trainable}) = (; ϕ = p.ϕ)
 
@@ -114,7 +103,7 @@ end
 function backpropagate_with_gradient!(∂v::ScalarField, u_saved::AbstractArray,
         ∂p::NamedTuple, p::Phase{<:Trainable}, direction::Type{<:Direction})
     ∂u = backpropagate!(∂v, p, direction)
-    compute_phase_gradient!(∂p.ϕ, ∂u.data, get_data(u_saved))
+    compute_phase_gradient!(∂p.ϕ, ∂u.data, u_saved)
     ∂p.ϕ .*= sign(direction)
     (∂u, ∂p)
 end

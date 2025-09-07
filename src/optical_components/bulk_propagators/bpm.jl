@@ -84,18 +84,7 @@ end
 
 Functors.@functor BPM (dn,)
 
-Base.collect(p::BPM) = collect(p.dn)
-Base.size(p::BPM) = size(p.dn)
-
-function Base.fill!(p::BPM, v::Real)
-    p.dn .= v
-    p
-end
-
-function Base.fill!(p::BPM, v::AbstractArray)
-    copyto!(p.dn, v)
-    p
-end
+get_data(p::BPM) = p.dn
 
 trainable(p::BPM{<:Trainable}) = (; dn = p.dn)
 
@@ -147,8 +136,6 @@ function compute_dn_gradient!(∂dn::AbstractArray{T, Nd}, u_saved, ∂u::Scalar
         kdz, direction) where {T <: Real, Nd}
     sdims = (Nd + 1):ndims(∂u)
     s = sign(direction)
-    # println(size(u_saved))
-    # println(size(∂u.data))
     g = @. s*kdz/∂u.lambdas*imag(∂u.data*conj(u_saved))
     copyto!(∂dn, sum(g; dims = sdims))
 end

@@ -12,14 +12,16 @@ Base.iterate(::Nothing) = (nothing, nothing)
 Base.iterate(::Nothing, ::Nothing) = nothing
 Iterators.reverse(::Iterators.Cycle{Nothing}) = Iterators.cycle(nothing)
 
+isbroadcastable(a, b) = all(((m, n),) -> m == n || m == 1 || n == 1, zip(size(a), size(b)))
+
 include("measure.jl")
 export vec2D
 export intensity, intensity2D, phase, rms_error, correlation
-export get_data, power, normalize_power!
 
 include("Fields.jl")
 using .Fields
 export ScalarField
+export power, normalize_power!
 
 include("GridUtils.jl")
 using .GridUtils
@@ -45,8 +47,9 @@ export AbstractCustomComponent, AbstractCustomSource
 export AbstractPureComponent, AbstractPureSource
 export ASProp, ASPropZ, TiltedASProp, RSProp, CollinsProp, FourierLens, ParaxialProp
 export AS_BPM, TiltedAS_BPM
-export ScalarSource, get_source, Phase, Mask, TeaDOE, TeaReflector
+export ScalarSource, get_source, Phase, Mask, FourierMask, TeaDOE, TeaReflector
 export FieldProbe
+export BasisProjectionWrapper
 export GainSheet
 
 include("proximal_operators/ProximalOperators.jl")
@@ -54,7 +57,7 @@ using .ProximalOperators
 export PointwiseProx, IstaProx, ClampProx, PositiveProx
 
 include("optimisers_ext.jl")
-export rules_dict, ProxRule, Fista
+export make_rules, ProxRule, Fista, NoDescent
 
 include("flux_ext.jl")
 export OpticalChain, set_kwargs!

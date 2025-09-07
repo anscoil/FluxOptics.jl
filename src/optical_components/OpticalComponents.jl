@@ -1,10 +1,11 @@
 module OpticalComponents
 
 using Functors
+using LinearAlgebra
 using AbstractFFTs
 using EllipsisNotation
 using LRUCache
-using ..FluxOptics: get_data, intensity
+using ..FluxOptics: isbroadcastable
 using ..GridUtils
 using ..Fields
 using ..FFTutils
@@ -15,6 +16,7 @@ export AbstractCustomComponent, AbstractCustomSource
 export AbstractPureComponent, AbstractPureSource
 export propagate!, propagate
 export alloc_saved_buffer, get_saved_buffer
+export get_data
 
 abstract type Direction end
 struct Forward <: Direction end
@@ -51,8 +53,20 @@ end
 
 abstract type AbstractOpticalComponent{M <: Trainability} end
 
-function Base.fill!(p::AbstractOpticalComponent, v)
+function get_data(p::AbstractOpticalComponent)
     error("Not implemented")
+end
+
+Base.collect(p::AbstractOpticalComponent) = collect(get_data(p))
+
+Base.size(p::AbstractOpticalComponent) = size(get_data(p))
+
+function Base.fill!(p::AbstractOpticalComponent, v::Real)
+    get_data(p) .= v
+end
+
+function Base.fill!(p::AbstractOpticalComponent, v::AbstractArray)
+    copyto!(get_data(p), v)
 end
 
 trainable(p::AbstractOpticalComponent{Static}) = NamedTuple{}()
@@ -190,6 +204,9 @@ export Phase
 include("mask.jl")
 export Mask
 
+include("fourier_mask.jl")
+export FourierMask
+
 include("tea_doe.jl")
 export TeaDOE, TeaReflector
 
@@ -198,6 +215,9 @@ export BPM, AS_BPM, TiltedAS_BPM
 
 include("field_probe.jl")
 export FieldProbe
+
+include("basis_projection_wrapper.jl")
+export BasisProjectionWrapper
 
 include("active_media/active_media.jl")
 export GainSheet

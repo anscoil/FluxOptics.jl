@@ -127,11 +127,11 @@ function apply_collins_last_chirp!(u_tmp, apply_a_chirp!, apply_d_chirp!, ::Type
     apply_a_chirp!(u_tmp, collins_a_chirp)
 end
 
-function normalize!(u::AbstractArray, p::CollinsProp, ::Type{Forward})
+function normalize_collins!(u::AbstractArray, p::CollinsProp, ::Type{Forward})
     u .*= p.nrm_fwd
 end
 
-function normalize!(u::AbstractArray, p::CollinsProp, ::Type{Backward})
+function normalize_collins!(u::AbstractArray, p::CollinsProp, ::Type{Backward})
     u .*= p.nrm_bwd
 end
 
@@ -149,7 +149,7 @@ function _propagate_core!(apply_kernel_fns::F, u::AbstractArray,
     p_f.ift * u_tmp
     apply_collins_last_chirp!(u_tmp, apply_a_chirp!, apply_d_chirp!, direction)
     copyto!(u, u_view)
-    normalize!(u, p, direction)
+    normalize_collins!(u, p, direction)
     u
 end
 

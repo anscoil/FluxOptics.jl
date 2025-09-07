@@ -33,18 +33,3 @@ end
 function correlation(u, v)
     abs2(dot(u, v)/(norm(u)*norm(v)))
 end
-
-function get_data(u::AbstractArray)
-    u
-end
-
-function power(u::AbstractArray{T, N}, ds::NTuple{Nd, Real}) where {T, N, Nd}
-    @assert N >= Nd
-    dims = ntuple(k -> k, Nd)
-    sum(abs2, u; dims = dims) .* prod(ds)
-end
-
-function normalize_power!(u::AbstractArray, ds::NTuple, v = 1)
-    u .*= sqrt.(v ./ power(u, ds))
-    u
-end
