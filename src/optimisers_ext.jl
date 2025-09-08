@@ -1,6 +1,9 @@
 import Optimisers
 using Optimisers: AbstractRule, mapvalue, _trainable, isnumeric, subtract!, Leaf
-import Flux
+
+Optimisers.trainable(p::OpticalChain) = (; layers = p.layers)
+
+Optimisers.trainable(p::AbstractOpticalComponent) = OpticalComponents.trainable(p)
 
 function Optimisers.setup(
         rules::IdDict{K, <:AbstractRule}, default_rule::AbstractRule, model
@@ -14,12 +17,6 @@ end
 function Optimisers.setup(rules::IdDict{K, <:AbstractRule}, model) where {K}
     Optimisers.setup(rules, NoDescent(), model)
 end
-
-function Flux.setup(rules::IdDict, default_rules, model)
-    Optimisers.setup(rules, default_rules, model)
-end
-
-Flux.setup(rules::IdDict, model) = Optimisers.setup(rules, model)
 
 function Optimisers._setup(rules, default_rule, x; cache)
     haskey(cache, x) && return cache[x]

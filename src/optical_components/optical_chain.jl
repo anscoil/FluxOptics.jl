@@ -1,8 +1,3 @@
-using Flux
-using Functors
-using AbstractFFTs
-using LRUCache
-
 function (p::AbstractOpticalComponent)(u; forward::Bool = true, inplace::Bool = false)
     direction = forward ? Forward : Backward
     if inplace
@@ -85,31 +80,3 @@ function (m::OpticalChain{N})(x = nothing; call_kwargs...) where {N}
     kwargs = merge(kwargs, (; inplace = true))
     iter_layers(m.layers[2:end], x, d; kwargs...)
 end
-
-Flux.trainable(p::OpticalChain) = (; layers = p.layers)
-
-Flux.trainable(p::AbstractOpticalComponent) = OpticalComponents.trainable(p)
-
-Flux.@layer OpticalChain
-
-Flux.@layer ASProp
-Flux.@layer ASPropZ
-Flux.@layer TiltedASProp
-Flux.@layer RSProp
-Flux.@layer CollinsProp
-
-Flux.@layer BPM
-
-Flux.@layer ScalarSource
-
-Flux.@layer Phase
-Flux.@layer Mask
-Flux.@layer FourierMask
-Flux.@layer FourierPhase
-Flux.@layer TeaDOE
-
-Flux.@layer FieldProbe
-
-Flux.@layer BasisProjectionWrapper
-
-Flux.@layer GainSheet

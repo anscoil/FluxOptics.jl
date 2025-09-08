@@ -225,4 +225,7 @@ export BasisProjectionWrapper, make_spatial_basis, make_fourier_basis
 include("active_media/active_media.jl")
 export GainSheet
 
+include("optical_chain.jl")
+export OpticalChain
+
 end
