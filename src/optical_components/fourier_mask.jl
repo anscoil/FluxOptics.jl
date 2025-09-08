@@ -22,8 +22,8 @@ struct FourierMask{M, A, U, P} <: AbstractCustomComponent{M}
         P = typeof(p_f)
         if isa(f, Function)
             A = adapt_dim(U, Nd)
-            xs = spatial_vectors(size(u.data)[1:Nd], ds)
-            m = Nd == 2 ? A(f.(xs[1], xs[2]')) : A(f.(xs[1]))
+            fs = [fftfreq(nx, 1/dx) for (nx, dx) in zip(ns, ds)]
+            m = Nd == 2 ? A(f.(fs[1], fs[2]')) : A(f.(fs[1]))
         else
             @assert isbroadcastable(f, u)
             A = adapt_dim(U, ndims(f))

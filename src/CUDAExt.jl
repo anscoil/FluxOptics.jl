@@ -32,7 +32,7 @@ function FFTutils.make_fft_plans(
     (; ft = p_ft, ift = p_ift)
 end
 
-function kernel_phase_gradient!(∂ϕ, ∂u, u)
+function kernel_phase_gradient!(∂ϕ, ∂u, u, s)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -48,20 +48,17 @@ function kernel_phase_gradient!(∂ϕ, ∂u, u)
         acc += imag(a * conj(b))
     end
 
-    ∂ϕ[i, j] = acc
+    ∂ϕ[i, j] = s*acc
     return
 end
 
-function OpticalComponents.compute_phase_gradient!(
-        ∂ϕ::CuArray{T, 2},
-        ∂u::CuArray{<:Complex{T}},
-        u::CuArray{<:Complex{T}}
-) where {T <: Real}
-    nx, ny = size(u)
-    @assert size(∂u) == size(u)
+function OpticalComponents.compute_phase_gradient!(∂ϕ::CuArray{<:Real, Nd},
+        u_saved, ∂u::ScalarField, direction) where {Nd}
+    nx, ny = size(u_saved)
+    @assert size(∂u) == size(u_saved)
     @assert size(∂ϕ, 1) == nx
     @assert size(∂ϕ, 2) == ny
-
+    s = sign(direction)
     nz = prod(size(∂u)[3:end])
 
     tx, ty = compute_thread_config()
@@ -72,7 +69,7 @@ function OpticalComponents.compute_phase_gradient!(
     )
 
     @cuda threads=threads blocks=blocks kernel_phase_gradient!(
-        ∂ϕ, reshape(∂u, (nx, ny, nz)), reshape(u, (nx, ny, nz)))
+        ∂ϕ, reshape(∂u.data, (nx, ny, nz)), reshape(u_saved, (nx, ny, nz)), s)
 
     ∂ϕ
 end

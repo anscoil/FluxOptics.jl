@@ -47,9 +47,11 @@ export AbstractCustomComponent, AbstractCustomSource
 export AbstractPureComponent, AbstractPureSource
 export ASProp, ASPropZ, TiltedASProp, RSProp, CollinsProp, FourierLens, ParaxialProp
 export AS_BPM, TiltedAS_BPM
-export ScalarSource, get_source, Phase, Mask, FourierMask, TeaDOE, TeaReflector
+export ScalarSource, get_source, Phase, Mask, FourierMask, FourierPhase
+export TeaDOE, TeaReflector
 export FieldProbe
-export BasisProjectionWrapper
+export BasisProjectionWrapper, make_spatial_basis, make_fourier_basis
+export get_wrapped_data
 export GainSheet
 
 include("proximal_operators/ProximalOperators.jl")

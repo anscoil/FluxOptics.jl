@@ -71,30 +71,25 @@ function propagate_and_save!(u::ScalarField, u_saved::AbstractArray,
     propagate!(u, p, direction)
 end
 
-function compute_phase_gradient!(
-        ∂ϕ::P,
-        ∂u::U,
-        u::U) where {T <: Real, Nd,
-        P <: AbstractArray{T, Nd},
-        U <: AbstractArray{<:Complex{T}}}
-    sdims = (Nd + 1):ndims(∂u)
-    ∂ϕ .= sum(imag.(∂u .* conj.(u)), dims = sdims)
+function compute_phase_gradient!(∂ϕ::AbstractArray{<:Real, Nd}, u_saved, ∂u::ScalarField,
+        direction) where {Nd}
+    sdims = (Nd + 1):ndims(∂u.data)
+    s = sign(direction)
+    g = @. s*imag(∂u.data*conj(u_saved))
+    copyto!(∂ϕ, sum(g; dims = sdims))
 end
 
-function compute_phase_gradient!(
-        ∂ϕ::P,
-        ∂u::U,
-        u::U) where {T <: Real,
-        P <: Array{T, 2},
-        U <: Array{<:Complex{T}}}
+function compute_phase_gradient!(∂ϕ::Array{<:Real, Nd}, u_saved, ∂u::ScalarField,
+        direction) where {Nd}
     sdims = 3:ndims(∂u)
+    s = sign(direction)
     ∂ϕ .= 0
     @inbounds for idx in CartesianIndices(size(∂u)[sdims])
         @inbounds for j in axes(∂ϕ, 2), i in axes(∂ϕ, 1)
 
             full_idx = (i, j, Tuple(idx)...)
-            val = imag(∂u[full_idx...] * conj(u[full_idx...]))
-            ∂ϕ[i, j] += val
+            val = imag(∂u.data[full_idx...] * conj(u_saved[full_idx...]))
+            ∂ϕ[i, j] += s*val
         end
     end
     ∂ϕ
@@ -103,7 +98,6 @@ end
 function backpropagate_with_gradient!(∂v::ScalarField, u_saved::AbstractArray,
         ∂p::NamedTuple, p::Phase{<:Trainable}, direction::Type{<:Direction})
     ∂u = backpropagate!(∂v, p, direction)
-    compute_phase_gradient!(∂p.ϕ, ∂u.data, u_saved)
-    ∂p.ϕ .*= sign(direction)
+    compute_phase_gradient!(∂p.ϕ, u_saved, ∂u, direction)
     (∂u, ∂p)
 end

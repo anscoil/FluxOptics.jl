@@ -105,6 +105,7 @@ Flux.@layer ScalarSource
 Flux.@layer Phase
 Flux.@layer Mask
 Flux.@layer FourierMask
+Flux.@layer FourierPhase
 Flux.@layer TeaDOE
 
 Flux.@layer FieldProbe

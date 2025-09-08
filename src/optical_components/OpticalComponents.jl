@@ -16,7 +16,7 @@ export AbstractCustomComponent, AbstractCustomSource
 export AbstractPureComponent, AbstractPureSource
 export propagate!, propagate
 export alloc_saved_buffer, get_saved_buffer
-export get_data
+export get_data, get_wrapped_data
 
 abstract type Direction end
 struct Forward <: Direction end
@@ -207,6 +207,9 @@ export Mask
 include("fourier_mask.jl")
 export FourierMask
 
+include("fourier_phase.jl")
+export FourierPhase
+
 include("tea_doe.jl")
 export TeaDOE, TeaReflector
 
@@ -217,7 +220,7 @@ include("field_probe.jl")
 export FieldProbe
 
 include("basis_projection_wrapper.jl")
-export BasisProjectionWrapper
+export BasisProjectionWrapper, make_spatial_basis, make_fourier_basis
 
 include("active_media/active_media.jl")
 export GainSheet
