@@ -22,6 +22,10 @@ function OpticalChain(layers...)
     OpticalChain(layers, Ref((; forward = true, inplace = false)))
 end
 
+function get_layers(p::OpticalChain)
+    p.layers
+end
+
 function set_kwargs!(m::OpticalChain; kwargs...)
     try
         kwargs = NamedTuple([k == :direction ?

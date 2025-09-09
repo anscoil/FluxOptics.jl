@@ -53,16 +53,17 @@ export FieldProbe
 export BasisProjectionWrapper, make_spatial_basis, make_fourier_basis
 export get_wrapped_data
 export GainSheet
-export OpticalChain
+export OpticalChain, get_layers
 
 include("proximal_operators/ProximalOperators.jl")
 using .ProximalOperators
-export PointwiseProx, IstaProx, ClampProx, PositiveProx
+export PointwiseProx, IstaProx, ClampProx, PositiveProx, TVProx
+export Fista, NoDescent
 
 include("optimisers_ext.jl")
 using Optimisers: setup, update!, Descent, Momentum, Nesterov
 export setup, update!
-export make_rules, ProxRule, Fista, NoDescent, Descent, Momentum, Nesterov
+export make_rules, ProxRule, Descent, Momentum, Nesterov
 
 using .OpticalComponents: Buffering, Buffered, Unbuffered
 using .OpticalComponents: Trainability, Trainable, Static

@@ -114,13 +114,13 @@ end
 
 function make_spatial_basis(f, ns::NTuple{Nd, Integer}, ds::NTuple{Nd, Real},
         args...) where {Nd}
-    @assert Nd in (1,2)
+    @assert Nd in (1, 2)
     make_basis(f, spatial_vectors(ns, ds), args...)
 end
 
 function make_fourier_basis(f, ns::NTuple{Nd, Integer}, ds::NTuple{Nd, Real},
         args...) where {Nd}
-    @assert Nd in (1,2)
+    @assert Nd in (1, 2)
     fs = Tuple([fftfreq(nx, 1/dx) for (nx, dx) in zip(ns, ds)])
     make_basis(f, fs, args...)
 end
