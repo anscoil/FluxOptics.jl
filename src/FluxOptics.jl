@@ -58,6 +58,7 @@ export OpticalChain, get_layers
 include("proximal_operators/ProximalOperators.jl")
 using .ProximalOperators
 export PointwiseProx, IstaProx, ClampProx, PositiveProx, TVProx
+export TV_denoise!
 export Fista, NoDescent
 
 include("optimisers_ext.jl")
@@ -73,9 +74,12 @@ using .OpticalComponents: backpropagate_with_gradient!, backpropagate_with_gradi
 using .OpticalComponents: get_preallocated_gradient, alloc_gradient
 include("chainrulescore_ext.jl")
 
+# include("cuda/CUDAExt.jl")
+# using .CUDAExt
+
 function __init__()
     @require CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba" begin
-        include("CUDAExt.jl")
+        include("cuda/CUDAExt.jl")
         using .CUDAExt
     end
     @require Makie="ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a" begin

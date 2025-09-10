@@ -5,6 +5,7 @@ using LinearAlgebra
 using Optimisers
 export AbstractProximalOperator
 export PointwiseProx, IstaProx, ClampProx, PositiveProx, TVProx
+export TV_denoise!
 export Fista, NoDescent
 
 abstract type AbstractProximalOperator end
@@ -35,7 +36,7 @@ end
 
 function apply!(prox::CompositeProx, states, x::AbstractArray)
     @assert length(states) == length(prox.ops)
-    for (single_prox, state) in zip(reverse(prox.ops), reverse(states))
+    for (single_prox, state) in zip(reverse(prox.ops), states)
         apply!(single_prox, state, x)
     end
     x
