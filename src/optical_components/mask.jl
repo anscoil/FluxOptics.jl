@@ -37,5 +37,5 @@ end
 
 function propagate(u::ScalarField, p::Mask, direction::Type{<:Direction})
     data = u.data .* conj_direction(p.m, direction)
-    ScalarField(data, u.ds, u.lambdas, u.lambdas_collection)
+    set_field_data(u, data)
 end

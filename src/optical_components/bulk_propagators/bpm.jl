@@ -1,9 +1,8 @@
 const BPMProp = Union{Type{ASProp}, Type{TiltedASProp}}
 
-compute_cos_correction(u, p) = 1
-
-function compute_cos_correction(u::AbstractArray, p::TiltedASProp)
-    reduce((.*), map(x -> cos.(x), p.θs))
+function compute_cos_correction(u::ScalarField)
+    θs = collect(get_tilts(u))
+    reduce((.*), map(x -> cos.(x), θs))
 end
 
 struct BPM{M, A, U, D, P, K} <: AbstractCustomComponent{M}
@@ -52,18 +51,18 @@ struct BPM{M, A, U, D, P, K} <: AbstractCustomComponent{M}
         ((M, A, U, D),
             (dn, dz, aperture_mask, ∂p, u_saved)
         ) = _init(u.data, u.ds, thickness, dn0, trainable, buffered, aperture)
-        p_bpm = Prop(u, dz, args..., use_cache; n0, double_precision_kernel, kwargs...)
-        p_bpm_half = Prop(u, dz/2, args..., use_cache;
-            n0, double_precision_kernel, kwargs...)
+        p_bpm = Prop(u, dz, args...; use_cache, n0, double_precision_kernel, kwargs...)
+        p_bpm_half = Prop(u, dz/2, args...;
+            use_cache, n0, double_precision_kernel, kwargs...)
         P = typeof(p_bpm)
-        kdz = (2π*dz) ./ compute_cos_correction(u.data, p_bpm)
+        kdz = (2π*dz) ./ compute_cos_correction(u)
         K = typeof(kdz)
         new{M, A, U, D, P, K}(dn, kdz, aperture_mask, p_bpm, p_bpm_half, ∂p, u_saved)
     end
 end
 
 function AS_BPM(u::ScalarField, thickness::Real, n0::Real,
-        dn0::AbstractArray{<:Real}, use_cache::Bool = false;
+        dn0::AbstractArray{<:Real}; use_cache::Bool = true,
         trainable::Bool = false, buffered::Bool = false,
         aperture::Function = (_...) -> 1,
         double_precision_kernel::Bool = true)
@@ -72,14 +71,12 @@ function AS_BPM(u::ScalarField, thickness::Real, n0::Real,
 end
 
 function TiltedAS_BPM(u::ScalarField, thickness::Real,
-        θs::NTuple{Nd, Union{Real, AbstractVector{<:Real}}},
-        n0::Real, dn0::AbstractArray{<:Real}, use_cache::Bool = false;
+        n0::Real, dn0::AbstractArray{<:Real}; use_cache::Bool = true,
         trainable::Bool = false, buffered::Bool = false,
         aperture::Function = (_...) -> 1,
-        double_precision_kernel::Bool = true) where {Nd}
-    cos_correction = compute_cos_correction(u, θs)
+        double_precision_kernel::Bool = true)
     BPM(TiltedASProp, use_cache, u, thickness, n0, dn0; trainable, buffered, aperture,
-        double_precision_kernel, args = (θs,))
+        double_precision_kernel)
 end
 
 Functors.@functor BPM (dn,)
@@ -101,7 +98,8 @@ get_saved_buffer(p::BPM{Trainable{Buffered}}) = p.u
 function apply_dn_slice!(u::ScalarField, dn::AbstractArray, kdz,
         direction::Type{<:Direction})
     s = sign(direction)
-    @. u.data *= cis(s*kdz/u.lambdas*dn)
+    lambdas = get_lambdas(u)
+    @. u.data *= cis(s*kdz/lambdas*dn)
 end
 
 function propagate!(u::ScalarField, p::BPM, direction::Type{<:Direction}; u_saved = nothing)
@@ -136,7 +134,8 @@ function compute_dn_gradient!(∂dn::AbstractArray{T, Nd}, u_saved, ∂u::Scalar
         kdz, direction) where {T <: Real, Nd}
     sdims = (Nd + 1):ndims(∂u)
     s = sign(direction)
-    g = @. s*kdz/∂u.lambdas*imag(∂u.data*conj(u_saved))
+    lambdas = get_lambdas(∂u)
+    g = @. s*kdz/lambdas*imag(∂u.data*conj(u_saved))
     copyto!(∂dn, sum(g; dims = sdims))
 end
 

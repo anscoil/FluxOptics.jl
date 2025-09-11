@@ -93,7 +93,7 @@ function apply_phase!(
 end
 
 function propagate!(u::ScalarField, p::TeaDOE, direction::Type{<:Direction})
-    apply_phase!(u.data, u.lambdas, p, direction)
+    apply_phase!(u.data, get_lambdas(u), p, direction)
     u
 end
 
@@ -117,7 +117,8 @@ function compute_surface_gradient!(∂h::P, u_saved, ∂u::ScalarField,
         dn, r, direction) where {T <: Real, Nd, P <: AbstractArray{T, Nd}}
     sdims = (Nd + 1):ndims(∂u)
     s = sign(direction)
-    g = @. (s*T(2)*π*dn(∂u.lambdas)/∂u.lambdas)*imag(∂u.data*conj(u_saved))
+    lambdas = get_lambdas(∂u)
+    g = @. (s*T(2)*π*dn(lambdas)/lambdas)*imag(∂u.data*conj(u_saved))
     copyto!(∂h, sum(g; dims = sdims))
 end
 

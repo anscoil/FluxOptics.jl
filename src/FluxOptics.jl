@@ -13,6 +13,7 @@ Base.iterate(::Nothing, ::Nothing) = nothing
 Iterators.reverse(::Iterators.Cycle{Nothing}) = Iterators.cycle(nothing)
 
 isbroadcastable(a, b) = all(((m, n),) -> m == n || m == 1 || n == 1, zip(size(a), size(b)))
+bzip(x...) = Base.broadcasted(tuple, x...)
 
 include("measure.jl")
 export vec2D
@@ -21,6 +22,8 @@ export intensity, intensity2D, phase, rms_error, correlation
 include("Fields.jl")
 using .Fields
 export ScalarField
+export get_lambdas, get_lambdas_collection
+export get_tilts, get_tilts_collection
 export power, normalize_power!
 
 include("GridUtils.jl")

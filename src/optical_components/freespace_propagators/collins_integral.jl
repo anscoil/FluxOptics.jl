@@ -41,43 +41,16 @@ struct CollinsProp{M, K, T, Tp, Nd} <: AbstractPropagator{M, K, T}
     nrm_fwd::Complex{Tp}
     nrm_bwd::Complex{Tp}
 
-    function CollinsProp(u::AbstractArray{Complex{T}, N},
-            ds::NTuple{Nd, Real},
-            ds′::NTuple{Nd, Real},
-            abd::Tuple{<:Real, <:Real, <:Real},
-            λ::Real;
-            double_precision_kernel::Bool = true
-    ) where {N, Nd, T}
-        @assert N >= Nd
-        ns = size(u)[1:Nd]
-        a_chirp = ChirpKernel(u, ns, ds, 1)
-        d_chirp = ChirpKernel(u, ns, ds, 1)
-        conv_kernel = ConvolutionKernel(u, ns, ds, 1)
-        kernel = CollinsKernel(a_chirp, d_chirp, conv_kernel)
-        kernel_key = hash(T(λ))
-        Tp = double_precision_kernel ? Float64 : T
-        αs = Tuple([Tp(dx′/dx) for (dx, dx′) in zip(ds, ds′)])
-        _, b = abd
-        nrm_fwd = Complex{Tp}(prod(ds ./ sqrt(im*b)))
-        nrm_bwd = Complex{Tp}(prod(ds′ ./ sqrt(-im*b)))
-        abd = Tp.(abd)
-        kernel_args = (T(λ), αs..., abd...)
-        fill_kernel_cache(a_chirp, kernel_key, collins_a_chirp, kernel_args)
-        fill_kernel_cache(d_chirp, kernel_key, collins_d_chirp, kernel_args)
-        fill_kernel_cache(conv_kernel, kernel_key, collins_convolution_kernel, kernel_args)
-        new{Static, typeof(kernel), T, Tp, Nd}(kernel, αs, ds, ds′, abd, nrm_fwd, nrm_bwd)
-    end
-
     function CollinsProp(u::ScalarField{U, Nd},
             ds::NTuple{Nd, Real},
             ds′::NTuple{Nd, Real},
-            abd::Tuple{<:Real, <:Real, <:Real},
-            use_cache::Bool = false;
+            abd::Tuple{<:Real, <:Real, <:Real};
+            use_cache::Bool = true,
             double_precision_kernel::Bool = true
     ) where {N, Nd, T, U <: AbstractArray{Complex{T}, N}}
         @assert N >= Nd
         ns = size(u)[1:Nd]
-        cache_size = use_cache ? length(unique(u.lambdas)) : 0
+        cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
         a_chirp = ChirpKernel(u.data, ns, ds, cache_size)
         d_chirp = ChirpKernel(u.data, ns, ds, cache_size)
         conv_kernel = ConvolutionKernel(u.data, ns, ds, cache_size)
@@ -93,11 +66,11 @@ struct CollinsProp{M, K, T, Tp, Nd} <: AbstractPropagator{M, K, T}
 
     function CollinsProp(u::ScalarField{U, Nd},
             ds′::NTuple{Nd, Real},
-            abd::Tuple{<:Real, <:Real, <:Real},
-            use_cache::Bool = false;
+            abd::Tuple{<:Real, <:Real, <:Real};
+            use_cache::Bool = true,
             double_precision_kernel::Bool = true
     ) where {Nd, U <: AbstractArray{<:Complex}}
-        CollinsProp(u, u.ds, ds′, abd, use_cache; double_precision_kernel)
+        CollinsProp(u, u.ds, ds′, abd; use_cache, double_precision_kernel)
     end
 end
 
@@ -107,9 +80,9 @@ function get_kernels(p::CollinsProp)
     (p.kernel.a_chirp, p.kernel.d_chirp, p.kernel.convolution_kernel)
 end
 
-build_kernel_args(p::CollinsProp) = (p.αs..., p.abd...)
+build_kernel_key_args(p::CollinsProp, u::ScalarField) = (select_lambdas(u),)
 
-get_kernel_extra_key_params(p::CollinsProp) = ()
+build_kernel_args(p::CollinsProp) = (p.αs..., p.abd...)
 
 function apply_collins_first_chirp!(u_tmp, apply_a_chirp!, apply_d_chirp!, ::Type{Forward})
     apply_a_chirp!(u_tmp, collins_a_chirp)
@@ -154,9 +127,9 @@ function _propagate_core!(apply_kernel_fns::F, u::AbstractArray,
 end
 
 function set_ds_out(p::CollinsProp, u::ScalarField, ::Type{Forward})
-    ScalarField(u.data, p.ds′, u.lambdas, u.lambdas_collection)
+    set_field_ds(u, p.ds′)
 end
 
 function set_ds_out(p::CollinsProp, u::ScalarField, ::Type{Backward})
-    ScalarField(u.data, p.ds, u.lambdas, u.lambdas_collection)
+    set_field_ds(u, p.ds)
 end

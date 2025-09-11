@@ -32,7 +32,7 @@ function as_kernel(fx::T, λ::T, n0::Tp, z::Tp, filter::H,
     Complex{T}(conj(cis(Tp(2)*π*(-z)*sqrt(f² - fx^2)) * v))
 end
 
-function as_paraxial_kernel(fx::T, fy::T, λ::T, n0::T, z::Tp,
+function as_paraxial_kernel(fx::T, fy::T, λ::T, n0::Tp, z::Tp,
         filter::H) where {T <: Real, Tp <: Real, H}
     fx, fy, λ = Tp(fx), Tp(fy), Tp(λ/n0)
     v = isnothing(filter) ? Tp(1) : Tp(filter(fx, fy))
@@ -53,59 +53,37 @@ struct ASProp{M, K, T, Tp, H} <: AbstractPropagator{M, K, T}
     z::Tp
     filter::H
 
-    function ASProp(u::AbstractArray{Complex{T}, N},
-            ds::NTuple{Nd, Real},
-            z::Real,
-            λ::Real;
-            n0::Real = 1,
-            filter::H = nothing,
-            paraxial::Bool = false,
-            double_precision_kernel::Bool = true
-    ) where {N, Nd, T, H}
-        @assert N >= Nd
-        ns = size(u)[1:Nd]
-        kernel = FourierKernel(u, ns, ds, 1)
-        kernel_key = hash(T(λ))
-        Tp = double_precision_kernel ? Float64 : T
-        compute_kernel = paraxial ? as_paraxial_kernel : as_kernel
-        if paraxial
-            fill_kernel_cache(kernel, kernel_key, compute_kernel,
-                (T(λ), Tp(n0), Tp(z), filter))
-        else
-            fill_kernel_cache(kernel, kernel_key, compute_kernel,
-                (T(λ), Tp(n0), Tp(z), filter, Val(sign(z > 0))))
-        end
-        new{Static, typeof(kernel), T, Tp, H}(kernel, paraxial, Tp(n0), Tp(z), filter)
-    end
-
     function ASProp(u::ScalarField{U, Nd},
             ds::NTuple{Nd, Real},
-            z::Real,
-            use_cache::Bool = false;
+            z::Real;
+            use_cache::Bool = true,
             n0::Real = 1,
             filter::H = nothing,
             paraxial::Bool = false,
             double_precision_kernel::Bool = true
     ) where {Nd, T, H, U <: AbstractArray{Complex{T}}}
         ns = size(u)[1:Nd]
-        cache_size = use_cache ? length(unique(u.lambdas)) : 0
+        cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
         kernel = FourierKernel(u.data, ns, ds, cache_size)
         Tp = double_precision_kernel ? Float64 : T
         new{Static, typeof(kernel), T, Tp, H}(kernel, paraxial, Tp(n0), Tp(z), filter)
     end
 
-    function ASProp(u::ScalarField, z::Real, use_cache::Bool = false;
+    function ASProp(u::ScalarField, z::Real;
+            use_cache::Bool = true,
             n0::Real = 1,
             filter = nothing,
             paraxial::Bool = false,
             double_precision_kernel::Bool = true)
-        ASProp(u, u.ds, z, use_cache; n0, filter, paraxial, double_precision_kernel)
+        ASProp(u, u.ds, z; use_cache, n0, filter, paraxial, double_precision_kernel)
     end
 end
 
 Functors.@functor ASProp ()
 
 get_kernels(p::ASProp) = (p.kernel,)
+
+build_kernel_key_args(p::ASProp, u::ScalarField) = (select_lambdas(u),)
 
 function build_kernel_args(p::ASProp)
     if p.is_paraxial
@@ -114,8 +92,6 @@ function build_kernel_args(p::ASProp)
         (p.n0, p.z, p.filter, Val(sign(p.z) > 0))
     end
 end
-
-get_kernel_extra_key_params(p::ASProp) = ()
 
 function _propagate_core!(
         apply_kernel_fns::F, u::AbstractArray, p::ASProp, ::Type{<:Direction}) where {F}
@@ -178,11 +154,13 @@ trainable(p::ASPropZ{<:Trainable}) = (; z = p.z)
 function propagate(u::ScalarField, p::ASPropZ, direction::Type{<:Direction})
     ndims = length(p.f_vec)
     dims = ntuple(i -> i, ndims)
+    lambdas = get_lambdas(u)
     if p.is_paraxial
-        kernel = @. as_paraxial_kernel(p.f_vec..., u.lambdas/p.n0, p.z, p.filter)
+        kernel = @. as_paraxial_kernel(p.f_vec..., lambdas, p.n0, p.z, p.filter)
     else
-        kernel = @. as_kernel(p.f_vec..., u.lambdas/p.n0, p.z, p.filter, Val(sign(p.z) > 0))
+        z_pos = Val(all(sign.(p.z) .> 0))
+        kernel = @. as_kernel(p.f_vec..., lambdas, p.n0, p.z, p.filter, z_pos)
     end
     data = ifft(fft(u.data, dims) .* conj_direction(kernel, direction), dims)
-    ScalarField(data, u.ds, u.lambdas, u.lambdas_collection)
+    set_field_data(u, data)
 end

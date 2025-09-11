@@ -5,7 +5,7 @@ using LinearAlgebra
 using AbstractFFTs
 using EllipsisNotation
 using LRUCache
-using ..FluxOptics: isbroadcastable
+using ..FluxOptics: isbroadcastable, bzip
 using ..GridUtils
 using ..Fields
 using ..FFTutils

@@ -31,5 +31,5 @@ trainable(p::GainSheet{<:Trainable}) = (; g0 = p.g0)
 
 function propagate(u::ScalarField, p::GainSheet, ::Type{<:Direction})
     data = u.data .* exp.((p.g0*p.dz) ./ (1 .+ intensity(u)/p.Isat))
-    ScalarField(data, u.ds, u.lambdas, u.lambdas_collection)
+    set_field_data(u, data)
 end

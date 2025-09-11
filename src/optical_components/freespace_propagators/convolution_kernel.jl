@@ -1,4 +1,4 @@
-struct ConvolutionKernel{K, V, P, U} <: AbstractKernel{K, V}
+struct ConvolutionKernel{K, Nd, V, P, U} <: AbstractKernel{K, V}
     s_vec::V
     kernel_cache::Union{Nothing, LRU{UInt, K}}
     p_f::P
@@ -28,11 +28,11 @@ struct ConvolutionKernel{K, V, P, U} <: AbstractKernel{K, V}
         p_f = make_fft_plans(u_plan, Tuple(1:Nd))
         P = typeof(p_f)
         if iszero(cache_size)
-            new{Nothing, V, P, U}(s_vec, nothing, p_f, u_plan)
+            new{Nothing, Nd, V, P, U}(s_vec, nothing, p_f, u_plan)
         else
             K = adapt_dim(U, Nd)
             kernel_cache = LRU{UInt, K}(maxsize = cache_size)
-            new{K, V, P, U}(s_vec, kernel_cache, p_f, u_plan)
+            new{K, Nd, V, P, U}(s_vec, kernel_cache, p_f, u_plan)
         end
     end
 end
@@ -45,10 +45,12 @@ function get_kernel_vectors(kernel::ConvolutionKernel)
     kernel.s_vec
 end
 
-function transform_kernel!(kernel_val::Broadcast.Broadcasted, kernel::ConvolutionKernel)
-    fft!(Broadcast.materialize(kernel_val))
+function transform_kernel!(kernel_val::Broadcast.Broadcasted,
+        kernel::ConvolutionKernel{K, Nd}) where {K, Nd}
+    fft!(Broadcast.materialize(kernel_val), Tuple(1:Nd))
 end
 
-function transform_kernel!(kernel_val::AbstractArray, kernel::ConvolutionKernel)
-    fft!(kernel_val)
+function transform_kernel!(kernel_val::AbstractArray,
+        kernel::ConvolutionKernel{K, Nd}) where {K, Nd}
+    fft!(kernel_val, Tuple(1:Nd))
 end

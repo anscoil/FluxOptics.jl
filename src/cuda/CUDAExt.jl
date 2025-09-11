@@ -8,7 +8,7 @@ using ..ProximalOperators
 using ..Fields
 
 function CUDA.cu(u::ScalarField)
-    ScalarField(cu(u.data), u.ds, u.lambdas)
+    set_field_data(u, cu(u.data))
 end
 
 function compute_thread_config()
