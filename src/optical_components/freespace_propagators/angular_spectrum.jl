@@ -2,7 +2,7 @@ function as_kernel(fx::T, fy::T, λ::T, n0::Tp, z::Tp,
         filter::H, z_pos::Val{true}) where {T <: Real, Tp <: Real, H}
     fx, fy, λ = Tp(fx), Tp(fy), Tp(λ)/n0
     f² = complex(inv(λ^2))
-    v = isnothing(filter) ? Tp(1) : Tp(filter(fx, fy))
+    v = isnothing(filter) ? Comples{Tp}(1) : Complex{Tp}(filter(fx, fy))
     Complex{T}(cis(Tp(2)*π*z*sqrt(f² - fx^2 - fy^2)) * v)
 end
 
@@ -10,7 +10,7 @@ function as_kernel(fx::T, fy::T, λ::T, n0::Tp, z::Tp,
         filter::H, z_pos::Val{false}) where {T <: Real, Tp <: Real, H}
     fx, fy, λ = Tp(fx), Tp(fy), Tp(λ)/n0
     f² = complex(inv(λ^2))
-    v = isnothing(filter) ? Tp(1) : Tp(filter(fx, fy))
+    v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx, fy))
     Complex{T}(conj(cis(Tp(2)*π*(-z)*sqrt(f² - fx^2 - fy^2)) * v))
 end
 
@@ -19,7 +19,7 @@ function as_kernel(fx::T, λ::T, n0::Tp, z::Tp, filter::H,
 ) where {T <: Real, Tp <: Real, H}
     fx, λ = Tp(fx), Tp(λ)/n0
     f² = complex(inv(λ)^2)
-    v = isnothing(filter) ? Tp(1) : Tp(filter(fx))
+    v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx))
     Complex{T}(cis(Tp(2)*π*z*sqrt(f² - fx^2)) * v)
 end
 
@@ -28,21 +28,21 @@ function as_kernel(fx::T, λ::T, n0::Tp, z::Tp, filter::H,
 ) where {T <: Real, Tp <: Real, H}
     fx, λ = Tp(fx), Tp(λ)/n0
     f² = complex(inv(λ)^2)
-    v = isnothing(filter) ? Tp(1) : Tp(filter(fx))
+    v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx))
     Complex{T}(conj(cis(Tp(2)*π*(-z)*sqrt(f² - fx^2)) * v))
 end
 
 function as_paraxial_kernel(fx::T, fy::T, λ::T, n0::Tp, z::Tp,
         filter::H) where {T <: Real, Tp <: Real, H}
     fx, fy, λ = Tp(fx), Tp(fy), Tp(λ/n0)
-    v = isnothing(filter) ? Tp(1) : Tp(filter(fx, fy))
+    v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx, fy))
     Complex{T}(cis(-π*λ*z*(fx^2 + fy^2)) * v)
 end
 
 function as_paraxial_kernel(fx::T, λ::T, n0::Tp, z::Tp, filter::H
 ) where {T <: Real, Tp <: Real, H}
     fx, λ = Tp(fx), Tp(λ/n0)
-    v = isnothing(filter) ? Tp(1) : Tp(filter(fx))
+    v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx))
     Complex{T}(cis(-π*λ*z*fx^2) * v)
 end
 
@@ -60,7 +60,7 @@ struct ASProp{M, K, T, Tp, H} <: AbstractPropagator{M, K, T}
             n0::Real = 1,
             filter::H = nothing,
             paraxial::Bool = false,
-            double_precision_kernel::Bool = true
+            double_precision_kernel::Bool = use_cache
     ) where {Nd, T, H, U <: AbstractArray{Complex{T}}}
         ns = size(u)[1:Nd]
         cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
@@ -74,7 +74,7 @@ struct ASProp{M, K, T, Tp, H} <: AbstractPropagator{M, K, T}
             n0::Real = 1,
             filter = nothing,
             paraxial::Bool = false,
-            double_precision_kernel::Bool = true)
+            double_precision_kernel::Bool = use_cache)
         ASProp(u, u.ds, z; use_cache, n0, filter, paraxial, double_precision_kernel)
     end
 end
@@ -124,7 +124,7 @@ struct ASPropZ{M, T, A, V, H} <: AbstractPureComponent{M}
             trainable::Bool = false,
             paraxial::Bool = false,
             filter::H = nothing,
-            double_precision_kernel::Bool = true
+            double_precision_kernel::Bool = false
     ) where {Nd, T, H, U <: AbstractArray{Complex{T}}}
         ns = size(u)[1:Nd]
         F = adapt_dim(U, 1, real)
@@ -142,7 +142,7 @@ struct ASPropZ{M, T, A, V, H} <: AbstractPureComponent{M}
             trainable::Bool = false,
             paraxial::Bool = false,
             filter = nothing,
-            double_precision_kernel::Bool = true)
+            double_precision_kernel::Bool = false)
         ASPropZ(u, u.ds, z; n0, trainable, paraxial, filter, double_precision_kernel)
     end
 end

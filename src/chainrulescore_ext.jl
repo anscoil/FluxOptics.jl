@@ -1,4 +1,6 @@
 using ChainRulesCore
+using Functors: fleaves
+using LinearAlgebra: mul!
 
 function ChainRulesCore.rrule(
         ::typeof(propagate), u, p::AbstractCustomComponent{Static},
@@ -145,4 +147,53 @@ function ChainRulesCore.ProjectTo(u::ScalarField)
         end
     end
     pullback
+end
+
+function ChainRulesCore.rrule(::typeof(compute_ft!), p_f, u)
+    v = compute_ft!(p_f, u)
+
+    function pullback(∂v)
+        ∂u = compute_ift!(p_f, ∂v)
+        return (NoTangent(), NoTangent(), ∂u)
+    end
+
+    return v, pullback
+end
+
+function ChainRulesCore.rrule(::typeof(compute_ift!), p_f, u)
+    v = compute_ift!(p_f, u)
+
+    function pullback(∂v)
+        ∂u = compute_ft!(p_f, ∂v)
+        return (NoTangent(), NoTangent(), ∂u)
+    end
+
+    return v, pullback
+end
+
+function compute_basis_projection!(proj_coeffs, r_basis, r_data)
+    mul!(proj_coeffs, r_basis', r_data)
+end
+
+function ChainRulesCore.rrule(::typeof(set_basis_projection!), p::P
+) where {P <: BasisProjectionWrapper}
+    wrapped_component = set_basis_projection!(p)
+
+    function pullback(∂c)
+        ∂mapped_data = filter(
+            x -> !(x isa ChainRulesCore.ZeroTangent) &&
+                 !(x isa ChainRulesCore.NoTangent) &&
+                 (x isa AbstractArray) &&
+                 (x isa AbstractArray),
+            fleaves(∂c))[1]
+        if isbuffered(p)
+            ∂p = p.∂p
+            mul!(∂p.proj_coeffs, p.basis', reshape(∂mapped_data, :))
+        else
+            ∂p = (; proj_coeffs = p.basis' * reshape(∂mapped_data, :))
+        end
+        return (NoTangent(), Tangent{P}(; ∂p...))
+    end
+
+    return wrapped_component, pullback
 end

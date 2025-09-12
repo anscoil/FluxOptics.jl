@@ -23,7 +23,7 @@ struct RSProp{M, K, T, Tp} <: AbstractPropagator{M, K, T}
             ds::NTuple{Nd, Real},
             z::Real;
             use_cache::Bool = true,
-            double_precision_kernel::Bool = true
+            double_precision_kernel::Bool = use_cache
     ) where {Nd, T, U <: AbstractArray{Complex{T}}}
         ns = size(u)[1:Nd]
         cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
@@ -34,7 +34,7 @@ struct RSProp{M, K, T, Tp} <: AbstractPropagator{M, K, T}
     end
 
     function RSProp(u::ScalarField, z::Real; use_cache::Bool = true,
-            double_precision_kernel::Bool = true)
+            double_precision_kernel::Bool = use_cache)
         RSProp(u, u.ds, z; use_cache, double_precision_kernel)
     end
 end

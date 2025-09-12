@@ -1,7 +1,7 @@
 const BPMProp = Union{Type{ASProp}, Type{TiltedASProp}}
 
 function compute_cos_correction(u::ScalarField)
-    θs = collect(get_tilts(u))
+    θs = get_tilts(u)
     reduce((.*), map(x -> cos.(x), θs))
 end
 
@@ -47,7 +47,7 @@ struct BPM{M, A, U, D, P, K} <: AbstractCustomComponent{M}
             n0::Real, dn0::AbstractArray{<:Real};
             trainable::Bool = false, buffered::Bool = false,
             aperture::Function = (_...) -> 1,
-            double_precision_kernel::Bool = true, args = (), kwargs = (;))
+            double_precision_kernel::Bool = use_cache, args = (), kwargs = (;))
         ((M, A, U, D),
             (dn, dz, aperture_mask, ∂p, u_saved)
         ) = _init(u.data, u.ds, thickness, dn0, trainable, buffered, aperture)
@@ -65,7 +65,7 @@ function AS_BPM(u::ScalarField, thickness::Real, n0::Real,
         dn0::AbstractArray{<:Real}; use_cache::Bool = true,
         trainable::Bool = false, buffered::Bool = false,
         aperture::Function = (_...) -> 1,
-        double_precision_kernel::Bool = true)
+        double_precision_kernel::Bool = use_cache)
     BPM(ASProp, use_cache, u, thickness, n0, dn0; trainable, buffered, aperture,
         double_precision_kernel, kwargs = (; paraxial = true))
 end
@@ -74,7 +74,7 @@ function TiltedAS_BPM(u::ScalarField, thickness::Real,
         n0::Real, dn0::AbstractArray{<:Real}; use_cache::Bool = true,
         trainable::Bool = false, buffered::Bool = false,
         aperture::Function = (_...) -> 1,
-        double_precision_kernel::Bool = true)
+        double_precision_kernel::Bool = use_cache)
     BPM(TiltedASProp, use_cache, u, thickness, n0, dn0; trainable, buffered, aperture,
         double_precision_kernel)
 end

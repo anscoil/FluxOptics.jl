@@ -11,16 +11,20 @@ struct Phase{M, A, U} <: AbstractCustomComponent{M}
     function Phase(
             u::ScalarField{U, Nd},
             ds::NTuple{Nd, Real},
-            f::Function = (_...) -> 0;
-            trainable::Bool = false,
-            buffered::Bool = false
-    ) where {N, Nd, U <: AbstractArray{<:Complex, N}}
+            f::Union{Function, AbstractArray{<:Real}} = (_...) -> 0;
+            trainable::Bool = false, buffered::Bool = false
+    ) where {Nd, U}
         M = trainability(trainable, buffered)
         @assert Nd in (1, 2)
-        @assert N >= Nd
-        P = adapt_dim(U, Nd, real)
-        xs = spatial_vectors(size(u.data)[1:Nd], ds)
-        ϕ = Nd == 2 ? P(f.(xs[1], xs[2]')) : P(f.(xs[1]))
+        if isa(f, Function)
+            A = adapt_dim(U, Nd, real)
+            xs = spatial_vectors(size(u.data)[1:Nd], ds)
+            ϕ = Nd == 2 ? A(f.(xs[1], xs[2]')) : A(f.(xs[1]))
+        else
+            @assert isbroadcastable(f, u)
+            A = adapt_dim(U, ndims(f), real)
+            ϕ = A(f)
+        end
         ∂p = (trainable && buffered) ? (; ϕ = similar(ϕ)) : nothing
         u = (trainable && buffered) ? similar(u.data) : nothing
         A = typeof(ϕ)
@@ -29,10 +33,9 @@ struct Phase{M, A, U} <: AbstractCustomComponent{M}
 
     function Phase(
             u::ScalarField{U, Nd},
-            f::Function = (_...) -> 0;
-            trainable::Bool = false,
-            buffered::Bool = false
-    ) where {U <: AbstractArray{<:Complex}, Nd}
+            f::Union{Function, AbstractArray{<:Real}} = (_...) -> 0;
+            trainable::Bool = false, buffered::Bool = false
+    ) where {Nd, U}
         Phase(u, u.ds, f; trainable, buffered)
     end
 end

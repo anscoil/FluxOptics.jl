@@ -1,4 +1,4 @@
-struct BasisProjectionWrapper{M, B, P, C, D} <: AbstractCustomComponent{M}
+struct BasisProjectionWrapper{M, B, P, C, D} <: AbstractPureComponent{M}
     basis::B
     proj_coeffs::P
     wrapped_component::C
@@ -15,7 +15,7 @@ struct BasisProjectionWrapper{M, B, P, C, D} <: AbstractCustomComponent{M}
     function BasisProjectionWrapper(
             wrapped_component::C, basis::AbstractArray,
             proj_coeffs::AbstractArray
-    ) where {M <: Trainability, C <: AbstractCustomComponent{M}}
+    ) where {M <: Trainability, C <: AbstractOpticalComponent{M}}
         mapped_data = get_data(wrapped_component)
         D = typeof(mapped_data)
         mdims = ndims(mapped_data)
@@ -47,63 +47,14 @@ get_wrapped_data(p::BasisProjectionWrapper) = get_data(p.wrapped_component)
 
 trainable(p::BasisProjectionWrapper{<:Trainable}) = (; proj_coeffs = p.proj_coeffs)
 
-function alloc_gradient(p::BasisProjectionWrapper{Trainable{Unbuffered}})
-    (map(similar, trainable(p)), alloc_gradient(p.wrapped_component))
+function set_basis_projection!(p::BasisProjectionWrapper)
+    mul!(p.mapped_data, p.basis, p.proj_coeffs)
+    p.wrapped_component
 end
 
-function get_preallocated_gradient(p::BasisProjectionWrapper{Trainable{Buffered}})
-    (p.∂p, get_preallocated_gradient(p.wrapped_component))
-end
-
-function alloc_saved_buffer(u::ScalarField,
-        p::BasisProjectionWrapper{Trainable{Unbuffered}})
-    alloc_saved_buffer(u, p.wrapped_component)
-end
-
-function get_saved_buffer(p::BasisProjectionWrapper{Trainable{Buffered}})
-    get_saved_buffer(p.wrapped_component)
-end
-
-function set_basis_projection!(r_data, r_basis, proj_coeffs)
-    mul!(r_data, r_basis, proj_coeffs)
-end
-
-function propagate!(u::ScalarField, p::BasisProjectionWrapper, direction::Type{<:Direction})
-    set_basis_projection!(p.mapped_data, p.basis, p.proj_coeffs)
-    propagate!(u, p.wrapped_component, direction)
-end
-
-function propagate_and_save!(
-        u::ScalarField, p::BasisProjectionWrapper{Trainable{Buffered}},
-        direction::Type{<:Direction})
-    set_basis_projection!(p.mapped_data, p.basis, p.proj_coeffs)
-    propagate_and_save!(u, p.wrapped_component, direction)
-end
-
-function propagate_and_save!(u::ScalarField, u_saved::AbstractArray,
-        p::BasisProjectionWrapper{Trainable{Unbuffered}}, direction::Type{<:Direction})
-    set_basis_projection!(p.mapped_data, p.basis, p.proj_coeffs)
-    propagate_and_save!(u, u_saved, p.wrapped_component, direction)
-end
-
-function compute_basis_projection!(proj_coeffs, r_basis, r_data)
-    mul!(proj_coeffs, r_basis', r_data)
-end
-
-function backpropagate!(u::ScalarField, p::BasisProjectionWrapper,
-        direction::Type{<:Direction})
-    backpropagate!(u, p.wrapped_component, direction)
-end
-
-function backpropagate_with_gradient!(∂v::ScalarField, u_saved::AbstractArray,
-        ∂p::Tuple{NamedTuple, NamedTuple}, p::BasisProjectionWrapper{<:Trainable},
-        direction::Type{<:Direction})
-    ∂p_coeffs, ∂p_wrapped = ∂p
-    (∂u,
-        (∂mapped_data,)) = backpropagate_with_gradient!(∂v, u_saved, ∂p_wrapped,
-        p.wrapped_component, direction)
-    compute_basis_projection!(∂p_coeffs.proj_coeffs, p.basis, reshape(∂mapped_data, :))
-    (∂u, ∂p_coeffs)
+function propagate(u::ScalarField, p::BasisProjectionWrapper, direction::Type{<:Direction})
+    wrapped_component = set_basis_projection!(p)
+    propagate!(u, wrapped_component, direction)
 end
 
 function make_basis(f, xs::NTuple{Nd, AbstractArray{<:Real}}, args...) where {Nd}

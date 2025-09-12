@@ -1,8 +1,10 @@
 module FFTutils
 
 using AbstractFFTs
+using ..Fields: ScalarField
 import FFTW
 
+export compute_ft!, compute_ift!
 export adapt_dim, make_fft_plans
 export plan_czt, plan_czt!
 
@@ -16,6 +18,16 @@ function make_fft_plans(
     p_ft = plan_fft!(u, dims, flags = FFTW.MEASURE)
     p_ift = plan_ifft!(u, dims, flags = FFTW.MEASURE)
     (; ft = p_ft, ift = p_ift)
+end
+
+function compute_ft!(p_f, u::ScalarField)
+    p_f.ft * u.data
+    u
+end
+
+function compute_ift!(p_f, u::ScalarField)
+    p_f.ift * u.data
+    u
 end
 
 function prepare_czt_data(x::AbstractArray, dim::Integer, a, w, center_on_grid = false)

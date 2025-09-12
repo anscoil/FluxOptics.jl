@@ -17,6 +17,7 @@ export AbstractPureComponent, AbstractPureSource
 export propagate!, propagate
 export alloc_saved_buffer, get_saved_buffer
 export get_data, get_wrapped_data
+export istrainable, isbuffered
 
 abstract type Direction end
 struct Forward <: Direction end
@@ -44,7 +45,7 @@ function trainability(trainable::Bool, buffered::Bool)
         end
     else
         if buffered
-            @warn "Invalid combination: `bufferd=true` only makes sense when \
+            @warn "Invalid combination: `buffered=true` only makes sense when \
             `trainable=true`.\nIgnoring buffering."
         end
         Static
@@ -52,6 +53,11 @@ function trainability(trainable::Bool, buffered::Bool)
 end
 
 abstract type AbstractOpticalComponent{M <: Trainability} end
+
+istrainable(p::AbstractOpticalComponent{Static}) = false
+istrainable(p::AbstractOpticalComponent{<:Trainable}) = true
+isbuffered(p::AbstractOpticalComponent) = false
+isbuffered(p::AbstractOpticalComponent{Trainable{Buffered}}) = false
 
 function get_data(p::AbstractOpticalComponent)
     error("Not implemented")
@@ -204,12 +210,6 @@ export Phase
 include("mask.jl")
 export Mask
 
-include("fourier_mask.jl")
-export FourierMask
-
-include("fourier_phase.jl")
-export FourierPhase
-
 include("tea_doe.jl")
 export TeaDOE, TeaReflector
 
@@ -220,10 +220,13 @@ include("field_probe.jl")
 export FieldProbe
 
 include("basis_projection_wrapper.jl")
-export BasisProjectionWrapper, make_spatial_basis, make_fourier_basis
+export BasisProjectionWrapper, set_basis_projection!, make_spatial_basis, make_fourier_basis
 
 include("active_media/active_media.jl")
 export GainSheet
+
+include("fourier_wrapper.jl")
+export FourierWrapper, FourierPhase, FourierMask
 
 include("optical_chain.jl")
 export OpticalChain, get_layers

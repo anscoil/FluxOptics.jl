@@ -4,7 +4,7 @@ function tilted_as_kernel(fx::T, fy::T, λ::T, θx::T, θy::T, n0::Tp, z::Tp,
     θx, θy = Tp(θx), Tp(θy)
     f² = complex(inv(λ)^2)
     f0x, f0y = sin(θx)/λ, sin(θy)/λ
-    v = isnothing(filter) ? Tp(1) : Tp(filter(fx+f0x, fy+f0y))
+    v = isnothing(filter) ? Complex{T}p(1) : Complex{Tp}(filter(fx+f0x, fy+f0y))
     Complex{T}(cis(Tp(2)*π*z*sqrt(f²-(fx+f0x)^2-(fy+f0y)^2)) * v)
 end
 
@@ -13,7 +13,7 @@ function tilted_as_kernel(fx::T, fy::T, λ::T, θx::T, θy::T, n0::Tp, z::Tp,
     fx, fy, λ = Tp(fx), Tp(fy), Tp(λ)/n0
     θx, θy = Tp(θx), Tp(θy)
     f² = complex(inv(λ)^2)
-    v = isnothing(filter) ? Tp(1) : Tp(filter(fx, fy))
+    v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx, fy))
     f0x, f0y = sin(θx)/λ, sin(θy)/λ
     Complex{T}(conj(cis(Tp(2)*π*(-z)*sqrt(f²-(fx+f0x)^2-(fy+f0y)^2)) * v))
 end
@@ -22,8 +22,8 @@ function tilted_as_kernel(fx::T, λ::T, θx::T, n0::Tp, z::Tp, filter::H,
         z_pos::Val{true}) where {T <: Real, Tp <: Real, H}
     fx, λ, θx = Tp(fx), Tp(λ)/n0, Tp(θx)
     f² = complex(inv(λ^2))
-    v = isnothing(filter) ? Tp(1) : Tp(filter(fx))
     f0x = sin(θx)/λ
+    v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx+f0x))
     Complex{T}(cis(Tp(2)*π*z*sqrt(f²-(fx+f0x)^2)) * v)
 end
 
@@ -31,8 +31,8 @@ function tilted_as_kernel(fx::T, λ::T, θx::T, n0::Tp, z::Tp, filter::H,
         z_pos::Val{false}) where {T <: Real, Tp <: Real, H}
     fx, λ, θx = Tp(fx), Tp(λ)/n0, Tp(θx)
     f² = complex(inv(λ^2))
-    v = isnothing(filter) ? Tp(1) : Tp(filter(fx))
     f0x = sin(θx)/λ
+    v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx+f0x))
     Complex{T}(conj(cis(Tp(2)*π*(-z)*sqrt(f²-(fx+f0x)^2)) * v))
 end
 
@@ -48,7 +48,7 @@ struct TiltedASProp{M, K, T, Tp, H} <: AbstractPropagator{M, K, T}
             use_cache::Bool = true,
             n0::Real = 1,
             filter::H = nothing,
-            double_precision_kernel::Bool = true
+            double_precision_kernel::Bool = use_cache
     ) where {N, Nd, T, H, U <: AbstractArray{Complex{T}, N}}
         ns = size(u)[1:Nd]
         Tp = double_precision_kernel ? Float64 : T
@@ -62,7 +62,7 @@ struct TiltedASProp{M, K, T, Tp, H} <: AbstractPropagator{M, K, T}
             use_cache::Bool = true,
             n0::Real = 1,
             filter = nothing,
-            double_precision_kernel::Bool = true)
+            double_precision_kernel::Bool = use_cache)
         TiltedASProp(u, u.ds, z; use_cache, n0, filter, double_precision_kernel)
     end
 end

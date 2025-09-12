@@ -56,6 +56,7 @@ export FieldProbe
 export BasisProjectionWrapper, make_spatial_basis, make_fourier_basis
 export get_wrapped_data
 export GainSheet
+export FourierWrapper
 export OpticalChain, get_layers
 
 include("proximal_operators/ProximalOperators.jl")
