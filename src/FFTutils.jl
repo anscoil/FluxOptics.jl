@@ -4,7 +4,7 @@ using AbstractFFTs
 using ..Fields: ScalarField
 import FFTW
 
-export compute_ft!, compute_ift!
+export compute_ft!, compute_ift!, FFTPlans
 export adapt_dim, make_fft_plans
 export plan_czt, plan_czt!
 
@@ -13,6 +13,8 @@ function adapt_dim(A::Type{<:AbstractArray{T}}, n::Integer, f = identity) where 
     A.name.wrapper{f(A.parameters[1]), n, A.parameters[3:end]...}
 end
 
+FFTPlans = NamedTuple{(:ft, :ift), <:Tuple{AbstractFFTs.Plan, AbstractFFTs.Plan}}
+
 function make_fft_plans(
         u::U, dims::NTuple{N, Integer}) where {N, U <: AbstractArray{<:Complex}}
     p_ft = plan_fft!(u, dims, flags = FFTW.MEASURE)
@@ -20,12 +22,12 @@ function make_fft_plans(
     (; ft = p_ft, ift = p_ift)
 end
 
-function compute_ft!(p_f, u::ScalarField)
+function compute_ft!(p_f::FFTPlans, u::ScalarField)
     p_f.ft * u.data
     u
 end
 
-function compute_ift!(p_f, u::ScalarField)
+function compute_ift!(p_f::FFTPlans, u::ScalarField)
     p_f.ift * u.data
     u
 end

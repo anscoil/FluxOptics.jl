@@ -36,13 +36,13 @@ function tilted_as_kernel(fx::T, λ::T, θx::T, n0::Tp, z::Tp, filter::H,
     Complex{T}(conj(cis(Tp(2)*π*(-z)*sqrt(f²-(fx+f0x)^2)) * v))
 end
 
-struct TiltedASProp{M, K, T, Tp, H} <: AbstractPropagator{M, K, T}
+struct TiltedASKernel{M, K, T, Tp, H} <: AbstractPropagator{M, K, T}
     kernel::K
     n0::Tp
     z::Tp
     filter::H
 
-    function TiltedASProp(u::ScalarField{U, Nd},
+    function TiltedASKernel(u::ScalarField{U, Nd},
             ds::NTuple{Nd, Real},
             z::Real;
             use_cache::Bool = true,
@@ -58,30 +58,49 @@ struct TiltedASProp{M, K, T, Tp, H} <: AbstractPropagator{M, K, T}
         new{Static, K, T, Tp, H}(kernel, Tp(n0), Tp(z), filter)
     end
 
-    function TiltedASProp(u::ScalarField, z::Real;
+    function TiltedASKernel(u::ScalarField, z::Real;
             use_cache::Bool = true,
             n0::Real = 1,
             filter = nothing,
             double_precision_kernel::Bool = use_cache)
-        TiltedASProp(u, u.ds, z; use_cache, n0, filter, double_precision_kernel)
+        TiltedASKernel(u, u.ds, z; use_cache, n0, filter, double_precision_kernel)
     end
 end
 
-Functors.@functor TiltedASProp ()
+Functors.@functor TiltedASKernel ()
 
-get_kernels(p::TiltedASProp) = (p.kernel,)
+get_kernels(p::TiltedASKernel) = (p.kernel,)
 
-function build_kernel_key_args(p::TiltedASProp, u::ScalarField)
+function build_kernel_key_args(p::TiltedASKernel, u::ScalarField)
     (select_lambdas(u), select_tilts(u)...)
 end
 
-build_kernel_args(p::TiltedASProp) = (p.n0, p.z, p.filter, Val(sign(p.z) > 0))
+build_kernel_args(p::TiltedASKernel) = (p.n0, p.z, p.filter, Val(sign(p.z) > 0))
 
-function _propagate_core!(apply_kernel_fns::F, u::AbstractArray, p::TiltedASProp,
+function _propagate_core!(apply_kernel_fns::F, u::AbstractArray, p::TiltedASKernel,
         ::Type{<:Direction}) where {F}
     apply_kernel_fn!, = apply_kernel_fns
-    p_f = p.kernel.p_f
-    p_f.ft * u
     apply_kernel_fn!(u, tilted_as_kernel)
-    p_f.ift * u
+    u
+end
+
+function TiltedASProp(u::ScalarField{U, Nd},
+        ds::NTuple{Nd, Real},
+        z::Real;
+        use_cache::Bool = true,
+        n0::Real = 1,
+        filter = nothing,
+        double_precision_kernel::Bool = use_cache
+) where {U, Nd}
+    kernel = TiltedASKernel(
+        u, ds, z; use_cache, n0, filter, double_precision_kernel)
+    FourierWrapper(kernel.kernel.p_f, kernel)
+end
+
+function TiltedASProp(u::ScalarField, z::Real;
+        use_cache::Bool = true,
+        n0::Real = 1,
+        filter = nothing,
+        double_precision_kernel::Bool = use_cache)
+    TiltedASProp(u, u.ds, z; use_cache, n0, filter, double_precision_kernel)
 end

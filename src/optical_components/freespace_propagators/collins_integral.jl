@@ -26,10 +26,10 @@ function collins_convolution_kernel(
     Complex{T}(cis(π*(x^2*αx + y^2*αy)/(b*λ)))
 end
 
-struct CollinsKernel{K, V, P, U} <: AbstractKernel{K, V}
+struct CollinsKernel{K, Nd, V, P, U} <: AbstractKernel{K, V}
     a_chirp::ChirpKernel{K, V}
     d_chirp::ChirpKernel{K, V}
-    convolution_kernel::ConvolutionKernel{K, V, P, U}
+    convolution_kernel::ConvolutionKernel{K, Nd, V, P, U}
 end
 
 struct CollinsProp{M, K, T, Tp, Nd} <: AbstractPropagator{M, K, T}
@@ -44,7 +44,7 @@ struct CollinsProp{M, K, T, Tp, Nd} <: AbstractPropagator{M, K, T}
     function CollinsProp(u::ScalarField{U, Nd},
             ds::NTuple{Nd, Real},
             ds′::NTuple{Nd, Real},
-            abd::Tuple{<:Real, <:Real, <:Real};
+            abd::Tuple{Real, Real, Real};
             use_cache::Bool = true,
             double_precision_kernel::Bool = use_cache
     ) where {N, Nd, T, U <: AbstractArray{Complex{T}, N}}
@@ -66,7 +66,7 @@ struct CollinsProp{M, K, T, Tp, Nd} <: AbstractPropagator{M, K, T}
 
     function CollinsProp(u::ScalarField{U, Nd},
             ds′::NTuple{Nd, Real},
-            abd::Tuple{<:Real, <:Real, <:Real};
+            abd::Tuple{Real, Real, Real};
             use_cache::Bool = true,
             double_precision_kernel::Bool = use_cache
     ) where {Nd, U <: AbstractArray{<:Complex}}

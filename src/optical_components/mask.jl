@@ -18,8 +18,8 @@ struct Mask{M, A, U} <: AbstractCustomComponent{M}
         @assert Nd in (1, 2)
         if isa(f, Function)
             A = adapt_dim(U, Nd)
-            xs = spatial_vectors(size(u.data)[1:Nd], ds)
-            m = Nd == 2 ? A(f.(xs[1], xs[2]')) : A(f.(xs[1]))
+            ns = size(u.data)[1:Nd]
+            m = A(function_to_array(f, ns, ds))
         else
             @assert isbroadcastable(f, u)
             A = adapt_dim(U, ndims(f))

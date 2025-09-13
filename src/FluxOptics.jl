@@ -54,7 +54,7 @@ export ScalarSource, get_source, Phase, Mask, FourierMask, FourierPhase
 export TeaDOE, TeaReflector
 export FieldProbe
 export BasisProjectionWrapper, make_spatial_basis, make_fourier_basis
-export get_wrapped_data
+export get_data, get_wrapped_data
 export GainSheet
 export FourierWrapper
 export OpticalChain, get_layers

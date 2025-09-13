@@ -60,16 +60,17 @@ struct TVProx <: AbstractProximalOperator
     n_iter::Int
     tol::Union{Nothing, Float64}
     isotropic::Bool
+    rule::AbstractRule
+
     function TVProx(λ::Real, n_iter::Integer = 50; tol::Union{Nothing, Real} = nothing,
-            isotropic = true)
-        new(λ, n_iter, tol, isotropic)
+            isotropic = true, rule = isotropic ? Fista(0.25) : Fista(2.5))
+        new(λ, n_iter, tol, isotropic, rule)
     end
 end
 
 function init(prox::TVProx, x::AbstractArray)
     p = similar(x, (size(x)..., ndims(x)))
-    rule = prox.isotropic ? Fista(0.25) : Fista(2.5)
-    opt = Optimisers.setup(rule, p)
+    opt = Optimisers.setup(prox.rule, p)
     ∂p = zero(p)
     y = similar(x)
     (opt, p, ∂p, y)

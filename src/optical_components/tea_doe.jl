@@ -25,8 +25,8 @@ struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
         @assert N >= Nd
         M = trainability(trainable, buffered)
         P = adapt_dim(U, Nd, real)
-        xs = spatial_vectors(size(u.data)[1:Nd], ds)
-        h = Nd == 2 ? P(f.(xs[1], xs[2]')) : P(f.(xs[1]))
+        ns = size(u.data)[1:Nd]
+        h = P(function_to_array(f, ns, ds))
         ∂p = (trainable && buffered) ? (; h = similar(h)) : nothing
         u = (trainable && buffered) ? similar(u.data) : nothing
         dn_f = isa(dn, Real) ? (λ -> T(dn)) : (λ -> T(dn(λ)))

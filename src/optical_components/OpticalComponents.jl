@@ -198,6 +198,16 @@ function conj_direction(mask, ::Type{Backward})
     conj(mask)
 end
 
+function function_to_array(f::Function, ns::NTuple{Nd, Integer}, ds::NTuple{Nd, Real},
+        isfourier = false) where {Nd}
+    if isfourier
+        xs = [fftfreq(nx, 1/dx) for (nx, dx) in zip(ns, ds)]
+    else
+        xs = spatial_vectors(ns, ds)
+    end
+    Nd == 2 ? f.(xs[1], xs[2]') : f.(xs[1])
+end
+
 include("freespace_propagators/freespace.jl")
 export ASProp, ASPropZ, TiltedASProp, RSProp, CollinsProp, FourierLens, ParaxialProp
 

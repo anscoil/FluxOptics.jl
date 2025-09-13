@@ -2,7 +2,7 @@ function as_kernel(fx::T, fy::T, λ::T, n0::Tp, z::Tp,
         filter::H, z_pos::Val{true}) where {T <: Real, Tp <: Real, H}
     fx, fy, λ = Tp(fx), Tp(fy), Tp(λ)/n0
     f² = complex(inv(λ^2))
-    v = isnothing(filter) ? Comples{Tp}(1) : Complex{Tp}(filter(fx, fy))
+    v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx, fy))
     Complex{T}(cis(Tp(2)*π*z*sqrt(f² - fx^2 - fy^2)) * v)
 end
 
@@ -46,14 +46,14 @@ function as_paraxial_kernel(fx::T, λ::T, n0::Tp, z::Tp, filter::H
     Complex{T}(cis(-π*λ*z*fx^2) * v)
 end
 
-struct ASProp{M, K, T, Tp, H} <: AbstractPropagator{M, K, T}
+struct ASKernel{M, K, T, Tp, H} <: AbstractPropagator{M, K, T}
     kernel::K
     is_paraxial::Bool
     n0::Tp
     z::Tp
     filter::H
 
-    function ASProp(u::ScalarField{U, Nd},
+    function ASKernel(u::ScalarField{U, Nd},
             ds::NTuple{Nd, Real},
             z::Real;
             use_cache::Bool = true,
@@ -68,24 +68,15 @@ struct ASProp{M, K, T, Tp, H} <: AbstractPropagator{M, K, T}
         Tp = double_precision_kernel ? Float64 : T
         new{Static, typeof(kernel), T, Tp, H}(kernel, paraxial, Tp(n0), Tp(z), filter)
     end
-
-    function ASProp(u::ScalarField, z::Real;
-            use_cache::Bool = true,
-            n0::Real = 1,
-            filter = nothing,
-            paraxial::Bool = false,
-            double_precision_kernel::Bool = use_cache)
-        ASProp(u, u.ds, z; use_cache, n0, filter, paraxial, double_precision_kernel)
-    end
 end
 
-Functors.@functor ASProp ()
+Functors.@functor ASKernel ()
 
-get_kernels(p::ASProp) = (p.kernel,)
+get_kernels(p::ASKernel) = (p.kernel,)
 
-build_kernel_key_args(p::ASProp, u::ScalarField) = (select_lambdas(u),)
+build_kernel_key_args(p::ASKernel, u::ScalarField) = (select_lambdas(u),)
 
-function build_kernel_args(p::ASProp)
+function build_kernel_args(p::ASKernel)
     if p.is_paraxial
         (p.n0, p.z, p.filter)
     else
@@ -94,16 +85,35 @@ function build_kernel_args(p::ASProp)
 end
 
 function _propagate_core!(
-        apply_kernel_fns::F, u::AbstractArray, p::ASProp, ::Type{<:Direction}) where {F}
+        apply_kernel_fns::F, u::AbstractArray, p::ASKernel, ::Type{<:Direction}) where {F}
     apply_kernel_fn!, = apply_kernel_fns
-    p_f = p.kernel.p_f
-    p_f.ft * u
     if p.is_paraxial
         apply_kernel_fn!(u, as_paraxial_kernel)
     else
         apply_kernel_fn!(u, as_kernel)
     end
-    p_f.ift * u
+    u
+end
+
+function ASProp(u::ScalarField{U, Nd},
+        ds::NTuple{Nd, Real},
+        z::Real;
+        use_cache::Bool = true,
+        n0::Real = 1,
+        filter = nothing,
+        paraxial::Bool = false,
+        double_precision_kernel::Bool = use_cache) where {U, Nd}
+    kernel = ASKernel(u, ds, z; use_cache, n0, filter, paraxial, double_precision_kernel)
+    FourierWrapper(kernel.kernel.p_f, kernel)
+end
+
+function ASProp(u::ScalarField, z::Real;
+        use_cache::Bool = true,
+        n0::Real = 1,
+        filter = nothing,
+        paraxial::Bool = false,
+        double_precision_kernel::Bool = use_cache)
+    ASProp(u, u.ds, z; use_cache, n0, filter, paraxial, double_precision_kernel)
 end
 
 struct ASPropZ{M, T, A, V, H} <: AbstractPureComponent{M}

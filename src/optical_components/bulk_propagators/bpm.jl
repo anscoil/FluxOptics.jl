@@ -1,4 +1,4 @@
-const BPMProp = Union{Type{ASProp}, Type{TiltedASProp}}
+const BPMProp = Union{typeof(ASProp), typeof(TiltedASProp)}
 
 function compute_cos_correction(u::ScalarField)
     θs = get_tilts(u)
