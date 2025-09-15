@@ -39,3 +39,36 @@ function OpticalComponents.compute_phase_gradient!(∂ϕ::CuArray{<:Real, Nd},
 
     ∂ϕ
 end
+
+function OpticalComponents.plan_as_rotation(
+        u::CuArray{Complex{T}, 2}, λ::Real, M::AbstractArray{<:Real, 2};
+        eps = 2e-7, compensate_tilt::Bool = true) where {T <: Real}
+    nx, ny = size(u)
+    xy, kxy, kxy′ = OpticalComponents.prepare_vectors(u, λ, M, compensate_tilt)
+    # p_nft = cufinufft_makeplan(3, 2, -1, 1, eps; dtype = T)
+    p_nft = cufinufft_makeplan(2, [nx, ny], -1, 1, eps; dtype = T)
+    empty_param = similar(u, T, 0)
+    # cufinufft_setpts!(p_nft, xy..., empty_param, kxy...)
+    cufinufft_setpts!(p_nft, kxy...)
+    # p_nift = cufinufft_makeplan(3, 2, 1, 1, eps; dtype = T)
+    p_nift = cufinufft_makeplan(1, [nx, ny], 1, 1, eps; dtype = T)
+    # cufinufft_setpts!(p_nift, kxy′..., empty_param, xy...)
+    cufinufft_setpts!(p_nift, kxy′...)
+    (p_nft, p_nift), kxy, kxy′
+end
+
+function OpticalComponents.as_rotation!(p, u::CuArray{Complex{T}, 2}) where {T <: Real}
+    nx, ny = size(u)
+    (p_nft, p_nift), (kx, ky), (kx′, ky′) = p
+    u_in = reshape(u, (nx, ny, 1))
+    u_out = reshape(u, (:, 1))
+    cufinufft_exec!(p_nft, u_in, u_out)
+    if iseven(nx)
+        @. u *= cis(T(0.5)*(kx′-kx))
+    end
+    if iseven(ny)
+        @. u *= cis(T(0.5)*(ky′-ky))
+    end
+    cufinufft_exec!(p_nift, u_out, u_in)
+    u ./= length(u)
+end

@@ -2,6 +2,7 @@ module CUDAExt
 
 using AbstractFFTs
 using CUDA
+using FINUFFT
 using ..FFTutils
 using ..OpticalComponents
 using ..ProximalOperators

@@ -3,6 +3,7 @@ module OpticalComponents
 using Functors
 using LinearAlgebra
 using AbstractFFTs
+using FINUFFT
 using EllipsisNotation
 using LRUCache
 using ..FluxOptics: isbroadcastable, bzip
@@ -210,6 +211,7 @@ end
 
 include("freespace_propagators/freespace.jl")
 export ASProp, ASPropZ, TiltedASProp, RSProp, CollinsProp, FourierLens, ParaxialProp
+export as_rotation!, as_rotation, plan_as_rotation
 
 include("scalar_source.jl")
 export ScalarSource, get_source

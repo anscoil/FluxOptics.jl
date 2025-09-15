@@ -2,7 +2,7 @@
 
 julia_version = "1.11.6"
 manifest_format = "2.0"
-project_hash = "76a6517434d053d5396238d08cb25840c22dc23c"
+project_hash = "a24a7788a1a8b0f72362d9681876505c0062d38c"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -439,6 +439,12 @@ deps = ["Artifacts", "JLLWrappers", "Libdl"]
 git-tree-sha1 = "6d6219a004b8cf1e0b4dbe27a2860b8e04eba0be"
 uuid = "f5851436-0d7a-5f13-b9de-f02708fd171a"
 version = "3.3.11+0"
+
+[[deps.FINUFFT]]
+deps = ["FFTW_jll", "Requires", "cufinufft_jll", "finufft_jll"]
+git-tree-sha1 = "5dbdf40055f91cff1933dbeac3ae1d2d01f57a32"
+uuid = "d8beea63-0952-562e-9c6a-8e8ef7364055"
+version = "3.4.2"
 
 [[deps.FileIO]]
 deps = ["Pkg", "Requires", "UUIDs"]
@@ -1807,11 +1813,23 @@ git-tree-sha1 = "446b23e73536f84e8037f5dce465e92275f6a308"
 uuid = "3161d3a3-bdf6-5164-811a-617609db77b4"
 version = "1.5.7+1"
 
+[[deps.cufinufft_jll]]
+deps = ["Artifacts", "CUDA_Runtime_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "NVTX_jll", "TOML"]
+git-tree-sha1 = "42873786464d81c085eeb2a20c35d4c35ada4c80"
+uuid = "d94e68af-94a2-5465-a03a-ccb69bb7181e"
+version = "2.4.1+0"
+
 [[deps.demumble_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
 git-tree-sha1 = "6498e3581023f8e530f34760d18f75a69e3a4ea8"
 uuid = "1e29f10c-031c-5a83-9565-69cddfc27673"
 version = "1.3.0+0"
+
+[[deps.finufft_jll]]
+deps = ["Artifacts", "CompilerSupportLibraries_jll", "FFTW_jll", "JLLWrappers", "LLVMOpenMP_jll", "LazyArtifacts", "Libdl", "TOML"]
+git-tree-sha1 = "eabb9e5dcee753e167a578e80b26ee437ef48135"
+uuid = "c41cd5a2-72a3-5203-9076-a500b088fc82"
+version = "2.4.1+0"
 
 [[deps.isoband_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
