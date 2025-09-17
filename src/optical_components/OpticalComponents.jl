@@ -211,7 +211,7 @@ end
 
 include("freespace_propagators/freespace.jl")
 export ASProp, ASPropZ, TiltedASProp, RSProp, CollinsProp, FourierLens, ParaxialProp
-export as_rotation!, as_rotation, plan_as_rotation
+export as_rotation!, as_rotation, plan_as_rotation, field_rotation_matrix
 
 include("scalar_source.jl")
 export ScalarSource, get_source

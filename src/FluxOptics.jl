@@ -24,6 +24,7 @@ using .Fields
 export ScalarField
 export get_lambdas, get_lambdas_collection
 export get_tilts, get_tilts_collection
+export set_field_data, set_field_tilts
 export power, normalize_power!
 
 include("GridUtils.jl")
@@ -49,7 +50,7 @@ export AbstractOpticalComponent, AbstractOpticalSource
 export AbstractCustomComponent, AbstractCustomSource
 export AbstractPureComponent, AbstractPureSource
 export ASProp, ASPropZ, TiltedASProp, RSProp, CollinsProp, FourierLens, ParaxialProp
-export as_rotation!, as_rotation, plan_as_rotation
+export as_rotation!, as_rotation, plan_as_rotation, field_rotation_matrix
 export AS_BPM, TiltedAS_BPM
 export ScalarSource, get_source, Phase, Mask, FourierMask, FourierPhase
 export TeaDOE, TeaReflector

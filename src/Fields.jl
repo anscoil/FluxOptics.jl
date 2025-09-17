@@ -1,6 +1,7 @@
 module Fields
 
 using Functors
+using LinearAlgebra
 using ..FluxOptics
 using ..FluxOptics: isbroadcastable, bzip
 
@@ -9,7 +10,7 @@ import Base: +, -, *, /
 export ScalarField
 export get_lambdas, get_lambdas_collection
 export get_tilts, get_tilts_collection
-export select_lambdas, select_tilts, set_field_ds, set_field_data
+export select_lambdas, select_tilts, set_field_ds, set_field_data, set_field_tilts
 export power, normalize_power!
 
 function parse_tilt_vectors(u::U,
@@ -122,12 +123,16 @@ function set_field_data(u::ScalarField{U, Nd}, data::U) where {U, Nd}
     ScalarField(data, u.ds, u.lambdas, u.tilts)
 end
 
+function set_field_tilts(u::ScalarField{U, Nd}, tilts) where {U, Nd}
+    ScalarField(u.data, u.ds, u.lambdas.collection; tilts)
+end
+
 # function Base.broadcastable(sf::ScalarField)
 #     return Ref(sf)
 # end
 
 function Base.broadcasted(f, u::ScalarField)
-    ScalarField(broadcast(f, u.data), u.ds, u.lambdas.collection;
+    ScalarField(complex(broadcast(f, u.data)), u.ds, u.lambdas.collection;
         tilts = u.tilts.collection)
 end
 
@@ -186,6 +191,13 @@ function FluxOptics.correlation(u::ScalarField{U, Nd},
     u_vec = vec(u)
     v_vec = vec(v)
     [correlation(u.data, v.data) for (u, v) in zip(u_vec, v_vec)]
+end
+
+function LinearAlgebra.dot(u::ScalarField{U, Nd},
+        v::ScalarField{V, Nd}) where {U, V, Nd}
+    u_vec = vec(u)
+    v_vec = vec(v)
+    [dot(u.data, v.data) for (u, v) in zip(u_vec, v_vec)]
 end
 
 function power(u::ScalarField{U, Nd}) where {U, Nd}
