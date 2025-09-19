@@ -1,4 +1,4 @@
-const BPMProp = Union{typeof(ASProp), typeof(TiltedASProp)}
+const BPMProp = Union{typeof(ASProp), typeof(TiltedASProp), typeof(ShiftProp)}
 
 function compute_cos_correction(u::ScalarField)
     θs = get_tilts(u)
@@ -44,16 +44,16 @@ struct BPM{M, A, U, D, P, K} <: AbstractCustomComponent{M}
     end
 
     function BPM(Prop::BPMProp, use_cache::Bool, u::ScalarField, thickness::Real,
-            n0::Real, dn0::AbstractArray{<:Real};
+            dn0::AbstractArray{<:Real};
             trainable::Bool = false, buffered::Bool = false,
             aperture::Function = (_...) -> 1,
             double_precision_kernel::Bool = use_cache, args = (), kwargs = (;))
         ((M, A, U, D),
             (dn, dz, aperture_mask, ∂p, u_saved)
         ) = _init(u.data, u.ds, thickness, dn0, trainable, buffered, aperture)
-        p_bpm = Prop(u, dz, args...; use_cache, n0, double_precision_kernel, kwargs...)
+        p_bpm = Prop(u, dz, args...; use_cache, double_precision_kernel, kwargs...)
         p_bpm_half = Prop(u, dz/2, args...;
-            use_cache, n0, double_precision_kernel, kwargs...)
+            use_cache, double_precision_kernel, kwargs...)
         P = typeof(p_bpm)
         kdz = (2π*dz) ./ compute_cos_correction(u)
         K = typeof(kdz)
@@ -66,8 +66,8 @@ function AS_BPM(u::ScalarField, thickness::Real, n0::Real,
         trainable::Bool = false, buffered::Bool = false,
         aperture::Function = (_...) -> 1,
         double_precision_kernel::Bool = use_cache)
-    BPM(ASProp, use_cache, u, thickness, n0, dn0; trainable, buffered, aperture,
-        double_precision_kernel, kwargs = (; paraxial = true))
+    BPM(ASProp, use_cache, u, thickness, dn0; trainable, buffered, aperture,
+        double_precision_kernel, kwargs = (; paraxial = true, n0))
 end
 
 function TiltedAS_BPM(u::ScalarField, thickness::Real,
@@ -75,7 +75,15 @@ function TiltedAS_BPM(u::ScalarField, thickness::Real,
         trainable::Bool = false, buffered::Bool = false,
         aperture::Function = (_...) -> 1,
         double_precision_kernel::Bool = use_cache)
-    BPM(TiltedASProp, use_cache, u, thickness, n0, dn0; trainable, buffered, aperture,
+    BPM(TiltedASProp, use_cache, u, thickness, dn0; trainable, buffered, aperture,
+        double_precision_kernel, kwargs = (; n0))
+end
+
+function Shift_BPM(u::ScalarField, thickness::Real, dn0::AbstractArray{<:Real};
+        use_cache::Bool = true, trainable::Bool = false, buffered::Bool = false,
+        aperture::Function = (_...) -> 1,
+        double_precision_kernel::Bool = use_cache)
+    BPM(ShiftProp, use_cache, u, thickness, dn0; trainable, buffered, aperture,
         double_precision_kernel)
 end
 

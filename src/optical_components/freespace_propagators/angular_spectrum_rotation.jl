@@ -29,8 +29,6 @@ function prepare_vectors(u::AbstractArray{Complex{T}, 2}, dx::Real, dy::Real, λ
     ky = similar(u, T)
     copyto!(kx, 2π*reshape(repeat(fftfreq(nx, 1/dx), ny), (nx, ny)) .+ kx0)
     copyto!(ky, 2π*repeat(fftfreq(ny, 1/dy)', nx) .+ ky0)
-    # copyto!(kx, 2π*reshape(repeat(ifftshift(((0:nx-1).-(nx-1)/2)./(nx*dx)), ny), (nx, ny)) .- kxf)
-    # copyto!(ky, 2π*repeat(ifftshift(((0:ny-1).-(ny-1)/2)./(ny*dy))', nx) .- kyf)
     kz = @. sqrt(max(0, k0^2 - (kx^2 + ky^2)))
     kx′ = similar(u, T)
     ky′ = similar(u, T)
@@ -42,10 +40,6 @@ function prepare_vectors(u::AbstractArray{Complex{T}, 2}, dx::Real, dy::Real, λ
     ky′ .-= kyc
     kx .-= kx0
     ky .-= ky0
-    # @. kx′ = (M[1, 1]*kx + M[1, 2]*ky + M[1, 3]*kz)*dx
-    # @. ky′ = (M[2, 1]*kx + M[2, 2]*ky + M[2, 3]*kz)*dy
-    # kx .-= kxf
-    # ky .-= kyf
     kx .*= dx
     ky .*= dy
     detJ = sqrt(abs(Mf[3, 3]/M0[3, 3]))
@@ -152,31 +146,12 @@ function as_nufft_rotation!(u, kxy, kxy′, kxyc, s, direction, eps)
     # nufft2d3!(kx′, ky′, u, 1, eps, x./T(dx), y./T(dy), reshape(u, (:, 1)))
 end
 
-function as_interp_rotation!(u, kxy, kxy′, s)
-    nx, ny = size(u)
-    kx, ky = kxy
-    kx′, ky′ = kxy′
-    _, imax = findmax(abs, u)
-    # _, imax = findmax(abs.(u))
-    v = circshift(u, Tuple(CartesianIndex(1, 1)-imax))
-    fft!(v)
-    xs = 2π*((0:(nx - 1)) .- (nx-1)/2) ./ nx
-    ys = 2π*((0:(ny - 1)) .- (ny-1)/2) ./ ny
-    itp = extrapolate(
-        scale(interpolate(fftshift(v), BSpline(Cubic()), OnGrid()), xs, ys), 0)
-    # itp = linear_interpolation((xs, ys), fftshift(v); extrapolation_bc = 0)
-    v = itp.(fftshift(kx′), fftshift(ky′))
-    v = ifft!(ifftshift(v))
-    u .= circshift(v, Tuple(CartesianIndex(-1, -1)+imax))/s
-end
-
 function as_rotation!(u, kxy, kxy′, kxyc, tilts, s, direction, eps, compensate_tilt)
     pretilt, posttilt = tilts
     if !compensate_tilt
         u .*= pretilt
     end
     as_nufft_rotation!(u, kxy, kxy′, kxyc, s, direction, eps)
-    # as_interp_rotation!(u, kxy, kxy′, s)
     if !compensate_tilt
         u .*= posttilt
     end

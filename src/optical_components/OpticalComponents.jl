@@ -4,7 +4,6 @@ using Functors
 using LinearAlgebra
 using AbstractFFTs
 using FINUFFT
-using Interpolations
 using EllipsisNotation
 using LRUCache
 using ..FluxOptics: isbroadcastable, bzip
@@ -211,7 +210,8 @@ function function_to_array(f::Function, ns::NTuple{Nd, Integer}, ds::NTuple{Nd, 
 end
 
 include("freespace_propagators/freespace.jl")
-export ASProp, ASPropZ, TiltedASProp, RSProp, CollinsProp, FourierLens, ParaxialProp
+export ASProp, ASPropZ, TiltedASProp, ShiftProp
+export RSProp, CollinsProp, FourierLens, ParaxialProp
 export as_rotation!, as_rotation, plan_as_rotation, field_rotation_matrix
 
 include("scalar_source.jl")
@@ -227,7 +227,7 @@ include("tea_doe.jl")
 export TeaDOE, TeaReflector
 
 include("bulk_propagators/bulk_propagators.jl")
-export BPM, AS_BPM, TiltedAS_BPM
+export BPM, AS_BPM, TiltedAS_BPM, Shift_BPM
 
 include("field_probe.jl")
 export FieldProbe

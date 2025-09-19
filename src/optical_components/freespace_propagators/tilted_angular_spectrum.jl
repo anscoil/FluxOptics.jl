@@ -13,8 +13,8 @@ function tilted_as_kernel(fx::T, fy::T, λ::T, θx::T, θy::T, n0::Tp, z::Tp,
     fx, fy, λ = Tp(fx), Tp(fy), Tp(λ)/n0
     θx, θy = Tp(θx), Tp(θy)
     f² = complex(inv(λ)^2)
-    v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx, fy))
     f0x, f0y = sin(θx)/λ, sin(θy)/λ
+    v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx, fy))
     Complex{T}(conj(cis(Tp(2)*π*(-z)*sqrt(f²-(fx+f0x)^2-(fy+f0y)^2)) * v))
 end
 

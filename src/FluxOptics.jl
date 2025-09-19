@@ -49,9 +49,10 @@ export propagate!, propagate
 export AbstractOpticalComponent, AbstractOpticalSource
 export AbstractCustomComponent, AbstractCustomSource
 export AbstractPureComponent, AbstractPureSource
-export ASProp, ASPropZ, TiltedASProp, RSProp, CollinsProp, FourierLens, ParaxialProp
+export ASProp, ASPropZ, TiltedASProp, ShiftProp
+export RSProp, CollinsProp, FourierLens, ParaxialProp
 export as_rotation!, as_rotation, plan_as_rotation, field_rotation_matrix
-export AS_BPM, TiltedAS_BPM
+export AS_BPM, TiltedAS_BPM, Shift_BPM
 export ScalarSource, get_source, Phase, Mask, FourierMask, FourierPhase
 export TeaDOE, TeaReflector
 export FieldProbe
