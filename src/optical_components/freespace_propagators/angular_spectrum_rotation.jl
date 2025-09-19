@@ -1,5 +1,5 @@
 function field_rotation_matrix(θx::Real, θy::Real; initial_tilts = (0, 0))
-    # We use Rodrigues' rotation formula
+    # Based on Rodrigues' rotation formula
     θx0, θy0 = initial_tilts
     if isapprox(θx, θx0) && isapprox(θy, θy0)
         return I(3)
@@ -27,18 +27,30 @@ function prepare_vectors(u::AbstractArray{Complex{T}, 2}, dx::Real, dy::Real, λ
     copyto!(y, repeat(yv', nx))
     kx = similar(u, T)
     ky = similar(u, T)
-    copyto!(kx, 2π*reshape(repeat(fftfreq(nx, 1), ny), (nx, ny)))
-    copyto!(ky, 2π*repeat(fftfreq(ny, 1)', nx))
+    copyto!(kx, 2π*reshape(repeat(fftfreq(nx, 1/dx), ny), (nx, ny)) .+ kx0)
+    copyto!(ky, 2π*repeat(fftfreq(ny, 1/dy)', nx) .+ ky0)
+    # copyto!(kx, 2π*reshape(repeat(ifftshift(((0:nx-1).-(nx-1)/2)./(nx*dx)), ny), (nx, ny)) .- kxf)
+    # copyto!(ky, 2π*repeat(ifftshift(((0:ny-1).-(ny-1)/2)./(ny*dy))', nx) .- kyf)
     kz = @. sqrt(max(0, k0^2 - (kx^2 + ky^2)))
     kx′ = similar(u, T)
     ky′ = similar(u, T)
-    @. kx′ = (M[1, 1]*kx + M[1, 2]*ky + M[1, 3]*kz) - kxf
-    @. ky′ = (M[2, 1]*kx + M[2, 2]*ky + M[2, 3]*kz) - kyf
+    @. kx′ = (M[1, 1]*kx + M[1, 2]*ky + M[1, 3]*kz)*dx
+    @. ky′ = (M[2, 1]*kx + M[2, 2]*ky + M[2, 3]*kz)*dy
+    kxc = (maximum(kx′)+minimum(kx′))/2
+    kyc = (maximum(ky′)+minimum(ky′))/2
+    kx′ .-= kxc
+    ky′ .-= kyc
     kx .-= kx0
     ky .-= ky0
+    # @. kx′ = (M[1, 1]*kx + M[1, 2]*ky + M[1, 3]*kz)*dx
+    # @. ky′ = (M[2, 1]*kx + M[2, 2]*ky + M[2, 3]*kz)*dy
+    # kx .-= kxf
+    # ky .-= kyf
+    kx .*= dx
+    ky .*= dy
     detJ = sqrt(abs(Mf[3, 3]/M0[3, 3]))
     # detJ = sqrt(abs(det(Mf[1:2, 1:2])/det(M0[1:2, 1:2])))
-    (x, y), (kx, ky), (kx′, ky′), detJ
+    (x, y), (kx, ky), (kx′, ky′), (kxc-kxf*dx, kyc-kyf*dy), detJ
 end
 
 function prepare_vectors(u::AbstractArray{Complex{T}, 2}, dx::Real, dy::Real, λ::Real,
@@ -63,7 +75,7 @@ function prepare_vectors(u::AbstractArray{Complex{T}, 2}, dx::Real, dy::Real, λ
     prepare_vectors(u, dx, dy, λ, (kx0, ky0), (kxf, kyf), M0, Mf)
 end
 
-function as_correct_shift(u::AbstractArray{Complex{T}, 2}, kxy, kxy′,
+function as_correct_shift(u::AbstractArray{Complex{T}, 2}, kxy, kxy′, kxyc,
         direction::Type{<:Direction}) where {T <: Real}
     nx, ny = size(u)
     kx, ky = kxy
@@ -121,38 +133,72 @@ function as_tilt_compensation(xy, λ::Real, θs::Tuple{Real, Real},
     direction == Forward ? (pretilt, posttilt) : (posttilt, pretilt)
 end
 
-function as_rotation!(u, kxy, kxy′, tilts, s, direction, eps, compensate_tilt)
+function as_nufft_rotation!(u, kxy, kxy′, kxyc, s, direction, eps)
+    nx, ny = size(u)
+    kxc, kyc = kxyc
+    nxr = (0:(nx - 1)) .- (nx-1)/2
+    nyr = (0:(ny - 1)) .- (ny-1)/2
+    if direction == Backward
+        @. u *= cis(-kxc*nxr - kyc*nyr')
+    end
+    as_nufft2d2!(u, kxy, kxy′, direction, eps)
+    as_correct_shift(u, kxy, kxy′, kxyc, direction)
+    as_nufft2d1!(u, kxy, kxy′, direction, eps)
+    if direction == Forward
+        @. u *= cis(kxc*nxr + kyc*nyr')
+    end
+    u .*= s/length(u)
+    # nufft2d3!(x./T(dx), y./T(dy), u, -1, eps, kx, ky, reshape(u, (:, 1)))
+    # nufft2d3!(kx′, ky′, u, 1, eps, x./T(dx), y./T(dy), reshape(u, (:, 1)))
+end
+
+function as_interp_rotation!(u, kxy, kxy′, s)
+    nx, ny = size(u)
+    kx, ky = kxy
+    kx′, ky′ = kxy′
+    _, imax = findmax(abs, u)
+    # _, imax = findmax(abs.(u))
+    v = circshift(u, Tuple(CartesianIndex(1, 1)-imax))
+    fft!(v)
+    xs = 2π*((0:(nx - 1)) .- (nx-1)/2) ./ nx
+    ys = 2π*((0:(ny - 1)) .- (ny-1)/2) ./ ny
+    itp = extrapolate(
+        scale(interpolate(fftshift(v), BSpline(Cubic()), OnGrid()), xs, ys), 0)
+    # itp = linear_interpolation((xs, ys), fftshift(v); extrapolation_bc = 0)
+    v = itp.(fftshift(kx′), fftshift(ky′))
+    v = ifft!(ifftshift(v))
+    u .= circshift(v, Tuple(CartesianIndex(-1, -1)+imax))/s
+end
+
+function as_rotation!(u, kxy, kxy′, kxyc, tilts, s, direction, eps, compensate_tilt)
     pretilt, posttilt = tilts
     if !compensate_tilt
         u .*= pretilt
     end
-    as_nufft2d2!(u, kxy, kxy′, direction, eps)
-    as_correct_shift(u, kxy, kxy′, direction)
-    as_nufft2d1!(u, kxy, kxy′, direction, eps)
-    # nufft2d3!(x./T(dx), y./T(dy), u, -1, eps, kx, ky, reshape(u, (:, 1)))
-    # nufft2d3!(kx′, ky′, u, 1, eps, x./T(dx), y./T(dy), reshape(u, (:, 1)))
+    as_nufft_rotation!(u, kxy, kxy′, kxyc, s, direction, eps)
+    # as_interp_rotation!(u, kxy, kxy′, s)
     if !compensate_tilt
         u .*= posttilt
     end
-    u .*= s/length(u)
+    u
 end
 
 function as_rotation!(
         u::AbstractArray{Complex{T}, 2}, ds::Tuple{Real, Real}, λ::Real,
         Mf, direction::Type{<:Direction} = Forward;
         M0 = I(3), eps = 2e-7, compensate_tilt::Bool = true) where {T <: Real}
-    xy, kxy, kxy′, s = prepare_vectors(u, ds..., λ, Mf, direction; M0)
+    xy, kxy, kxy′, kxyc, s = prepare_vectors(u, ds..., λ, Mf, direction; M0)
     tilts = as_tilt_compensation(xy, λ, Mf, direction; M0)
-    as_rotation!(u, kxy, kxy′, tilts, s, direction, eps, compensate_tilt)
+    as_rotation!(u, kxy, kxy′, kxyc, tilts, s, direction, eps, compensate_tilt)
 end
 
 function as_rotation!(
         u::AbstractArray{Complex{T}, 2}, ds::Tuple{Real, Real}, λ::Real,
         θs::Tuple{Real, Real}, direction::Type{<:Direction} = Forward;
         initial_tilts = (0, 0), eps = 2e-7, compensate_tilt::Bool = true) where {T <: Real}
-    xy, kxy, kxy′, s = prepare_vectors(u, ds..., λ, θs, direction; initial_tilts)
+    xy, kxy, kxy′, kxyc, s = prepare_vectors(u, ds..., λ, θs, direction; initial_tilts)
     tilts = as_tilt_compensation(xy, λ, θs, direction; initial_tilts)
-    as_rotation!(u, kxy, kxy′, tilts, s, direction, eps, compensate_tilt)
+    as_rotation!(u, kxy, kxy′, kxyc, tilts, s, direction, eps, compensate_tilt)
 end
 
 function as_rotation(u::U, ds::Tuple{Real, Real}, λ::Real, Mf::AbstractMatrix{<:Real},
@@ -234,7 +280,9 @@ function rotate_scalar_field!(u::ScalarField{U, 2}, Mf::AbstractMatrix{<:Real},
 ) where {U <: AbstractArray{<:Complex, 2}}
     @assert isreal(u.lambdas.val) && all(isreal.(u.tilts.val))
     θs = Tuple(asin.(Mf[1:2, 3]))
-    as_rotation!(u.data, u.ds, u.lambdas.val, Mf, direction; eps, compensate_tilt)
+    M0 = field_rotation_matrix(u.tilts.val...)
+    as_rotation!(u.data, u.ds, u.lambdas.val, Mf, direction;
+        eps, compensate_tilt, M0)
     ScalarField(u.data, u.ds, u.lambdas.val; tilts = θs)
 end
 

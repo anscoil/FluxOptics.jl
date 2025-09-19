@@ -4,6 +4,7 @@ using Functors
 using LinearAlgebra
 using AbstractFFTs
 using FINUFFT
+using Interpolations
 using EllipsisNotation
 using LRUCache
 using ..FluxOptics: isbroadcastable, bzip
