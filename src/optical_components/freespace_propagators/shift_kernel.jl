@@ -2,14 +2,14 @@ function shift_kernel(fx::T, fy::T, θx::T, θy::T, z::Tp
 ) where {T <: Real, Tp <: Real}
     fx, fy = Tp(fx), Tp(fy)
     θx, θy = Tp(θx), Tp(θy)
-    f0x, f0y = sin(θx), sin(θy)
+    f0x, f0y = tan(θx), tan(θy)
     Complex{T}(cis(-2π*z*(f0x*fx + f0y*fy)))
 end
 
 function shift_kernel(fx::T, θx::T, z::Tp
 ) where {T <: Real, Tp <: Real}
     fx, θx = Tp(fx), Tp(θx)
-    f0x = sin(θx)
+    f0x = tan(θx)
     Complex{T}(cis(-2π*z*f0x*fx))
 end
 

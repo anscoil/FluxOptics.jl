@@ -197,3 +197,18 @@ function ChainRulesCore.rrule(::typeof(set_basis_projection!), p::P
 
     return wrapped_component, pullback
 end
+
+function ChainRulesCore.rrule(::typeof(compute_metric), m::AbstractMetric,
+        u::NTuple{N, ScalarField}) where {N}
+    c = compute_metric(m, u)
+
+    function pullback(∂c)
+        ∂c = map(c -> unthunk(c), unthunk(∂c))
+        if !isa(∂c, Tuple)
+            ∂c = (∂c,)
+        end
+        (NoTangent(), NoTangent(), backpropagate_metric(m, u, ∂c))
+    end
+
+    return c, pullback
+end

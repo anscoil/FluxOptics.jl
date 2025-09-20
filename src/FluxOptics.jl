@@ -27,6 +27,10 @@ export get_tilts, get_tilts_collection
 export set_field_data, set_field_tilts
 export power, normalize_power!
 
+include("metrics/Metrics.jl")
+using .Metrics
+export DotProduct, PowerCoupling
+
 include("GridUtils.jl")
 using .GridUtils
 export spatial_vectors

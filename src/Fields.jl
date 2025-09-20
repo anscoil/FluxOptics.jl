@@ -146,7 +146,9 @@ end
 
 Base.getindex(u::ScalarField, i...) = view(u.data, i...)
 Base.size(u::ScalarField) = size(u.data)
+Base.size(u::ScalarField, k::Integer) = size(u.data, k)
 Base.ndims(u::ScalarField) = ndims(u.data)
+Base.eltype(u::ScalarField) = eltype(u.data)
 
 function Base.fill!(u::ScalarField, v)
     u.data .= v
