@@ -1,11 +1,11 @@
-struct DotProduct{V, A} <: AbstractMetric
-    u::V
+struct DotProduct{U, V, A} <: AbstractMetric
+    u::U
     v::V
     c::A
     mode_selective::Bool
 
     function DotProduct(v::Vararg{ScalarField}; mode_selective::Bool = true)
-        u = map(x -> similar(x), v)
+        u = map(x -> similar(x.data), v)
         if mode_selective
             c = map(x -> similar(x.data, extra_dims(x)), v)
         else
@@ -14,17 +14,18 @@ struct DotProduct{V, A} <: AbstractMetric
                     similar(x.data, (n, n))
                 end, v)
         end
+        U = typeof(u)
         V = typeof(v)
         A = typeof(c)
-        new{V, A}(u, v, c, mode_selective)
+        new{U, V, A}(u, v, c, mode_selective)
     end
 end
 
 function compute_metric(m::DotProduct, u::NTuple{N, ScalarField}) where {N}
     if m.mode_selective
-        foreach(((x, y),) -> copyto!(x, y), zip(m.u, u))
-        foreach(((x, y),) -> (@. x.data *= conj(y.data)), zip(m.u, m.v))
-        foreach(((c, x),) -> sum!(c, x.data), zip(m.c, m.u))
+        foreach(((x, y),) -> copyto!(x, y.data), zip(m.u, u))
+        foreach(((x, y),) -> (@. x *= conj(y.data)), zip(m.u, m.v))
+        foreach(((c, x),) -> sum!(c, x), zip(m.c, m.u))
     else
         foreach(
             ((x, y, c),) -> begin
@@ -33,24 +34,19 @@ function compute_metric(m::DotProduct, u::NTuple{N, ScalarField}) where {N}
             end,
             zip(u, m.v, m.c))
     end
-    c = if length(m.c) == 1
-        m.c[1]
-    else
-        m.c
-    end
-    c
+    m.c
 end
 
 function backpropagate_metric(m::DotProduct, u::NTuple{N, ScalarField}, ∂c) where {N}
-    foreach(((x, y),) -> copyto!(x, y), zip(m.u, m.v))
+    foreach(((x, y),) -> copyto!(x, y.data), zip(m.u, m.v))
     if m.mode_selective
-        foreach(((x, c),) -> (@. x.data *= c), zip(m.u, ∂c))
+        foreach(((x, c),) -> (@. x *= c), zip(m.u, ∂c))
     else
         foreach(
-            ((x, c),) -> begin
-                s = split_size(x)
-                mul!(reshape(x.data, s), reshape(x.data, s), c)
-            end, zip(m.u, ∂c))
+            ((x, y, c),) -> begin
+                s = split_size(y)
+                mul!(reshape(x, s), reshape(x, s), c)
+            end, zip(m.u, u, ∂c))
     end
-    m.u
+    Tuple(map(((x, y),) -> set_field_data(x, y), zip(u, m.u)))
 end

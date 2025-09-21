@@ -204,9 +204,9 @@ function ChainRulesCore.rrule(::typeof(compute_metric), m::AbstractMetric,
 
     function pullback(∂c)
         ∂c = map(c -> unthunk(c), unthunk(∂c))
-        if !isa(∂c, Tuple)
-            ∂c = (∂c,)
-        end
+        # if !isa(∂c, Tuple)
+        #     ∂c = (∂c,)
+        # end
         (NoTangent(), NoTangent(), backpropagate_metric(m, u, ∂c))
     end
 

@@ -29,7 +29,7 @@ export power, normalize_power!
 
 include("metrics/Metrics.jl")
 using .Metrics
-export DotProduct, PowerCoupling
+export DotProduct, PowerCoupling, SquaredFieldDifference, SquaredIntensityDifference
 
 include("GridUtils.jl")
 using .GridUtils

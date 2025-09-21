@@ -9,14 +9,10 @@ struct PowerCoupling{M} <: AbstractMetric
 end
 
 function compute_metric(m::PowerCoupling, u::NTuple{N, ScalarField}) where {N}
-    abs2.(compute_metric(m.m, u))
+    map(x -> abs2.(x), compute_metric(m.m, u))
 end
 
 function backpropagate_metric(m::PowerCoupling, u::NTuple{N, ScalarField}, ∂c) where {N}
-    ∂c = map(((c, y),) -> begin
-            z = similar(y);
-            copyto!(z, 2*c);
-            (@. y *= z)
-        end, zip(∂c, m.m.c))
+    ∂c = map(((c, y),) -> (@. y *= 2*c), zip(∂c, m.m.c))
     backpropagate_metric(m.m, u, ∂c)
 end
