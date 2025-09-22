@@ -24,13 +24,17 @@ end
 function compute_metric(m::DotProduct, u::NTuple{N, ScalarField}) where {N}
     if m.mode_selective
         foreach(((x, y),) -> copyto!(x, y.data), zip(m.u, u))
-        foreach(((x, y),) -> (@. x *= conj(y.data)), zip(m.u, m.v))
+        foreach(((x, y),) -> begin
+                ds = prod(y.ds)
+                (@. x *= conj(y.data)*ds)
+            end, zip(m.u, m.v))
         foreach(((c, x),) -> sum!(c, x), zip(m.c, m.u))
     else
         foreach(
             ((x, y, c),) -> begin
                 s = split_size(x)
                 mul!(c, reshape(y.data, s)', reshape(x.data, s))
+                c .*= prod(y.ds)
             end,
             zip(u, m.v, m.c))
     end
@@ -40,7 +44,7 @@ end
 function backpropagate_metric(m::DotProduct, u::NTuple{N, ScalarField}, ∂c) where {N}
     foreach(((x, y),) -> copyto!(x, y.data), zip(m.u, m.v))
     if m.mode_selective
-        foreach(((x, c),) -> (@. x *= c), zip(m.u, ∂c))
+        foreach(((x, y, c),) -> (@. x *= c), zip(m.u, u, ∂c))
     else
         foreach(
             ((x, y, c),) -> begin

@@ -4,9 +4,12 @@ struct SquaredIntensityDifference{U, V, A} <: AbstractMetric
     v_tmp::V
     c::A
 
-    function SquaredIntensityDifference(v::Vararg{Tuple{ScalarField, AbstractArray{<:Real}}})
+    function SquaredIntensityDifference(v::Vararg{Tuple{
+            ScalarField, AbstractArray{<:Real}}})
         u0, v = zip(v...)
-        dims = map(((x, y),) -> ntuple(k -> k <= ndims(y, true) ? 1 : size(x, k), ndims(x)), zip(v, u0))
+        dims = map(
+            ((x, y),) -> ntuple(k -> k <= ndims(y, true) ? 1 : size(x, k), ndims(x)),
+            zip(v, u0))
         u = map(x -> similar(x.data), u0)
         v_tmp = map(x -> similar(x), v)
         c = map(((x, d),) -> similar(x, d), zip(v, dims))
