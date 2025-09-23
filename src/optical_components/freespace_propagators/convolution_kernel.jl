@@ -13,7 +13,7 @@ struct ConvolutionKernel{K, Nd, V, P, U} <: AbstractKernel{K, V}
         @assert Nd in (1, 2)
         @assert N >= Nd
         @assert cache_size >= 0
-        F = adapt_dim(U, 1, real)
+        F = similar(U, real, 1)
         s = [circshift((1 - nx):(nx - 1), nx) .* dx |> F for (nx, dx) in zip(ns, ds)]
         if Nd == 2
             nx, ny = ns
@@ -30,7 +30,7 @@ struct ConvolutionKernel{K, Nd, V, P, U} <: AbstractKernel{K, V}
         if iszero(cache_size)
             new{Nothing, Nd, V, P, U}(s_vec, nothing, p_f, u_plan)
         else
-            K = adapt_dim(U, Nd)
+            K = similar(U, Nd)
             kernel_cache = LRU{UInt, K}(maxsize = cache_size)
             new{K, Nd, V, P, U}(s_vec, kernel_cache, p_f, u_plan)
         end

@@ -17,12 +17,12 @@ struct Phase{M, A, U} <: AbstractCustomComponent{M}
         M = trainability(trainable, buffered)
         @assert Nd in (1, 2)
         if isa(f, Function)
-            A = adapt_dim(U, Nd, real)
+            A = similar(U, real, Nd)
             ns = size(u.data)[1:Nd]
             ϕ = A(function_to_array(f, ns, ds))
         else
             @assert isbroadcastable(f, u)
-            A = adapt_dim(U, ndims(f), real)
+            A = similar(U, real, ndims(f))
             ϕ = A(f)
         end
         ∂p = (trainable && buffered) ? (; ϕ = similar(ϕ)) : nothing

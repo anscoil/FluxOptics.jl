@@ -137,7 +137,7 @@ struct ASPropZ{M, T, A, V, H} <: AbstractPureComponent{M}
             double_precision_kernel::Bool = false
     ) where {Nd, T, H, U <: AbstractArray{Complex{T}}}
         ns = size(u)[1:Nd]
-        F = adapt_dim(U, 1, real)
+        F = similar(U, real, 1)
         fs = [fftfreq(nx, 1/dx) |> F for (nx, dx) in zip(ns, ds)]
         f_vec = Nd == 2 ? (; x = fs[1], y = fs[2]') : (; x = fs[1])
         V = typeof(f_vec)

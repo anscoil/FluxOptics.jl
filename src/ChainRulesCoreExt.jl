@@ -1,3 +1,14 @@
+module ChainRulesCoreExt
+
+using ..Metrics
+using ..FFTutils
+using ..Fields
+using ..OpticalComponents
+using ..OpticalComponents: Trainability, Static, Trainable
+using ..OpticalComponents: Buffering, Buffered, Unbuffered
+using ..OpticalComponents: get_preallocated_gradient, get_saved_buffer
+using ..OpticalComponents: propagate_and_save!, backpropagate!, backpropagate_with_gradient!
+
 using ChainRulesCore
 using Functors: fleaves
 using LinearAlgebra: mul!
@@ -204,11 +215,10 @@ function ChainRulesCore.rrule(::typeof(compute_metric), m::AbstractMetric,
 
     function pullback(∂c)
         ∂c = map(c -> unthunk(c), unthunk(∂c))
-        # if !isa(∂c, Tuple)
-        #     ∂c = (∂c,)
-        # end
         (NoTangent(), NoTangent(), backpropagate_metric(m, u, ∂c))
     end
 
     return c, pullback
+end
+
 end

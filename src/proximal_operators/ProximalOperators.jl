@@ -1,8 +1,7 @@
 module ProximalOperators
 
-using ..Fields
-using LinearAlgebra
 using Optimisers
+using LinearAlgebra
 export AbstractProximalOperator
 export PointwiseProx, IstaProx, ClampProx, PositiveProx, TVProx
 export TV_denoise!
@@ -41,35 +40,6 @@ function apply!(prox::CompositeProx, states, x::AbstractArray)
     end
     x
 end
-
-struct Fista <: AbstractRule
-    eta::Real
-
-    function Fista(eta)
-        new(eta^2)
-    end
-end
-
-function Optimisers.init(o::Fista, x::AbstractArray{T}) where {T}
-    (T(1), copy(x), zero(x))
-end
-
-function Optimisers.apply!(o::Fista, (tk, xk, newdx), x::AbstractArray{T}, dx) where {T}
-    η = T(o.eta)
-    tkn = (1+sqrt(1+4*tk^2))/2
-    β = (tk-1)/tkn
-
-    @. newdx = η*dx - β*(x-xk)
-    copyto!(xk, x)
-
-    (tkn, xk, newdx), newdx
-end
-
-struct NoDescent <: AbstractRule end
-
-Optimisers.init(o::NoDescent, x) = ()
-
-Optimisers.apply!(o::NoDescent, _, x, dx) = ((), 0)
 
 include("pointwise_prox.jl")
 include("tv_prox.jl")

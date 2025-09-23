@@ -15,6 +15,21 @@ Iterators.reverse(::Iterators.Cycle{Nothing}) = Iterators.cycle(nothing)
 isbroadcastable(a, b) = all(((m, n),) -> m == n || m == 1 || n == 1, zip(size(a), size(b)))
 bzip(x...) = Base.broadcasted(tuple, x...)
 
+function Base.similar(A::Type{<: AbstractArray}, ndims::Integer)
+    @assert isconcretetype(A)
+    A.name.wrapper{A.parameters[1], ndims, A.parameters[3:end]...}
+end
+
+function Base.similar(A::Type{<: AbstractArray}, f::Function)
+    @assert isconcretetype(A)
+    A.name.wrapper{f(A.parameters[1]), A.parameters[2:end]...}
+end
+
+function Base.similar(A::Type{<: AbstractArray}, f::Function, ndims::Integer)
+    @assert isconcretetype(A)
+    A.name.wrapper{f(A.parameters[1]), ndims, A.parameters[3:end]...}
+end
+
 include("measure.jl")
 export vec2D
 export intensity, intensity2D, phase, rms_error, correlation
@@ -66,24 +81,15 @@ export GainSheet
 export FourierWrapper
 export OpticalChain, get_layers
 
-include("proximal_operators/ProximalOperators.jl")
-using .ProximalOperators
+include("OptimisersExt.jl")
+using .OptimisersExt
+import Optimisers: setup, update!, Descent, Momentum, Nesterov
+export make_rules, setup, update!
+export ProxRule, Descent, Momentum, Nesterov, Fista, NoDescent
 export PointwiseProx, IstaProx, ClampProx, PositiveProx, TVProx
 export TV_denoise!
-export Fista, NoDescent
 
-include("optimisers_ext.jl")
-using Optimisers: setup, update!, Descent, Momentum, Nesterov
-export setup, update!
-export make_rules, ProxRule, Descent, Momentum, Nesterov
-
-using .OpticalComponents: Buffering, Buffered, Unbuffered
-using .OpticalComponents: Trainability, Trainable, Static
-using .OpticalComponents: propagate_and_save!, propagate_and_save
-using .OpticalComponents: backpropagate!, backpropagate
-using .OpticalComponents: backpropagate_with_gradient!, backpropagate_with_gradient
-using .OpticalComponents: get_preallocated_gradient, alloc_gradient
-include("chainrulescore_ext.jl")
+include("ChainRulesCoreExt.jl")
 
 # include("cuda/CUDAExt.jl")
 # using .CUDAExt

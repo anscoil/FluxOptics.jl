@@ -32,14 +32,14 @@ struct BPM{M, A, U, D, P, K} <: AbstractCustomComponent{M}
         @assert n_slices >= 2
         dz = thickness / n_slices
         M = trainability(trainable, buffered)
-        A = adapt_dim(U, Nv, real)
-        D = adapt_dim(U, Nd, real)
+        A = similar(U, real, Nv)
+        D = similar(U, real, Nd)
         dn = A(dn0)
         xs = spatial_vectors(size(u)[1:Nd], ds)
         aperture_mask = Nd == 2 ? D(aperture.(xs[1], xs[2]')) : D(aperture.(xs[1]))
         ∂p = (trainable && buffered) ? (; dn = similar(dn)) : nothing
         u = (trainable && buffered) ? similar(u, (size(u)..., n_slices)) : nothing
-        Us = adapt_dim(U, N+1)
+        Us = similar(U, N+1)
         ((M, A, Us, D), (dn, dz, aperture_mask, ∂p, u))
     end
 

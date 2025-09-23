@@ -15,7 +15,7 @@ struct GainSheet{M, T, A} <: AbstractPureComponent{M}
             trainable::Bool = false
     ) where {Nd, T, U <: AbstractArray{Complex{T}}}
         ns = size(u.data)[1:Nd]
-        A = adapt_dim(U, Nd, real)
+        A = similar(U, real, Nd)
         xs = spatial_vectors(ns, ds)
         g0 = Nd == 2 ? A(f.(xs[1], xs[2]')) : A(f.(xs[1]))
         M = trainable ? Trainable : Static

@@ -30,31 +30,6 @@ function complex_to_rgb(
     rgb_colors
 end
 
-function get_fig_size(nx, ny, max_width, width = nothing, height = nothing)
-    if isnothing(width)
-        if isnothing(height)
-            w = min(max_width, nx)
-            return (w, w*ny/nx)
-        else
-            w = nx*height/ny
-            if w > max_width
-                error("Exceeding max_width for height = $(height)")
-            else
-                return (w, height)
-            end
-        end
-    else
-        if isnothing(height)
-            if width > max_width
-                error("Width exceeding max_width: increase max_width or lower width")
-            end
-            return (width, width*ny/nx)
-        else
-            error("Overconstrained plot: specify only one of width or height")
-        end
-    end
-end
-
 function valid_colormap(name::Symbol)
     name in keys(ColorSchemes.colorschemes) || error("Invalid colormap: $name")
     name

@@ -17,12 +17,12 @@ struct Mask{M, A, U} <: AbstractCustomComponent{M}
         M = trainability(trainable, buffered)
         @assert Nd in (1, 2)
         if isa(f, Function)
-            A = adapt_dim(U, Nd)
+            A = similar(U, Nd)
             ns = size(u.data)[1:Nd]
             m = A(function_to_array(f, ns, ds))
         else
             @assert isbroadcastable(f, u)
-            A = adapt_dim(U, ndims(f))
+            A = similar(U, ndims(f))
             m = A(f)
         end
         ∂p = (trainable && buffered) ? (; m = similar(m)) : nothing

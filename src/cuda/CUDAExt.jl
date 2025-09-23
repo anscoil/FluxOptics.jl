@@ -5,7 +5,6 @@ using CUDA
 using FINUFFT
 using ..FFTutils
 using ..OpticalComponents
-using ..ProximalOperators
 using ..Fields
 
 function CUDA.cu(u::ScalarField)

@@ -15,7 +15,7 @@ function generate_speckle(
     speckle .*= filter
     ifft!(speckle, Tuple(1:Nd))
     if !isnothing(envelope)
-        xs = spatial_vectors(ns_d, ds; center = (-).(center))
+        xs = spatial_vectors(ns_d, ds; offset = center)
         speckle .*= envelope(xs..., t)
     end
     speckle

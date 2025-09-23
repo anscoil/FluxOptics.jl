@@ -24,7 +24,7 @@ struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
         @assert Nd in (1, 2)
         @assert N >= Nd
         M = trainability(trainable, buffered)
-        P = adapt_dim(U, Nd, real)
+        P = similar(U, real, Nd)
         ns = size(u.data)[1:Nd]
         h = P(function_to_array(f, ns, ds))
         ∂p = (trainable && buffered) ? (; h = similar(h)) : nothing

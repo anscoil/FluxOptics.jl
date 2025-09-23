@@ -5,13 +5,8 @@ using ..Fields: ScalarField
 import FFTW
 
 export compute_ft!, compute_ift!, FFTPlans
-export adapt_dim, make_fft_plans
+export make_fft_plans
 export plan_czt, plan_czt!
-
-function adapt_dim(A::Type{<:AbstractArray{T}}, n::Integer, f = identity) where {T}
-    @assert isconcretetype(A)
-    A.name.wrapper{f(A.parameters[1]), n, A.parameters[3:end]...}
-end
 
 FFTPlans = NamedTuple{(:ft, :ift), <:Tuple{AbstractFFTs.Plan, AbstractFFTs.Plan}}
 
@@ -35,7 +30,7 @@ end
 function prepare_czt_data(x::AbstractArray, dim::Integer, a, w, center_on_grid = false)
     n = size(x, dim)
     N = 2*n-1
-    U = adapt_dim(typeof(x), 1)
+    U = similar(typeof(x), 1)
     k_range = (0:(N - 1))
     if center_on_grid
         k_range = k_range .- (n-1)/2

@@ -13,7 +13,7 @@ struct FourierKernel{K, V, P} <: AbstractKernel{K, V}
         @assert Nd in (1, 2)
         @assert N >= Nd
         @assert cache_size >= 0
-        F = adapt_dim(U, 1, real)
+        F = similar(U, real, 1)
         fs = [fftfreq(nx, 1/dx) |> F for (nx, dx) in zip(ns, ds)]
         f_vec = Nd == 2 ? (; x = fs[1], y = fs[2]') : (; x = fs[1])
         V = typeof(f_vec)
@@ -23,7 +23,7 @@ struct FourierKernel{K, V, P} <: AbstractKernel{K, V}
         if iszero(cache_size)
             new{Nothing, V, P}(f_vec, nothing, p_f)
         else
-            K = adapt_dim(U, kernel_dim)
+            K = similar(U, kernel_dim)
             kernel_cache = LRU{UInt, K}(maxsize = cache_size)
             new{K, V, P}(f_vec, kernel_cache, p_f)
         end

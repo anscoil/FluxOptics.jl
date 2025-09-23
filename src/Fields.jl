@@ -17,7 +17,7 @@ function parse_tilt_vectors(u::U,
         θs::NTuple{Nd, Union{Real, AbstractVector{<:Real}}}
 ) where {Nd, U <: AbstractArray{<:Complex}}
     shape = ntuple(k -> k <= Nd ? 1 : size(u, k), ndims(u))
-    V = adapt_dim(U, 1, real)
+    V = similar(U, real, 1)
     map(θ -> isa(θ, Real) ? V([θ]) : reshape(V(θ), shape), θs)
 end
 

@@ -1,5 +1,16 @@
-import Optimisers
-using Optimisers: AbstractRule, mapvalue, _trainable, isnumeric, subtract!, Leaf
+module OptimisersExt
+
+using ..OpticalComponents
+using Optimisers
+using Optimisers: mapvalue, _trainable, isnumeric, subtract!, Leaf
+
+export make_rules, setup, update!
+export ProxRule, Descent, Momentum, Nesterov, Fista, NoDescent
+
+include("proximal_operators/ProximalOperators.jl")
+using .ProximalOperators
+export PointwiseProx, IstaProx, ClampProx, PositiveProx, TVProx
+export TV_denoise!
 
 Optimisers.trainable(p::OpticalChain) = (; layers = p.layers)
 
@@ -34,9 +45,10 @@ function Optimisers._setup(rules, default_rule, x; cache)
     end
 end
 
-function make_rules(pairs::Pair{
-        <:K, <:AbstractRule}...) where {
-        K <: Union{AbstractArray, AbstractOpticalComponent}}
+function make_rules(
+        pairs::Pair{
+        <:K, <:AbstractRule}...
+) where {K <: Union{AbstractArray, AbstractOpticalComponent}}
     pairs = map(
         ((x, v),) -> isa(x, AbstractOpticalComponent) ? (get_data(x), v) : (x, v), pairs)
     IdDict{AbstractArray, AbstractRule}(pairs)
@@ -69,4 +81,35 @@ function Optimisers._update!(ℓ::Leaf{<:ProxRule, S}, x; grads, params) where {
     else
         x # no gradient seen
     end
+end
+
+struct Fista <: AbstractRule
+    eta::Real
+
+    function Fista(eta)
+        new(eta^2)
+    end
+end
+
+function Optimisers.init(o::Fista, x::AbstractArray{T}) where {T}
+    (T(1), copy(x), zero(x))
+end
+
+function Optimisers.apply!(o::Fista, (tk, xk, newdx), x::AbstractArray{T}, dx) where {T}
+    η = T(o.eta)
+    tkn = (1+sqrt(1+4*tk^2))/2
+    β = (tk-1)/tkn
+
+    @. newdx = η*dx - β*(x-xk)
+    copyto!(xk, x)
+
+    (tkn, xk, newdx), newdx
+end
+
+struct NoDescent <: AbstractRule end
+
+Optimisers.init(o::NoDescent, x) = ()
+
+Optimisers.apply!(o::NoDescent, _, x, dx) = ((), 0)
+
 end
