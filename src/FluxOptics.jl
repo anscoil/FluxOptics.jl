@@ -1,3 +1,7 @@
+# FluxOptics.jl - Inverse Optics Design Library  
+# Copyright (c) 2025 Nicolas Barré
+# MIT License - see LICENSE file for details
+
 module FluxOptics
 
 __precompile__()
