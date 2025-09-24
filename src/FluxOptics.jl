@@ -41,9 +41,7 @@ export intensity, intensity2D, phase, rms_error, correlation
 include("Fields.jl")
 using .Fields
 export ScalarField
-export get_lambdas, get_lambdas_collection
-export get_tilts, get_tilts_collection
-export set_field_data, set_field_tilts
+export set_field_data
 export power, normalize_power!
 
 include("metrics/Metrics.jl")
@@ -80,7 +78,6 @@ export ScalarSource, get_source, Phase, Mask, FourierMask, FourierPhase
 export TeaDOE, TeaReflector
 export FieldProbe
 export BasisProjectionWrapper, make_spatial_basis, make_fourier_basis
-export get_data, get_wrapped_data
 export GainSheet
 export FourierWrapper
 export OpticalChain, get_layers
