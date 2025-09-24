@@ -42,7 +42,7 @@ include("Fields.jl")
 using .Fields
 export ScalarField
 export set_field_data
-export power, normalize_power!
+export dot, power, normalize_power!
 
 include("metrics/Metrics.jl")
 using .Metrics

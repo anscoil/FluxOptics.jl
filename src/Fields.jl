@@ -36,14 +36,17 @@ end
 
 """
     ScalarField(data::AbstractArray{Complex}, ds::NTuple{Nd,Real}, lambdas; tilts=ntuple(_->0, Nd))
+    ScalarField(nd::NTuple, ds::NTuple{Nd,Real}, lambdas; tilts=ntuple(_->0, Nd))
 
-Represent scalar optical fields with spatial grid information, wavelength(s), and optional tilt angles.
+Represent a scalar optical field with spatial grid information, wavelength(s), and optional tilt angles.
 
 This is the central data structure of FluxOptics.jl for storing and manipulating scalar optical fields.
-The fields data can be multi-dimensional with 1 or 2 transverse dimensions and additional dimensions for 
+The field data can be multi-dimensional with 1 or 2 transverse dimensions and additional dimensions for 
 different spatial modes. Each mode can hold independent wavelength and tilt information.
 
-# Arguments
+# Constructors
+
+**From existing data:**
 - `data::AbstractArray{Complex}`: Complex field amplitude data.
 - `ds::NTuple{Nd,Real}`: Spatial sampling intervals (dx,[dy]) in meters.
 - `lambdas`: Wavelength(s) - can be a scalar Real or AbstractArray{Real} for multiple wavelengths.
@@ -54,22 +57,51 @@ different spatial modes. Each mode can hold independent wavelength and tilt info
   Array arguments to NTuple are accepted as long as they broadcast with the extra non-spatial
   dimensions of `data`.
 
+**Zero-initialized field (convenience):**
+- `nd::NTuple`: Dimensions of the data array (nx, [ny,] ...).
+- Other arguments same as above.
+
 # Examples
-```julia
-# Simple 2D field at 1064nm with 1μm pixel size
-data = zeros(ComplexF64, 256, 256)
-u = ScalarField(data, (1e-6, 1e-6), 1064e-9)
 
-# Multi-wavelength field
-wavelengths = [800e-9, 1064e-9, 1550e-9]
-data = zeros(ComplexF64, 256, 256, 3)
-u = ScalarField(data, (1e-6, 1e-6), wavelengths)
+**Creating from existing data:**
+```jldoctest
+julia> data = rand(ComplexF64, 256, 256);
 
-# Field with initial tilt
-u = ScalarField(data, (1e-6, 1e-6), 1064e-9; tilts=(0.01, 0.005))
+julia> u = ScalarField(data, (1e-6, 1e-6), 1064e-9);
+
+julia> size(u)
+(256, 256)
 ```
 
-See also: [`power`](@ref), [`normalize_power!`](@ref)
+**Creating zero-initialized field:**
+```jldoctest
+julia> u = ScalarField((256, 256), (1e-6, 1e-6), 1064e-9);
+
+julia> size(u)
+(256, 256)
+```
+
+**Multi-wavelength field:**
+```jldoctest
+julia> wavelengths = [800e-9, 1064e-9, 1550e-9];
+
+julia> data = zeros(ComplexF64, 256, 256, 3);
+
+julia> u = ScalarField(data, (1e-6, 1e-6), wavelengths);
+```
+
+**Field with initial tilt:**
+```jldoctest
+julia> wavelengths = [800e-9, 1064e-9, 1550e-9];
+
+julia> data = zeros(ComplexF64, 256, 256, 3);
+
+julia> u = ScalarField(data, (1e-6, 1e-6), 1064e-9; tilts=(0.01, 0.005));
+
+julia> v = ScalarField(data, (1e-6, 1e-6), 1064e-9; tilts=([0.01, 0.02, 0.03], 0));
+```
+
+See also: [`set_field_data`](@ref), [`power`](@ref), [`normalize_power!`](@ref)
 """
 struct ScalarField{U, Nd, S, L, A}
     data::U
@@ -147,17 +179,19 @@ This function creates a copy with new amplitude data while keeping the same spat
 wavelengths, and tilt information.
 
 # Arguments
-- `u::ScalarField`: Original field
-- `data::AbstractArray`: New complex field data
+- `u::ScalarField`: Original field.
+- `data::AbstractArray`: New complex field data.
 
 # Returns
-New `ScalarField` with updated data
+New `ScalarField` with updated data.
 
 # Examples
-```julia
-u = ScalarField(zeros(ComplexF64, 256, 256), (1e-6, 1e-6), 1064e-9)
-new_data = rand(ComplexF64, 256, 256)
-u_new = set_field_data(u, new_data)
+```jldoctest
+julia> u = ScalarField(zeros(ComplexF64, 256, 256), (1e-6, 1e-6), 1064e-9);
+
+julia> new_data = rand(ComplexF64, 256, 256);
+
+julia> u_new = set_field_data(u, new_data);
 ```
 """
 function set_field_data(u::ScalarField{U, Nd}, data::V) where {U, V, Nd}
@@ -217,9 +251,10 @@ Create a copy of the scalar field.
 Creates a copy of the field data, while sharing the internal representation of other parameters.
 
 # Examples
-```julia
-u = ScalarField(data, (1e-6, 1e-6), 1064e-9)
-u_copy = copy(u)
+```jldoctest
+julia> u = ScalarField(data, (1e-6, 1e-6), 1064e-9);
+
+julia> u_copy = copy(u);
 # Modifying u_copy.data will not affect u, but the internal arrays representing 
 # the wavelengths or tilts must never be modified.
 ```
@@ -240,13 +275,14 @@ end
 
 Create a new ScalarField with same parameters but uninitialized data.
 
-Useful for creating temporary fields with the same grid, wavelengths and tilts
-structure as an existing field.
+Useful for creating temporary fields with the same grid, wavelength and tilt
+structures as an existing field.
 
 # Examples
-```julia
-u = ScalarField(data, (1e-6, 1e-6), 1064e-9)
-u_temp = similar(u)  # Same grid/wavelengths/tilts, but data is uninitialized
+```jldoctest
+julia> u = ScalarField(data, (1e-6, 1e-6), 1064e-9);
+
+julia> u_tmp = similar(u);  # Same grid/wavelengths/tilts, but data is uninitialized
 ```
 
 See also: [`copy`](@ref), [`set_field_data`](@ref)
@@ -259,6 +295,45 @@ function Base.collect(u::ScalarField)
     collect(u.data)
 end
 
+"""
+    vec(u::ScalarField)
+
+Convert multi-dimensional fields into vector of individual ScalarField objects.
+
+For fields with extra dimensions, this function splits them into a vector where each element
+is a ScalarField with the same spatial dimensions but representing a single "slice" of the
+ original data. This is useful to iterate on fields, for visualization for instance.
+
+# Returns
+Vector of `ScalarField` objects, one for each slice along non-spatial dimensions.
+
+# Examples
+```jldoctest
+julia> wavelengths = [800e-9, 1064e-9, 1550e-9];
+
+julia> data = zeros(ComplexF64, 256, 256, 3);
+
+julia> u = ScalarField(data, (1e-6, 1e-6), wavelengths);
+
+julia> u.lambdas.val
+1×1×3 Array{Float64, 3}:
+[:, :, 1] =
+ 8.0e-7
+
+[:, :, 2] =
+ 1.064e-6
+
+[:, :, 3] =
+ 1.55e-6
+
+julia> u_vec = vec(u);  # Returns Vector{ScalarField} of length 3
+
+julia> (u_vec[1].lambdas.val, u_vec[2].lambdas.val, u_vec[3].lambdas.val)
+(8.0e-7, 1.064e-6, 1.55e-6)
+```
+
+See also: [`ScalarField`](@ref)
+"""
 function Base.vec(u::ScalarField{U, Nd}) where {U, Nd}
     u_slices = eachslice(u.data; dims = Tuple((Nd + 1):ndims(u)))
     [ScalarField(data, u.ds, lambda; tilts)
@@ -266,10 +341,95 @@ function Base.vec(u::ScalarField{U, Nd}) where {U, Nd}
          bzip(u_slices, u.lambdas.collection, u.tilts.collection...)]
 end
 
+"""
+    intensity(u::ScalarField)
+
+Compute the total intensity I of the optical fields stored in u.
+
+Calculates the total intensity by summing |u|² over all modes/distributions,
+returning the combined intensity distribution for the spatial dimensions.
+
+# Mathematical definition
+For a 2D field:
+I[i,j] = Σₖ |u[i,j,k]|² where k runs over all extra dimensions
+
+# Returns
+Array with spatial dimensions only, containing the total intensity distribution.
+
+# Examples
+
+**Single field:**
+```jldoctest
+julia> data = rand(ComplexF64, 256, 256);
+
+julia> u = ScalarField(data, (1e-6, 1e-6), 1064e-9);
+
+julia> I = intensity(u);  # Returns 256×256 array
+```
+
+**Multi-mode field - sums over all modes:**
+```jldoctest
+julia> data = rand(ComplexF64, 256, 256, 3);  # 3 modes
+
+julia> u = ScalarField(data, (1e-6, 1e-6), 1064e-9);
+
+julia> I = intensity(u);  # Returns 256×256 array (total intensity of all 3 modes)
+```
+
+See also: [`power`](@ref), [`phase`](@ref)
+"""
 function FluxOptics.intensity(u::ScalarField{U, Nd}) where {U, Nd}
     reshape(sum(intensity, u.data; dims = Tuple((Nd + 1):ndims(u))), size(u)[1:Nd])
 end
 
+"""
+    correlation(u::ScalarField, v::ScalarField)
+
+Compute the correlation coefficient between two optical fields.
+
+For multi-dimensional fields, computes correlation between corresponding field
+distributions (same extra dimension indices).
+
+# Mathematical definition
+corr = |⟨u,v⟩|² / (‖u‖ ‖v‖)
+
+# Arguments
+- `u::ScalarField`: First field.
+- `v::ScalarField`: Second field with same spatial dimensions as `u`.
+
+# Returns
+Vector of correlation coefficients, one for each field distribution.
+
+# Examples
+
+**Single-mode case:**
+```jldoctest
+julia> field1_data = rand(ComplexF64, 256, 256);
+
+julia> field2_data = rand(ComplexF64, 256, 256);
+
+julia> u = ScalarField(field1_data, (1e-6, 1e-6), 1064e-9);
+
+julia> v = ScalarField(field2_data, (1e-6, 1e-6), 1064e-9);
+
+julia> corr = correlation(u, v);  # 0-dimensional Array storing the correlation value
+```
+
+**Multi-mode case:**
+```jldoctest
+julia> field1_data = rand(ComplexF64, 256, 256, 3);
+
+julia> field2_data = rand(ComplexF64, 256, 256, 3);
+
+julia> u = ScalarField(field1_data, (1e-6, 1e-6), 1064e-9);
+
+julia> v = ScalarField(field2_data, (1e-6, 1e-6), 1064e-9);
+
+julia> corrs = correlation(u, v);  # 3-element Vector of correlations
+```
+
+See also: [`dot`](@ref), [`power`](@ref)
+"""
 function FluxOptics.correlation(u::ScalarField{U, Nd},
         v::ScalarField{V, Nd}) where {U, V, Nd}
     u_vec = vec(u)
@@ -277,6 +437,55 @@ function FluxOptics.correlation(u::ScalarField{U, Nd},
     [correlation(u.data, v.data) for (u, v) in zip(u_vec, v_vec)]
 end
 
+"""
+    dot(u::ScalarField, v::ScalarField)
+
+Compute the inner product ⟨u,v⟩ between two optical fields.
+
+For multi-dimensional fields, computes the dot product between corresponding
+field distributions (same extra dimension indices).
+
+# Mathematical definition  
+For a 2D field:
+⟨u,v⟩ = ∫∫ u*(x,y) v(x,y) dx dy ≈ Σᵢⱼ u*[i,j] v[i,j]
+
+# Arguments
+- `u::ScalarField`: First field.
+- `v::ScalarField`: Second field with same spatial dimensions as `u`.
+
+# Returns
+Vector of complex inner products, one for each field distribution.
+
+# Examples
+
+**Single-mode case:**
+```jldoctest
+julia> field1_data = rand(ComplexF64, 256, 256);
+
+julia> field2_data = rand(ComplexF64, 256, 256);
+
+julia> u = ScalarField(field1_data, (1e-6, 1e-6), 1064e-9);
+
+julia> v = ScalarField(field2_data, (1e-6, 1e-6), 1064e-9);
+
+julia> overlap = dot(u, v);  # 0-dimensional Array storing the complex overlap integral
+```
+
+**Multi-mode case:**
+```jldoctest
+julia> field1_data = rand(ComplexF64, 256, 256, 3);
+
+julia> field2_data = rand(ComplexF64, 256, 256, 3);
+
+julia> u = ScalarField(field1_data, (1e-6, 1e-6), 1064e-9);
+
+julia> v = ScalarField(field2_data, (1e-6, 1e-6), 1064e-9);
+
+julia> overlaps = dot(u, v);  # 3-element Vector of complex overlaps
+```
+
+See also: [`correlation`](@ref), [`power`](@ref)
+"""
 function LinearAlgebra.dot(u::ScalarField{U, Nd},
         v::ScalarField{V, Nd}) where {U, V, Nd}
     u_vec = vec(u)
@@ -293,17 +502,19 @@ Calculates the spatial integral of the intensity |u|² over the field domain,
 properly accounting for the spatial sampling.
 
 # Mathematical definition
-P = ∫∫ |u(x[,y])|² dx [dy] ≈ Σᵢⱼ |u[i[,j]]|² × dx [× dy].
+For a 2D field:
+P = ∫∫ |u(x,y)|² dx dy ≈ Σᵢⱼ |u[i,j]|² × dx × dy.
 
 # Returns  
 Array of power value(s) with same dimensions as `u`, spatial dimensions being reduced to size 1.
 
 # Examples
-```julia
-data = rand(ComplexF64, 256, 256, 3)
-u = ScalarField(data, (1e-6, 1e-6), 1064e-9)
-P = power(u)  # Returns 1×1×3 Array
+```jldoctest
+julia> data = rand(ComplexF64, 256, 256, 3);
 
+julia> u = ScalarField(data, (1e-6, 1e-6), 1064e-9);
+
+julia> P = power(u);  # Returns 1×1×3 Array
 ```
 
 See also: [`normalize_power!`](@ref)
@@ -330,19 +541,43 @@ This is useful for setting consistent power levels between different fields.
 The modified field `u`
 
 # Examples
-```julia
-u = ScalarField(rand(ComplexF64, 256, 256, 3), (1e-6, 1e-6), 1064e-9)
-normalize_power!(u)        # Normalize all fields to 1 W
-normalize_power!(u, 1e-3)  # Normalize all fields to 1 mW
+```jldoctest
+julia> u = ScalarField(rand(ComplexF64, 256, 256, 3), (1e-6, 1e-6), 1064e-9);
+
+julia> normalize_power!(u);        # Normalize all fields to 1 W
+
+julia> normalize_power!(u, 1e-3);  # Normalize all fields to 1 mW
+
+julia> power(u)
+1×1×3 Array{Float64, 3}:
+[:, :, 1] =
+ 0.001
+
+[:, :, 2] =
+ 0.001
+
+[:, :, 3] =
+ 0.001
 
 # For multiple fields: normalize each field separately
-normalize_power!(u, reshape([1e-3, 2e-3, 1e-3], 1, 1, 3))  # Different power per field
+julia> normalize_power!(u, reshape([1e-3, 1.8e-3, 3e-3], 1, 1, 3));  # Different power per field
+
+julia> power(u)
+1×1×3 Array{Float64, 3}:
+[:, :, 1] =
+ 0.001
+
+[:, :, 2] =
+ 0.0018
+
+[:, :, 3] =
+ 0.003
 ```
 
 See also: [`power`](@ref)
 """
-function normalize_power!(u::ScalarField, v = 1)
-    u.data .*= sqrt.(v ./ power(u))
+function normalize_power!(u::ScalarField, target_power = 1)
+    u.data .*= sqrt.(target_power ./ power(u))
     u
 end
 
