@@ -12,12 +12,12 @@ using ..Fields
 using ..FFTutils
 
 export Direction, Forward, Backward
-export AbstractOpticalComponent, AbstractOpticalSource
+export AbstractOpticalComponent, AbstractPipeComponent, AbstractOpticalSource
 export AbstractCustomComponent, AbstractCustomSource
 export AbstractPureComponent, AbstractPureSource
 export propagate!, propagate
 export alloc_saved_buffer, get_saved_buffer
-export get_data, get_all_data
+export get_data
 export istrainable, isbuffered
 
 abstract type Direction end
@@ -64,20 +64,35 @@ function get_data(p::AbstractOpticalComponent)
     error("Not implemented")
 end
 
-function get_all_data(p::AbstractOpticalComponent)
-    (; data = get_data(p))
+function Base.collect(p::AbstractOpticalComponent)
+    data = get_data(p)
+    if isa(data, Tuple)
+        map(collect, data)
+    else
+        collect(data)
+    end
 end
-
-Base.collect(p::AbstractOpticalComponent) = collect(get_data(p))
 
 Base.size(p::AbstractOpticalComponent) = size(get_data(p))
 
 function Base.fill!(p::AbstractOpticalComponent, v::Real)
-    get_data(p) .= v
+    data = get_data(p)
+    if isa(data, Tuple)
+        foreach(data -> isa(data, AbstractArray) ? data .= v : nothing, get_data(p))
+    else
+        data .= v
+    end
+    data
 end
 
 function Base.fill!(p::AbstractOpticalComponent, v::AbstractArray)
-    copyto!(get_data(p), v)
+    data = get_data(p)
+    if isa(data, Tuple)
+        foreach(data -> isa(data, AbstractArray) ? copyto!(data, v) : nothing, get_data(p))
+    else
+        copyto!(data, v)
+    end
+    data
 end
 
 trainable(p::AbstractOpticalComponent{Static}) = NamedTuple{}()
@@ -86,7 +101,9 @@ function trainable(p::AbstractOpticalComponent{<:Trainable})
     error("Not implemented")
 end
 
-abstract type AbstractCustomComponent{M} <: AbstractOpticalComponent{M} end
+abstract type AbstractPipeComponent{M} <: AbstractOpticalComponent{M} end
+
+abstract type AbstractCustomComponent{M} <: AbstractPipeComponent{M} end
 
 function alloc_gradient(p::AbstractCustomComponent{Trainable{Unbuffered}})
     map(similar, trainable(p))
@@ -157,7 +174,7 @@ function backpropagate_with_gradient(
     backpropagate_with_gradient!(copy(∂v), u_saved, ∂p, p, direction)
 end
 
-abstract type AbstractPureComponent{M} <: AbstractOpticalComponent{M} end
+abstract type AbstractPureComponent{M} <: AbstractPipeComponent{M} end
 
 function propagate(u, p::AbstractPureComponent, direction::Type{<:Direction})
     error("Not implemented")
@@ -241,6 +258,12 @@ export BasisProjectionWrapper, set_basis_projection!, make_spatial_basis, make_f
 
 include("active_media/active_media.jl")
 export GainSheet
+
+include("optical_sequence.jl")
+export OpticalSequence
+
+include("fourier_operator.jl")
+export FourierOperator
 
 include("fourier_wrapper.jl")
 export FourierWrapper, FourierPhase, FourierMask

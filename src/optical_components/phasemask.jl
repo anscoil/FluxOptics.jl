@@ -104,3 +104,12 @@ function backpropagate_with_gradient!(∂v::ScalarField, u_saved::AbstractArray,
     compute_phase_gradient!(∂p.ϕ, u_saved, ∂u, direction)
     (∂u, ∂p)
 end
+
+function Base.merge(p1::Phase{Static}, p2::Phase{Static})
+    if size(p1.ϕ) == size(p2.ϕ)
+        p1.ϕ .+= p2.ϕ
+        OpticalSequence(p1)
+    else
+        OpticalSequence(p1, p2)
+    end
+end

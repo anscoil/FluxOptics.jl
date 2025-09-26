@@ -63,7 +63,7 @@ include("optical_components/OpticalComponents.jl")
 using .OpticalComponents
 export Forward, Backward
 export propagate!, propagate
-export AbstractOpticalComponent, AbstractOpticalSource
+export AbstractPipeComponent, AbstractOpticalSource
 export AbstractCustomComponent, AbstractCustomSource
 export AbstractPureComponent, AbstractPureSource
 export ASProp, ASPropZ, TiltedASProp, ShiftProp
@@ -75,8 +75,8 @@ export TeaDOE, TeaReflector
 export FieldProbe
 export BasisProjectionWrapper, make_spatial_basis, make_fourier_basis
 export GainSheet
-export FourierWrapper
-export OpticalChain, get_layers, get_data, get_all_data
+export OpticalSequence, FourierWrapper
+export OpticalChain, get_layers, get_data
 
 include("OptimisersExt.jl")
 using .OptimisersExt

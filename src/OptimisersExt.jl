@@ -3,6 +3,7 @@ module OptimisersExt
 using ..OpticalComponents
 using Optimisers
 using Optimisers: mapvalue, _trainable, isnumeric, subtract!, Leaf
+using Functors
 
 export make_rules, setup, update!
 export ProxRule, Descent, Momentum, Nesterov, Fista, NoDescent
@@ -200,9 +201,22 @@ function make_rules(
         pairs::Pair{
         <:K, <:AbstractRule}...
 ) where {K <: Union{AbstractArray, AbstractOpticalComponent}}
-    pairs = map(
-        ((x, v),) -> isa(x, AbstractOpticalComponent) ? (get_data(x), v) : (x, v), pairs)
-    IdDict{AbstractArray, AbstractRule}(pairs)
+    new_pairs = Vector{Tuple{AbstractArray, AbstractRule}}([])
+    for (x, v) in pairs
+        if isa(x, AbstractOpticalComponent)
+            data = get_data(x)
+            if isa(data, Tuple)
+                foreach(d -> isa(d, AbstractArray) ? push!(new_pairs, (d, v)) : nothing, data)
+            end
+            if isa(data, AbstractArray)
+                push!(new_pairs, (data, v))
+            end
+        end
+        if isa(x, AbstractArray)
+            push!(new_pairs, (x, v))
+        end
+    end
+    IdDict{AbstractArray, AbstractRule}(new_pairs)
 end
 
 """

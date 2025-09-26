@@ -5,10 +5,10 @@ using ..Fields: ScalarField
 import FFTW
 
 export compute_ft!, compute_ift!, FFTPlans
-export make_fft_plans
+export make_fft_plan, make_fft_plans
 export plan_czt, plan_czt!
 
-FFTPlans = NamedTuple{(:ft, :ift), <:Tuple{AbstractFFTs.Plan, AbstractFFTs.Plan}}
+const FFTPlans = NamedTuple{(:ft, :ift), <:Tuple{AbstractFFTs.Plan, AbstractFFTs.Plan}}
 
 function make_fft_plans(
         u::U, dims::NTuple{N, Integer}) where {N, U <: AbstractArray{<:Complex}}

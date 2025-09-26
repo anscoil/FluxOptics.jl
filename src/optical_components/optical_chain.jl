@@ -43,49 +43,19 @@ function set_kwargs!(m::OpticalChain; kwargs...)
 end
 
 function Base.:|>(a::AbstractOpticalComponent, b::AbstractOpticalComponent)
-    if (isa(a, FourierWrapper) &&
-        isa(b, FourierWrapper) &&
-        a.s == b.s)
-        OpticalChain(merge(a, b))
-    else
-        OpticalChain(a, b)
-    end
+    OpticalChain(a, b)
 end
 
 function Base.:|>(a::AbstractOpticalComponent, b::OpticalChain)
-    first_elem = b.layers[1]
-    if (isa(a, FourierWrapper) &&
-        isa(first_elem, FourierWrapper) &&
-        a.s == first_elem.s)
-        OpticalChain(merge(a, first_elem), b.layers[2, end]...)
-    else
-        OpticalChain(a, b.layers...)
-    end
+    OpticalChain(a, b.layers...)
 end
 
 function Base.:|>(a::OpticalChain, b::AbstractOpticalComponent)
-    last_elem = a.layers[end]
-    if (isa(last_elem, FourierWrapper) &&
-        isa(b, FourierWrapper) &&
-        last_elem.s == b.s)
-        OpticalChain(a.layers[1:(end - 1)]..., merge(last_elem, b))
-    else
-        OpticalChain(a.layers..., b)
-    end
+    OpticalChain(a.layers..., b)
 end
 
 function Base.:|>(a::OpticalChain, b::OpticalChain)
-    last_elem = a.layers[end]
-    first_elem = b.layers[1]
-    if (isa(last_elem, FourierWrapper) &&
-        isa(first_elem, FourierWrapper) &&
-        last_elem.s == first_elem.s)
-        OpticalChain(a.layers[1:(end - 1)]...,
-            merge(last_elem, first_elem),
-            b.layers[2:end]...)
-    else
-        OpticalChain(a.layers..., b.layers...)
-    end
+    OpticalChain(a.layers..., b.layers...)
 end
 
 function Base.:|>(m::OpticalChain, kwargs::NamedTuple)

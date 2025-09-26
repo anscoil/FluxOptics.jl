@@ -20,8 +20,16 @@ struct BasisProjectionWrapper{M, B, P, C, D} <: AbstractPureComponent{M}
             wrapped_component::C,
             basis::AbstractArray,
             proj_coeffs::AbstractArray
-    ) where {M <: Trainability, C <: AbstractOpticalComponent{M}}
+    ) where {M <: Trainability, C <: AbstractPipeComponent{M}}
         mapped_data = get_data(wrapped_component)
+        if !isa(mapped_data, AbstractArray)
+            mapped_data = filter(x -> isa(x, AbstractArray), get_data(wrapped_component))
+            if length(mapped_data) > 1
+                @warn "Calling get_data on a Fourier wrapper with multiple components \
+                   recovers only the data of the first component."
+            end
+            mapped_data = first(mapped_data)
+        end
         D = typeof(mapped_data)
         mdims = ndims(mapped_data)
         bdims = ndims(basis)
@@ -47,10 +55,6 @@ end
 Functors.@functor BasisProjectionWrapper (proj_coeffs,)
 
 get_data(p::BasisProjectionWrapper) = p.proj_coeffs
-
-function get_all_data(p::BasisProjectionWrapper)
-    (; data = get_data(p), p.proj_coeffs, wrapped_data = get_data(p.wrapped_component))
-end
 
 trainable(p::BasisProjectionWrapper{<:Trainable}) = (; proj_coeffs = p.proj_coeffs)
 
