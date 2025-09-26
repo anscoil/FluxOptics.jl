@@ -55,6 +55,39 @@ function Dᵀ!(A::AbstractArray{T, Nd}, DA::AbstractArray{T, N}) where {N, Nd, T
     A
 end
 
+"""
+    TVProx(λ, n_iter=50; tol=nothing, isotropic=true, rule=Fista(...))
+
+Total Variation (TV) regularization proximal operator.
+
+Apply total variation denoising to promote piecewise smooth solutions in n dimensions.
+
+This works on arrays of any dimensionality: 1D signals, 2D surfaces, 3D volumes,
+or higher-dimensional data. Particularly useful for optical applications where
+smooth profiles are desired while preserving sharp edges.
+
+# Arguments
+- `λ`: Regularization strength (larger values → smoother results)
+- `n_iter=50`: Maximum number of internal iterations
+- `tol=nothing`: Convergence tolerance (if provided)
+- `isotropic=true`: Use isotropic TV (L₂ norm of gradient) vs anisotropic (L₁)
+- `rule`: Optimization rule for internal TV solver
+
+# Examples
+```jldoctest
+julia> tv_smooth = TVProx(0.1, 100; isotropic=false);  # Light anisotropic smoothing
+
+julia> tv_strong = TVProx(1.2, 100);  # Strong isotropic TV
+
+julia> noisy_surface = 1 .+ 0.1*randn(32, 32);
+
+julia> prox_state = ProximalOperators.init(tv_strong, noisy_surface);
+
+julia> strongly_smoothed_surface = ProximalOperators.apply!(tv_strong, prox_state, copy(noisy_surface));
+```
+
+See also: [`TV_denoise!`](@ref), [`ProxRule`](@ref)
+"""
 struct TVProx <: AbstractProximalOperator
     λ::Float64
     n_iter::Int
@@ -92,9 +125,7 @@ function apply!(prox::TVProx, (opt, p, ∂p, y), y0::AbstractArray{T}) where {T 
     λ = prox.isotropic ? T(prox.λ) : T(prox.λ/100)
     p .= 0
     y_tmp = isnothing(prox.tol) ? nothing : zero(y)
-    opt.state[2] .= 0
-    opt.state[3] .= 0
-    opt.state = (T(1), opt.state[2:3]...)
+    opt.state = Optimisers.init(opt.rule, p)
     for i in 1:prox.n_iter
         Dᵀ!(y, p)
         @. y = λ*y - y0
@@ -117,9 +148,47 @@ function apply!(prox::TVProx, (opt, p, ∂p, y), y0::AbstractArray{T}) where {T 
     y0
 end
 
+"""
+    TV_denoise!(x, λ, n_iter=50; tol=nothing, isotropic=true, rule=Fista(...))
+
+Apply total variation denoising directly to an n-dimensional array.
+
+Convenience function that applies TV regularization without setting up the full
+proximal operator infrastructure. Modifies the input array in-place.
+
+# Arguments
+- `x`: Input array to denoise (modified in-place)
+- `λ`: Regularization strength
+- `n_iter=50`: Maximum iterations
+- `tol=nothing`: Convergence tolerance
+- `isotropic=true`: Isotropic vs anisotropic TV
+- `rule`: Optimization rule for internal TV solver
+
+# Returns
+The modified input array (for chaining).
+
+# Examples
+```jldoctest
+julia> noisy = randn(64, 64) + 5 * sin.(0.1 * (1:64)) * sin.(0.1 * (1:64)');
+
+julia> original_var = var(noisy);
+
+julia> TV_denoise!(noisy, 0.1, 100);
+
+julia> denoised_var = var(noisy);
+
+julia> denoised_var < original_var  # Reduced variation
+true
+
+julia> # Can chain operations:
+julia> result = TV_denoise!(copy(noisy), 0.05) |> x -> clamp.(x, 0, 1);
+```
+
+See also: [`TVProx`](@ref), [`ClampProx`](@ref), [`PositiveProx`](@ref)
+"""
 function TV_denoise!(y::AbstractArray, λ::Real, n_iter::Integer = 50;
-        tol = nothing, isotropic = true)
-    tv = TVProx(λ, n_iter; tol, isotropic)
+        tol = nothing, isotropic = true, rule = isotropic ? Fista(0.25) : Fista(2.5))
+    tv = TVProx(λ, n_iter; tol, isotropic, rule)
     tv_state = init(tv, y)
     apply!(tv, tv_state, y)
 end

@@ -85,6 +85,7 @@ export make_rules, setup, update!
 export ProxRule, Descent, Momentum, Nesterov, Fista, NoDescent
 export PointwiseProx, IstaProx, ClampProx, PositiveProx, TVProx
 export TV_denoise!
+export ProximalOperators
 
 include("ChainRulesCoreExt.jl")
 

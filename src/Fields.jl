@@ -141,7 +141,7 @@ struct ScalarField{U, Nd, S, L, A}
     end
 end
 
-Functors.@functor ScalarField (data,)
+Functors.@functor ScalarField (electric,)
 
 function get_lambdas(u::ScalarField)
     u.lambdas.val

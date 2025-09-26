@@ -1,6 +1,7 @@
 module ProximalOperators
 
 using Optimisers
+using ..OptimisersExt: Fista
 using LinearAlgebra
 export AbstractProximalOperator
 export PointwiseProx, IstaProx, ClampProx, PositiveProx, TVProx
