@@ -18,12 +18,12 @@ function make_fft_plans(
 end
 
 function compute_ft!(p_f::FFTPlans, u::ScalarField)
-    p_f.ft * u.data
+    p_f.ft * u.electric
     u
 end
 
 function compute_ift!(p_f::FFTPlans, u::ScalarField)
-    p_f.ift * u.data
+    p_f.ift * u.electric
     u
 end
 

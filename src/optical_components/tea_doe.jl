@@ -25,10 +25,10 @@ struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
         @assert N >= Nd
         M = trainability(trainable, buffered)
         P = similar(U, real, Nd)
-        ns = size(u.data)[1:Nd]
+        ns = size(u)[1:Nd]
         h = P(function_to_array(f, ns, ds))
         ∂p = (trainable && buffered) ? (; h = similar(h)) : nothing
-        u = (trainable && buffered) ? similar(u.data) : nothing
+        u = (trainable && buffered) ? similar(u.electric) : nothing
         dn_f = isa(dn, Real) ? (λ -> T(dn)) : (λ -> T(dn(λ)))
         r_f = isa(r, Number) ? (λ -> Complex{T}(r)) : (λ -> Complex{T}(r(λ)))
         Fn = typeof(dn_f)
@@ -78,7 +78,7 @@ trainable(p::TeaDOE{<:Trainable}) = (; h = p.h)
 
 get_preallocated_gradient(p::TeaDOE{Trainable{Buffered}}) = p.∂p
 
-alloc_saved_buffer(u::ScalarField, p::TeaDOE{Trainable{Unbuffered}}) = similar(u.data)
+alloc_saved_buffer(u::ScalarField, p::TeaDOE{Trainable{Unbuffered}}) = similar(u.electric)
 
 get_saved_buffer(p::TeaDOE{Trainable{Buffered}}) = p.u
 
@@ -93,7 +93,7 @@ function apply_phase!(
 end
 
 function propagate!(u::ScalarField, p::TeaDOE, direction::Type{<:Direction})
-    apply_phase!(u.data, get_lambdas(u), p, direction)
+    apply_phase!(u.electric, get_lambdas(u), p, direction)
     u
 end
 
@@ -103,13 +103,13 @@ end
 
 function propagate_and_save!(u::ScalarField, p::TeaDOE{Trainable{Buffered}},
         direction::Type{<:Direction})
-    copyto!(p.u, u.data)
+    copyto!(p.u, u.electric)
     propagate!(u, p, direction)
 end
 
 function propagate_and_save!(u::ScalarField, u_saved, p::TeaDOE{Trainable{Unbuffered}},
         direction::Type{<:Direction})
-    copyto!(u_saved, u.data)
+    copyto!(u_saved, u.electric)
     propagate!(u, p, direction)
 end
 
@@ -118,7 +118,7 @@ function compute_surface_gradient!(∂h::P, u_saved, ∂u::ScalarField,
     sdims = (Nd + 1):ndims(∂u)
     s = sign(direction)
     lambdas = get_lambdas(∂u)
-    g = @. (s*T(2)*π*dn(lambdas)/lambdas)*imag(∂u.data*conj(u_saved))
+    g = @. (s*T(2)*π*dn(lambdas)/lambdas)*imag(∂u.electric*conj(u_saved))
     copyto!(∂h, sum(g; dims = sdims))
 end
 

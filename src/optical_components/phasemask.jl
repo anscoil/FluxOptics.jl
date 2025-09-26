@@ -18,7 +18,7 @@ struct Phase{M, A, U} <: AbstractCustomComponent{M}
         @assert Nd in (1, 2)
         if isa(f, Function)
             A = similar(U, real, Nd)
-            ns = size(u.data)[1:Nd]
+            ns = size(u)[1:Nd]
             ϕ = A(function_to_array(f, ns, ds))
         else
             @assert isbroadcastable(f, u)
@@ -26,7 +26,7 @@ struct Phase{M, A, U} <: AbstractCustomComponent{M}
             ϕ = A(f)
         end
         ∂p = (trainable && buffered) ? (; ϕ = similar(ϕ)) : nothing
-        u = (trainable && buffered) ? similar(u.data) : nothing
+        u = (trainable && buffered) ? similar(u.electric) : nothing
         A = typeof(ϕ)
         new{M, A, U}(ϕ, ∂p, u)
     end
@@ -48,13 +48,13 @@ trainable(p::Phase{<:Trainable}) = (; ϕ = p.ϕ)
 
 get_preallocated_gradient(p::Phase{Trainable{Buffered}}) = p.∂p
 
-alloc_saved_buffer(u::ScalarField, p::Phase{Trainable{Unbuffered}}) = similar(u.data)
+alloc_saved_buffer(u::ScalarField, p::Phase{Trainable{Unbuffered}}) = similar(u.electric)
 
 get_saved_buffer(p::Phase{Trainable{Buffered}}) = p.u
 
 function propagate!(u::ScalarField, p::Phase, direction::Type{<:Direction})
     s = sign(direction)
-    @. u.data *= cis(s*p.ϕ)
+    @. u.electric *= cis(s*p.ϕ)
     u
 end
 
@@ -64,21 +64,21 @@ end
 
 function propagate_and_save!(u::ScalarField, p::Phase{Trainable{Buffered}},
         direction::Type{<:Direction})
-    copyto!(p.u, u.data)
+    copyto!(p.u, u.electric)
     propagate!(u, p, direction)
 end
 
 function propagate_and_save!(u::ScalarField, u_saved::AbstractArray,
         p::Phase{Trainable{Unbuffered}}, direction::Type{<:Direction})
-    copyto!(u_saved, u.data)
+    copyto!(u_saved, u.electric)
     propagate!(u, p, direction)
 end
 
 function compute_phase_gradient!(∂ϕ::AbstractArray{<:Real, Nd}, u_saved, ∂u::ScalarField,
         direction) where {Nd}
-    sdims = (Nd + 1):ndims(∂u.data)
+    sdims = (Nd + 1):ndims(∂u.electric)
     s = sign(direction)
-    g = @. s*imag(∂u.data*conj(u_saved))
+    g = @. s*imag(∂u.electric*conj(u_saved))
     copyto!(∂ϕ, sum(g; dims = sdims))
 end
 
@@ -91,7 +91,7 @@ function compute_phase_gradient!(∂ϕ::Array{<:Real, Nd}, u_saved, ∂u::Scalar
         @inbounds for j in axes(∂ϕ, 2), i in axes(∂ϕ, 1)
 
             full_idx = (i, j, Tuple(idx)...)
-            val = imag(∂u.data[full_idx...] * conj(u_saved[full_idx...]))
+            val = imag(∂u.electric[full_idx...] * conj(u_saved[full_idx...]))
             ∂ϕ[i, j] += s*val
         end
     end

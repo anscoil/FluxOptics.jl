@@ -50,7 +50,7 @@ struct BPM{M, A, U, D, P, K} <: AbstractCustomComponent{M}
             double_precision_kernel::Bool = use_cache, args = (), kwargs = (;))
         ((M, A, U, D),
             (dn, dz, aperture_mask, ∂p, u_saved)
-        ) = _init(u.data, u.ds, thickness, dn0, trainable, buffered, aperture)
+        ) = _init(u.electric, u.ds, thickness, dn0, trainable, buffered, aperture)
         p_bpm = Prop(u, dz, args...; use_cache, double_precision_kernel, kwargs...)
         p_bpm_half = Prop(u, dz/2, args...;
             use_cache, double_precision_kernel, kwargs...)
@@ -98,7 +98,7 @@ get_preallocated_gradient(p::BPM{Trainable{Buffered}}) = p.∂p
 function alloc_saved_buffer(u::ScalarField, p::BPM{Trainable{Unbuffered}})
     Nv = ndims(p.dn)
     n_slices = size(p.dn, Nv)
-    similar(u.data, (size(u.data)..., n_slices))
+    similar(u.electric, (size(u)..., n_slices))
 end
 
 get_saved_buffer(p::BPM{Trainable{Buffered}}) = p.u
@@ -107,7 +107,7 @@ function apply_dn_slice!(u::ScalarField, dn::AbstractArray, kdz,
         direction::Type{<:Direction})
     s = sign(direction)
     lambdas = get_lambdas(u)
-    @. u.data *= cis(s*kdz/lambdas*dn)
+    @. u.electric *= cis(s*kdz/lambdas*dn)
 end
 
 function propagate!(u::ScalarField, p::BPM, direction::Type{<:Direction}; u_saved = nothing)
@@ -118,11 +118,11 @@ function propagate!(u::ScalarField, p::BPM, direction::Type{<:Direction}; u_save
                      Iterators.cycle(nothing) : eachslice(u_saved, dims = ndims(u_saved))
     propagate!(u, p.p_bpm_half, direction)
     for (dn, u_saved) in zip(@view(dn_slices[1:(end - 1)]), u_saved_slices)
-        copyto!(u_saved, u.data)
+        copyto!(u_saved, u.electric)
         apply_dn_slice!(u, dn, p.kdz, direction)
         propagate!(u, p.p_bpm, direction)
     end
-    copyto!(u_saved_slices[end], u.data)
+    copyto!(u_saved_slices[end], u.electric)
     apply_dn_slice!(u, dn_slices[end], p.kdz, direction)
     propagate!(u, p.p_bpm_half, direction)
     u
@@ -143,7 +143,7 @@ function compute_dn_gradient!(∂dn::AbstractArray{T, Nd}, u_saved, ∂u::Scalar
     sdims = (Nd + 1):ndims(∂u)
     s = sign(direction)
     lambdas = get_lambdas(∂u)
-    g = @. s*kdz/lambdas*imag(∂u.data*conj(u_saved))
+    g = @. s*kdz/lambdas*imag(∂u.electric*conj(u_saved))
     copyto!(∂dn, sum(g; dims = sdims))
 end
 

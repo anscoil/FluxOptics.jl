@@ -48,7 +48,9 @@ Functors.@functor BasisProjectionWrapper (proj_coeffs,)
 
 get_data(p::BasisProjectionWrapper) = p.proj_coeffs
 
-get_wrapped_data(p::BasisProjectionWrapper) = get_data(p.wrapped_component)
+function get_all_data(p::BasisProjectionWrapper)
+    (; data = get_data(p), p.proj_coeffs, wrapped_data = get_data(p.wrapped_component))
+end
 
 trainable(p::BasisProjectionWrapper{<:Trainable}) = (; proj_coeffs = p.proj_coeffs)
 

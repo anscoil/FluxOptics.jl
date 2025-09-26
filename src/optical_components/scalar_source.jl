@@ -29,21 +29,21 @@ trainable(p::ScalarSource{<:Trainable}) = (; u0 = p.u0)
 get_preallocated_gradient(p::ScalarSource{Trainable{Buffered}}) = p.∂p
 
 function propagate(p::ScalarSource)
-    copyto!(p.uf.data, p.u0.data)
+    copyto!(p.uf.electric, p.u0.electric)
     p.uf
 end
 
 propagate_and_save(p::ScalarSource) = propagate(p)
 
 function backpropagate_with_gradient(∂v, ∂p::NamedTuple, p::ScalarSource{<:Trainable})
-    copyto!(∂p.u0.data, ∂v.data)
+    copyto!(∂p.u0.electric, ∂v.electric)
     ∂p
 end
 
-get_data(p::ScalarSource) = p.u0.data
+get_data(p::ScalarSource) = p.u0.electric
 
 function Base.fill!(p::ScalarSource, u0::ScalarField)
-    copyto!(p.u0.data, u0.data)
+    copyto!(p.u0.electric, u0.electric)
 end
 
 function get_source(p::ScalarSource)

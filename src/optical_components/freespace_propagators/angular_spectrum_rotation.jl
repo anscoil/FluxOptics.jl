@@ -256,18 +256,18 @@ function rotate_scalar_field!(u::ScalarField{U, 2}, Mf::AbstractMatrix{<:Real},
     @assert isreal(u.lambdas.val) && all(isreal.(u.tilts.val))
     θs = Tuple(asin.(Mf[1:2, 3]))
     M0 = field_rotation_matrix(u.tilts.val...)
-    as_rotation!(u.data, u.ds, u.lambdas.val, Mf, direction;
+    as_rotation!(u.electric, u.ds, u.lambdas.val, Mf, direction;
         eps, compensate_tilt, M0)
-    ScalarField(u.data, u.ds, u.lambdas.val; tilts = θs)
+    ScalarField(u.electric, u.ds, u.lambdas.val; tilts = θs)
 end
 
 function rotate_scalar_field!(u::ScalarField{U, 2}, θs::Tuple{Real, Real},
         direction::Type{<:Direction}; eps = 2e-7, compensate_tilt = true
 ) where {U <: AbstractArray{<:Complex, 2}}
     @assert isreal(u.lambdas.val) && all(isreal.(u.tilts.val))
-    as_rotation!(u.data, u.ds, u.lambdas.val, θs, direction;
+    as_rotation!(u.electric, u.ds, u.lambdas.val, θs, direction;
         eps, compensate_tilt, initial_tilts = u.tilts.val)
-    ScalarField(u.data, u.ds, u.lambdas.val; tilts = θs)
+    ScalarField(u.electric, u.ds, u.lambdas.val; tilts = θs)
 end
 
 array_from_view(v) = v
@@ -287,10 +287,10 @@ function as_rotation!(u::ScalarField{U, 2}, Mf::AbstractMatrix{<:Real},
     θs = Tuple(asin.(Mf[1:2, 3]))
     foreach(
         v -> rotate_scalar_field!(
-            set_field_data(v, array_from_view(v.data)),
+            set_field_data(v, array_from_view(v.electric)),
             Mf, direction; eps, compensate_tilt),
         vec(u))
-    ScalarField(u.data, u.ds, u.lambdas.collection; tilts = θs)
+    ScalarField(u.electric, u.ds, u.lambdas.collection; tilts = θs)
 end
 
 function as_rotation!(u::ScalarField{U, 2}, θs::Tuple{Real, Real},
@@ -298,10 +298,10 @@ function as_rotation!(u::ScalarField{U, 2}, θs::Tuple{Real, Real},
 ) where {U <: AbstractArray{<:Complex}}
     foreach(
         v -> rotate_scalar_field!(
-            set_field_data(v, array_from_view(v.data)),
+            set_field_data(v, array_from_view(v.electric)),
             θs, direction; eps, compensate_tilt),
         vec(u))
-    ScalarField(u.data, u.ds, u.lambdas.collection; tilts = θs)
+    ScalarField(u.electric, u.ds, u.lambdas.collection; tilts = θs)
 end
 
 function as_rotation(u::ScalarField{U, 2}, Mf::AbstractMatrix{<:Real},

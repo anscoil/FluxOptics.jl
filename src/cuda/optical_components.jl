@@ -35,7 +35,7 @@ function OpticalComponents.compute_phase_gradient!(∂ϕ::CuArray{<:Real, Nd},
     )
 
     @cuda threads=threads blocks=blocks kernel_phase_gradient!(
-        ∂ϕ, reshape(∂u.data, (nx, ny, nz)), reshape(u_saved, (nx, ny, nz)), s)
+        ∂ϕ, reshape(∂u.electric, (nx, ny, nz)), reshape(u_saved, (nx, ny, nz)), s)
 
     ∂ϕ
 end

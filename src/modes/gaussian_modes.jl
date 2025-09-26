@@ -35,6 +35,50 @@ function lg_normalization_constant(w0, p, l)
     sqrt(2*factorial(p) / (π*factorial(p + abs(l))))/w0
 end
 
+"""
+    Gaussian1D(w0::Real; norm_constant=nothing)
+    Gaussian1D(w0::Real, λ::Real, z::Real; constant_phase=true, norm_constant=nothing)
+
+Create a one-dimensional Gaussian mode.
+
+The first form creates a Gaussian at the beam waist, while the second includes propagation
+effects at distance `z` from the waist.
+
+# Arguments
+- `w0::Real`: Beam waist radius
+- `λ::Real`: Wavelength (for propagated version)
+- `z::Real`: Propagation distance from waist (for propagated version)
+- `constant_phase=true`: Include exp(ikz) phase factor
+- `norm_constant=nothing`: Custom normalization constant - defines the peak intensity (default uses proper Gaussian normalization)
+
+# Returns
+`Gaussian1D` mode that can be evaluated at spatial positions.
+
+# Examples
+```jldoctest
+julia> g = Gaussian1D(10.0);  # 10 μm waist at focus
+
+julia> nx = 40;  # 40 points
+
+julia> dx = 4.0;  # in µm
+
+julia> x, = spatial_vectors(40, dx);
+
+julia> amplitudes = g(x);
+
+julia> sum(abs2, amplitudes) * dx  # Normalization to 1 by default
+0.9999999999999194
+
+julia> g_prop = Gaussian1D(10.0, 1.064, 1000.0);  # Propagated 1 mm
+
+julia> amplitudes_prop = g_prop(x);
+
+julia> sum(abs2, amplitudes_prop) * dx
+0.9999943872148783
+```
+
+See also: [`HermiteGaussian1D`](@ref), [`Gaussian`](@ref), [`HermiteGaussian`](@ref), [`LaguerreGaussian`](@ref)
+"""
 struct Gaussian1D{T, P <: Union{Nothing, <:NamedTuple}} <: Mode{1, T}
     w0::T
     C::Complex{T}
@@ -49,7 +93,7 @@ struct Gaussian1D{T, P <: Union{Nothing, <:NamedTuple}} <: Mode{1, T}
         k = T(2π/λ)
         eikz = constant_phase ? Complex{T}(exp(im*k*z)) : Complex{T}(1)
         normalization_constant = isnothing(norm_constant) ?
-                                 gaussian_normalization_constant(w0) : norm_constant
+                                 gaussian_normalization_constant(w0) : sqrt(norm_constant)
         C = normalization_constant * sqrt(q0 / qz)
         data = (; λ, z, wz, qz, eikz, e_arg = im*k/(2*qz))
         new{T, typeof(data)}(w0, C, data)
@@ -58,7 +102,7 @@ struct Gaussian1D{T, P <: Union{Nothing, <:NamedTuple}} <: Mode{1, T}
     function Gaussian1D(w0::Real; norm_constant = nothing)
         T = float(eltype(w0))
         normalization_constant = isnothing(norm_constant) ?
-                                 gaussian_normalization_constant(w0) : norm_constant
+                                 gaussian_normalization_constant(w0) : sqrt(norm_constant)
         C = Complex{T}(normalization_constant)
         new{T, Nothing}(w0, C, nothing)
     end
@@ -79,9 +123,55 @@ end
 
 function eval_mode(m::Gaussian1D{<:Real, <:NamedTuple}, x)
     d = m.data
-    sqrt(m.C) * exp(eval_exp_arg(m, x)) * d.eikz
+    m.C * exp(eval_exp_arg(m, x)) * d.eikz
 end
 
+"""
+    Gaussian(w0::Real; norm_constant=nothing)
+    Gaussian(w0x::Real, w0y::Real; norm_constant=nothing)
+    Gaussian(w0::Real, λ::Real, z::Real; constant_phase=true, norm_constant=nothing)
+    Gaussian(w0x::Real, w0y::Real, λ::Real, z::Real; constant_phase=true, norm_constant=nothing)
+
+Create a two-dimensional Gaussian mode.
+
+# Arguments
+- `w0::Real`: Beam waist radius for circular beam
+- `w0x::Real, w0y::Real`: Beam waist radii in x and y directions for elliptical beam
+- `λ::Real`: Wavelength (for propagated version)
+- `z::Real`: Propagation distance from waist (for propagated version)
+- `constant_phase=true`: Include exp(ikz) phase factor
+- `norm_constant=nothing`: Custom normalization constant - defines the peak intensity (default uses proper Gaussian normalization)
+
+# Returns
+`Gaussian` mode that can be evaluated at spatial coordinates.
+
+# Examples
+```jldoctest
+julia> g = Gaussian(10.0);  # Circular beam, 50 μm waist
+
+julia> nx, ny = 64, 64;
+
+julia> dx, dy = 4.0, 4.0;
+
+julia> xv, yv = spatial_vectors(nx, ny, dx, dy);
+
+julia> field = zeros(ComplexF64, nx, ny);
+
+julia> g(field, xv, yv);  # Evaluate on grid (in-place)
+
+julia> sum(abs2, field) * dx * dy  # Check normalization
+0.9999999999998386
+
+julia> g_ellip = Gaussian(10.0, 20.0, 1.064, 1000.0);  # Elliptical beam, wavelength 1.064 µm, propagated 1 mm
+
+julia> field_ellip = g_ellip(xv, yv);  # Direct evaluation (out-of-place)
+
+julia> sum(abs2, field_ellip) * dx * dy
+0.9999999999996259
+```
+
+See also: [`HermiteGaussian`](@ref), [`LaguerreGaussian`](@ref)
+"""
 struct Gaussian{T, G <: Gaussian1D{T}} <: Mode{2, T}
     gx::G
     gy::G
@@ -90,6 +180,8 @@ struct Gaussian{T, G <: Gaussian1D{T}} <: Mode{2, T}
             constant_phase = true, norm_constant = nothing)
         T = float(promote_type(typeof(w0x), typeof(w0y)))
         gx = Gaussian1D(T(w0x), λ, z; constant_phase, norm_constant)
+        norm_constant = isnothing(norm_constant) ? nothing : 1.0
+        # We don't want to account for the normalization constant twice
         gy = Gaussian1D(T(w0y), λ, z; constant_phase = false, norm_constant)
         # We don't want to account for constant phase twice
         new{T, typeof(gx)}(gx, gy)
@@ -98,6 +190,8 @@ struct Gaussian{T, G <: Gaussian1D{T}} <: Mode{2, T}
     function Gaussian(w0x::Real, w0y::Real; norm_constant = nothing)
         T = float(promote_type(typeof(w0x), typeof(w0y)))
         gx = Gaussian1D(w0x; norm_constant)
+        norm_constant = isnothing(norm_constant) ? nothing : 1.0
+        # We don't want to account for the normalization constant twice
         gy = Gaussian1D(w0y; norm_constant)
         new{T, typeof(gx)}(gx, gy)
     end
@@ -138,6 +232,47 @@ function hermite_polynomial(n::Integer)
     end
 end
 
+"""
+    HermiteGaussian1D(w0::Real, n::Integer)
+    HermiteGaussian1D(w0::Real, n::Integer, λ::Real, z::Real; constant_phase=true)
+
+Create a one-dimensional Hermite-Gaussian mode HG_n.
+
+# Arguments
+- `w0::Real`: Beam waist radius
+- `n::Integer`: Mode number (≥ 0)
+- `λ::Real`: Wavelength (for propagated version)
+- `z::Real`: Propagation distance from waist (for propagated version)
+- `constant_phase=true`: Include exp(ikz) phase factor
+
+# Returns
+`HermiteGaussian1D` mode that can be evaluated at spatial positions.
+
+# Examples
+```jldoctest
+julia> hg0 = HermiteGaussian1D(20.0, 0);  # HG_0 (Gaussian)
+
+julia> hg1 = HermiteGaussian1D(20.0, 1);  # HG_1 (first excited mode)
+
+julia> nx = 64;
+
+julia> dx = 2.0;
+
+julia> x, = spatial_vectors(nx, dx);
+
+julia> field0 = hg0(x);
+
+julia> field1 = hg1(x);
+
+julia> sum(abs2, field0) * dx  # Check normalization
+0.9999999998550136
+
+julia> sum(field0 .* conj.(field1)) * dx  # Orthogonality check
+-5.9951169107384464e-18 + 0.0im
+```
+
+See also: [`Gaussian1D`](@ref), [`Gaussian`](@ref), [`HermiteGaussian`](@ref), [`LaguerreGaussian`](@ref)
+"""
 struct HermiteGaussian1D{T, G <: Gaussian1D{T}, P} <: Mode{1, T}
     g::G
     C::Complex{T}
@@ -176,6 +311,52 @@ function eval_mode(m::HermiteGaussian1D, x)
     m.C * m.hn(sqrt(2)*x/wz) * eval_mode(m.g, x)
 end
 
+"""
+    HermiteGaussian(w0::Real, m::Integer, n::Integer)
+    HermiteGaussian(w0x::Real, w0y::Real, m::Integer, n::Integer)
+    HermiteGaussian(w0::Real, m::Integer, n::Integer, λ::Real, z::Real; constant_phase=true)
+    HermiteGaussian(w0x::Real, w0y::Real, m::Integer, n::Integer, λ::Real, z::Real; constant_phase=true)
+
+Create a two-dimensional Hermite-Gaussian mode HG_{m,n}.
+
+# Arguments
+- `w0::Real`: Beam waist radius for circular beam
+- `w0x::Real, w0y::Real`: Beam waist radii in x and y directions
+- `m::Integer, n::Integer`: Mode numbers in x and y directions (≥ 0)
+- `λ::Real`: Wavelength (for propagated version)
+- `z::Real`: Propagation distance from waist (for propagated version)
+- `constant_phase=true`: Include exp(ikz) phase factor
+
+# Returns
+`HermiteGaussian` mode that can be evaluated at spatial coordinates.
+
+# Examples
+```jldoctest
+julia> hg00 = HermiteGaussian(10.0, 0, 0);  # Fundamental mode
+
+julia> hg10 = HermiteGaussian(10.0, 1, 0);  # First excited in x
+
+julia> hg01 = HermiteGaussian(10.0, 0, 1);  # First excited in y
+
+julia> nx, ny = 64, 64;
+
+julia> dx, dy = 2.0, 2.0;
+
+julia> xv, yv = spatial_vectors(nx, ny, dx, dy);
+
+julia> field00 = hg00(xv, yv);
+
+julia> field10 = hg10(xv, yv);
+
+julia> sum(abs2, field00) * dx * dy  # Check normalization
+0.9999999999999993
+
+julia> sum(field00 .* conj.(field10)) * dx * dy  # Orthogonality
+4.851917976626765e-18 + 0.0im
+```
+
+See also: [`Gaussian`](@ref), [`LaguerreGaussian`](@ref)
+"""
 struct HermiteGaussian{T, G <: HermiteGaussian1D{T}} <: Mode{2, T}
     hgx::G
     hgy::G
@@ -218,6 +399,47 @@ function eval_mode(m::HermiteGaussian, x, y)
      * exp(eval_exp_arg(mx.g, x) + eval_exp_arg(my.g, y)) * eikz)
 end
 
+"""
+    hermite_gaussian_groups(w0, n_groups::Int)
+
+Generate all Hermite-Gaussian modes up to a given group number.
+
+Creates all HGₘₙ modes where m + n < n_groups, ordered by increasing total mode number.
+This is useful for modal decomposition and beam shaping applications.
+
+# Arguments
+- `w0`: Beam waist radius
+- `n_groups::Int`: Maximum group number
+
+# Returns
+Vector of `HermiteGaussian` modes.
+
+# Examples
+```jldoctest
+julia> modes = hermite_gaussian_groups(10.0, 3);
+
+julia> length(modes)  # Modes: HG_00, HG_10, HG_01, HG_20, HG_11, HG_02
+6
+
+julia> nx, ny = 64, 64;
+
+julia> dx, dy = 2.0, 2.0;
+
+julia> xv, yv = spatial_vectors(nx, ny, dx, dy);
+
+julia> fields = [mode(xv, yv) for mode in modes];
+
+julia> all(abs(sum(abs2, field) * dx * dy - 1.0) < 1e-10 for field in fields)  # All normalized
+true
+
+julia> modes = hermite_gaussian_groups(10.0, 4);
+
+julia> length(modes)  # Groups 0, 1, 2, 3 give 1+2+3+4 = 10 modes
+10
+```
+
+See also: [`Gaussian`](@ref), [`HermiteGaussian`](@ref), [`LaguerreGaussian`](@ref)
+"""
 function hermite_gaussian_groups(w0, n_groups::Int)
     @assert n_groups >= 0
     l = HermiteGaussian[]
@@ -242,6 +464,59 @@ function laguerre_polynomial(p::Integer, l::Integer)
     end
 end
 
+"""
+    LaguerreGaussian(w0::Real, p::Integer, l::Integer; kind=:vortex)
+    LaguerreGaussian(w0::Real, p::Integer, l::Integer, λ::Real, z::Real; constant_phase=true, kind=:vortex)
+
+Create a Laguerre-Gaussian mode LGₚₗ.
+
+# Arguments
+- `w0::Real`: Beam waist radius
+- `p::Integer`: Radial mode number (≥ 0)
+- `l::Integer`: Azimuthal mode number (any integer)
+- `λ::Real`: Wavelength (for propagated version)
+- `z::Real`: Propagation distance from waist (for propagated version)
+- `constant_phase=true`: Include exp(ikz) phase factor
+- `kind`: Mode type - `:vortex` (default), `:even`, or `:odd`
+  - `:vortex`: exp(ilφ) phase dependence
+  - `:even`: cos(lφ) dependence  
+  - `:odd`: sin(lφ) dependence
+
+# Returns
+`LaguerreGaussian` mode that can be evaluated at spatial coordinates.
+
+# Examples
+```jldoctest
+julia> lg00 = LaguerreGaussian(10.0, 0, 0);  # Fundamental mode (Gaussian)
+
+julia> lg01 = LaguerreGaussian(10.0, 0, 1);  # Vortex beam
+
+julia> nx, ny = 65, 65;
+
+julia> dx, dy = 2.0, 2.0;
+
+julia> xv, yv = spatial_vectors(nx, ny, dx, dy);
+
+julia> field00 = lg00(xv, yv);
+
+julia> field01 = lg01(xv, yv);
+
+julia> sum(abs2, field00) * dx * dy  # Check normalization
+0.9999999999999998
+
+julia> abs(field01[nx÷2+1, ny÷2+1]) < 1e-10  # LG_01 has zero at center (vortex)
+true
+
+julia> lg_even = LaguerreGaussian(10.0, 0, 2; kind=:even);
+
+julia> field_even = lg_even(xv, yv);
+
+julia> all(isreal, field_even)  # Even modes are real-valued
+true
+```
+
+See also: [`Gaussian`](@ref), [`HermiteGaussian`](@ref)
+"""
 struct LaguerreGaussian{T, P <: Union{Nothing, <:NamedTuple}, K, L} <: Mode{2, T}
     w0::T
     C::Complex{T}

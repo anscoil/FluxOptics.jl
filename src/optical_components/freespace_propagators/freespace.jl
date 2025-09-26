@@ -6,6 +6,10 @@ function get_kernels(p::AbstractPropagator{M, <:AbstractKernel}) where {M}
     error("Not implemented")
 end
 
+function get_data(p::AbstractPropagator{M, <:AbstractKernel}) where {M}
+    first(get_kernels(p))
+end
+
 function build_kernel_key_args(p::AbstractPropagator{M, <:AbstractKernel},
         u::ScalarField) where {M}
     error("Not implemented")
@@ -35,7 +39,7 @@ function propagate!(u::ScalarField, p::AbstractPropagator{M, <:AbstractKernel{No
             compute_kernel) -> apply_kernel!(
             v, kernel, compute_kernel, all_args, direction),
         kernels)
-    _propagate_core!(apply_kernel_fns, u.data, p, direction)
+    _propagate_core!(apply_kernel_fns, u.electric, p, direction)
     set_ds_out(p, u, direction)
 end
 
@@ -49,7 +53,7 @@ function propagate!(u::ScalarField, p::AbstractPropagator{M, <:AbstractKernel{K}
             compute_kernel) -> apply_kernel!(
             v, kernel, compute_kernel, kernel_key_args, kernel_args, direction),
         kernels)
-    _propagate_core!(apply_kernel_fns, u.data, p, direction)
+    _propagate_core!(apply_kernel_fns, u.electric, p, direction)
     set_ds_out(p, u, direction)
 end
 

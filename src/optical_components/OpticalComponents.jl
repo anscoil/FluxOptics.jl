@@ -17,7 +17,7 @@ export AbstractCustomComponent, AbstractCustomSource
 export AbstractPureComponent, AbstractPureSource
 export propagate!, propagate
 export alloc_saved_buffer, get_saved_buffer
-export get_data, get_wrapped_data
+export get_data, get_all_data
 export istrainable, isbuffered
 
 abstract type Direction end
@@ -62,6 +62,10 @@ isbuffered(p::AbstractOpticalComponent{Trainable{Buffered}}) = false
 
 function get_data(p::AbstractOpticalComponent)
     error("Not implemented")
+end
+
+function get_all_data(p::AbstractOpticalComponent)
+    (; data = get_data(p))
 end
 
 Base.collect(p::AbstractOpticalComponent) = collect(get_data(p))

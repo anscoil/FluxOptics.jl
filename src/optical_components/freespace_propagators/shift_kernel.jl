@@ -25,7 +25,7 @@ struct ShiftKernel{M, K, T, Tp} <: AbstractPropagator{M, K, T}
     ) where {Nd, T, U <: AbstractArray{Complex{T}}}
         ns = size(u)[1:Nd]
         cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
-        kernel = FourierKernel(u.data, ns, ds, cache_size)
+        kernel = FourierKernel(u.electric, ns, ds, cache_size)
         Tp = double_precision_kernel ? Float64 : T
         new{Static, typeof(kernel), T, Tp}(kernel, Tp(z))
     end

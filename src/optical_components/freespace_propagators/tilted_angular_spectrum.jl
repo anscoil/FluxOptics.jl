@@ -53,7 +53,7 @@ struct TiltedASKernel{M, K, T, Tp, H} <: AbstractPropagator{M, K, T}
         ns = size(u)[1:Nd]
         Tp = double_precision_kernel ? Float64 : T
         cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
-        kernel = FourierKernel(u.data, ns, ds, cache_size)
+        kernel = FourierKernel(u.electric, ns, ds, cache_size)
         K = typeof(kernel)
         new{Static, K, T, Tp, H}(kernel, Tp(n0), Tp(z), filter)
     end

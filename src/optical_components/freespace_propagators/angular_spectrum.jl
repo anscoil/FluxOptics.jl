@@ -64,7 +64,7 @@ struct ASKernel{M, K, T, Tp, H} <: AbstractPropagator{M, K, T}
     ) where {Nd, T, H, U <: AbstractArray{Complex{T}}}
         ns = size(u)[1:Nd]
         cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
-        kernel = FourierKernel(u.data, ns, ds, cache_size)
+        kernel = FourierKernel(u.electric, ns, ds, cache_size)
         Tp = double_precision_kernel ? Float64 : T
         new{Static, typeof(kernel), T, Tp, H}(kernel, paraxial, Tp(n0), Tp(z), filter)
     end
@@ -171,6 +171,6 @@ function propagate(u::ScalarField, p::ASPropZ, direction::Type{<:Direction})
         z_pos = Val(all(sign.(p.z) .> 0))
         kernel = @. as_kernel(p.f_vec..., lambdas, p.n0, p.z, p.filter, z_pos)
     end
-    data = ifft(fft(u.data, dims) .* conj_direction(kernel, direction), dims)
+    data = ifft(fft(u.electric, dims) .* conj_direction(kernel, direction), dims)
     set_field_data(u, data)
 end

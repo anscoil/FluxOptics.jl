@@ -11,7 +11,7 @@ export ScalarField
 export get_lambdas, get_lambdas_collection
 export get_tilts, get_tilts_collection
 export select_lambdas, select_tilts, set_field_ds, set_field_data, set_field_tilts
-export power, normalize_power!
+export power, normalize_power!, coupling_efficiency, intensity, phase
 
 function parse_val(u::U, val::AbstractArray,
         Nd::Integer
@@ -48,7 +48,8 @@ different spatial modes. Each mode can hold independent wavelength and tilt info
 
 **From existing data:**
 - `data::AbstractArray{Complex}`: Complex field amplitude data.
-- `ds::NTuple{Nd,Real}`: Spatial sampling intervals (dx,[dy]) in meters.
+- `ds::NTuple{Nd,Real}`: Spatial sampling intervals (dx,[dy]) in micrometers (or meters as long as
+  consistent units are used everywhere).
 - `lambdas`: Wavelength(s) - can be a scalar Real or AbstractArray{Real} for multiple wavelengths.
   In case of AbstractArray{Real}, it must be broadcastable on the extra dimensions of `data`
   (all dimensions except the spatial ones).
@@ -65,46 +66,50 @@ different spatial modes. Each mode can hold independent wavelength and tilt info
 
 **Creating from existing data:**
 ```jldoctest
-julia> data = rand(ComplexF64, 256, 256);
+# Small example for documentation - use larger arrays in practice
+julia> data = rand(ComplexF64, 4, 4);
 
-julia> u = ScalarField(data, (1e-6, 1e-6), 1064e-9);
+julia> u = ScalarField(data, (1.0, 1.0), 1.064);
 
 julia> size(u)
-(256, 256)
+(4, 4)
 ```
 
 **Creating zero-initialized field:**
 ```jldoctest
-julia> u = ScalarField((256, 256), (1e-6, 1e-6), 1064e-9);
+# Small example for documentation - use larger arrays in practice
+julia> u = ScalarField((4, 4), (1.0, 1.0), 1.064);
 
 julia> size(u)
-(256, 256)
+(4, 4)
 ```
 
 **Multi-wavelength field:**
 ```jldoctest
-julia> wavelengths = [800e-9, 1064e-9, 1550e-9];
+julia> wavelengths = [0.8, 1.064, 1.550];
 
-julia> data = zeros(ComplexF64, 256, 256, 3);
+# Small example for documentation - use larger arrays in practice
+julia> data = zeros(ComplexF64, 4, 4, 3);
 
-julia> u = ScalarField(data, (1e-6, 1e-6), wavelengths);
+julia> u = ScalarField(data, (1.0, 1.0), wavelengths);
 ```
 
 **Field with initial tilt:**
 ```jldoctest
-julia> wavelengths = [800e-9, 1064e-9, 1550e-9];
+julia> wavelengths = [0.8, 1.064, 1.55];
 
-julia> data = zeros(ComplexF64, 256, 256, 3);
+# Small example for documentation - use larger arrays in practice
+julia> data = zeros(ComplexF64, 4, 4, 3);
 
-julia> u = ScalarField(data, (1e-6, 1e-6), 1064e-9; tilts=(0.01, 0.005));
+julia> u = ScalarField(data, (1.0, 1.0), 1.064; tilts=(0.01, 0.005));
 
-julia> v = ScalarField(data, (1e-6, 1e-6), 1064e-9; tilts=([0.01, 0.02, 0.03], 0));
+julia> v = ScalarField(data, (1.0, 1.0), 1.064; tilts=([0.01, 0.02, 0.03], 0));
 ```
 
 See also: [`set_field_data`](@ref), [`power`](@ref), [`normalize_power!`](@ref)
 """
 struct ScalarField{U, Nd, S, L, A}
-    data::U
+    electric::U
     ds::S
     lambdas::L
     tilts::A
@@ -167,7 +172,7 @@ function select_tilts(u::ScalarField)
 end
 
 function set_field_ds(u::ScalarField{U, Nd}, ds::NTuple{Nd, Real}) where {U, Nd}
-    ScalarField(u.data, ds, u.lambdas, u.tilts)
+    ScalarField(u.electric, ds, u.lambdas, u.tilts)
 end
 
 """
@@ -187,9 +192,10 @@ New `ScalarField` with updated data.
 
 # Examples
 ```jldoctest
-julia> u = ScalarField(zeros(ComplexF64, 256, 256), (1e-6, 1e-6), 1064e-9);
+# Small example for documentation - use larger arrays in practice
+julia> u = ScalarField(zeros(ComplexF64, 4, 4), (1.0, 1.0), 1.064);
 
-julia> new_data = rand(ComplexF64, 256, 256);
+julia> new_data = rand(ComplexF64, 4, 4);
 
 julia> u_new = set_field_data(u, new_data);
 ```
@@ -203,7 +209,7 @@ function set_field_data(u::ScalarField{U, Nd}, data::U) where {U, Nd}
 end
 
 function set_field_tilts(u::ScalarField{U, Nd}, tilts) where {U, Nd}
-    ScalarField(u.data, u.ds, u.lambdas.collection; tilts)
+    ScalarField(u.electric, u.ds, u.lambdas.collection; tilts)
 end
 
 # function Base.broadcastable(sf::ScalarField)
@@ -211,35 +217,35 @@ end
 # end
 
 function Base.broadcasted(f, u::ScalarField)
-    ScalarField(complex(broadcast(f, u.data)), u.ds, u.lambdas.collection;
+    ScalarField(complex(broadcast(f, u.electric)), u.ds, u.lambdas.collection;
         tilts = u.tilts.collection)
 end
 
 # function Base.broadcasted(f, a::ScalarField, b::AbstractArray)
-#     ScalarField(broadcast(f, a.data, b), a.lambdas)
+#     ScalarField(broadcast(f, a.electric, b), a.lambdas)
 # end
 
 function +(u::ScalarField, v::ScalarField)
-    set_field_data(u, u.data + v.data)
+    set_field_data(u, u.electric + v.electric)
 end
 
-Base.getindex(u::ScalarField, i...) = view(u.data, i...)
-Base.size(u::ScalarField) = size(u.data)
-Base.size(u::ScalarField, k::Integer) = size(u.data, k)
+Base.getindex(u::ScalarField, i...) = view(u.electric, i...)
+Base.size(u::ScalarField) = size(u.electric)
+Base.size(u::ScalarField, k::Integer) = size(u.electric, k)
 
 function Base.ndims(u::ScalarField{U, Nd}, spatial::Bool = false) where {U, Nd}
-    spatial ? Nd : ndims(u.data)
+    spatial ? Nd : ndims(u.electric)
 end
 
-Base.eltype(u::ScalarField) = eltype(u.data)
+Base.eltype(u::ScalarField) = eltype(u.electric)
 
 function Base.fill!(u::ScalarField, v)
-    u.data .= v
+    u.electric .= v
     u
 end
 
 function Base.fill!(u::ScalarField, v::AbstractArray)
-    copyto!(u.data, v)
+    copyto!(u.electric, v)
     u
 end
 
@@ -252,21 +258,22 @@ Creates a copy of the field data, while sharing the internal representation of o
 
 # Examples
 ```jldoctest
-julia> u = ScalarField(data, (1e-6, 1e-6), 1064e-9);
+# Small example for documentation - use larger arrays in practice
+julia> u = ScalarField(zeros(ComplexF64, 4, 4), (1.0, 1.0), 1.064);
 
 julia> u_copy = copy(u);
-# Modifying u_copy.data will not affect u, but the internal arrays representing 
+# Modifying u_copy.electric will not affect u, but the internal arrays representing 
 # the wavelengths or tilts must never be modified.
 ```
 
 See also: [`similar`](@ref)
 """
 function Base.copy(u::ScalarField)
-    set_field_data(u, copy(u.data))
+    set_field_data(u, copy(u.electric))
 end
 
 function Base.copyto!(u::ScalarField, v::ScalarField)
-    copyto!(u.data, v.data)
+    copyto!(u.electric, v.electric)
     u
 end
 
@@ -280,7 +287,8 @@ structures as an existing field.
 
 # Examples
 ```jldoctest
-julia> u = ScalarField(data, (1e-6, 1e-6), 1064e-9);
+# Small example for documentation - use larger arrays in practice
+julia> u = ScalarField(zeros(ComplexF64, 4, 4), (1.0, 1.0), 1.064);
 
 julia> u_tmp = similar(u);  # Same grid/wavelengths/tilts, but data is uninitialized
 ```
@@ -288,153 +296,280 @@ julia> u_tmp = similar(u);  # Same grid/wavelengths/tilts, but data is uninitial
 See also: [`copy`](@ref), [`set_field_data`](@ref)
 """
 function Base.similar(u::ScalarField)
-    set_field_data(u, similar(u.data))
+    set_field_data(u, similar(u.electric))
 end
 
 function Base.collect(u::ScalarField)
-    collect(u.data)
+    collect(u.electric)
 end
 
 """
+    vec(u::AbstractArray, nd::Integer=2)
     vec(u::ScalarField)
 
-Convert multi-dimensional fields into vector of individual ScalarField objects.
+Convert multi-dimensional arrays or fields into vector of slices.
 
-For fields with extra dimensions, this function splits them into a vector where each element
-is a ScalarField with the same spatial dimensions but representing a single "slice" of the
- original data. This is useful to iterate on fields, for visualization for instance.
+For AbstractArrays, splits along dimensions beyond the first `nd` spatial dimensions.
+For ScalarFields, converts into vector of individual ScalarField objects, each representing
+a single slice along non-spatial dimensions. Useful for iteration and visualization.
+
+# Arguments
+- `u`: Array or ScalarField to vectorize.
+- `nd::Integer`: Number of spatial dimensions (for AbstractArray case only).
 
 # Returns
-Vector of `ScalarField` objects, one for each slice along non-spatial dimensions.
+- For AbstractArrays: Vector of array slices along non-spatial dimensions.
+- For ScalarFields: Vector of ScalarField objects, one per slice along non-spatial dimensions.
 
 # Examples
+
+**AbstractArray case:**
 ```jldoctest
-julia> wavelengths = [800e-9, 1064e-9, 1550e-9];
+# Small example for documentation - use larger arrays in practice
+julia> data = ones(4, 4, 3);  # 2 spatial dims + 1 extra
 
-julia> data = zeros(ComplexF64, 256, 256, 3);
+julia> slices = vec(data, 2);  # Split after 2 spatial dimensions
 
-julia> u = ScalarField(data, (1e-6, 1e-6), wavelengths);
+julia> length(slices)
+3
 
-julia> u.lambdas.val
-1×1×3 Array{Float64, 3}:
-[:, :, 1] =
- 8.0e-7
+julia> size(slices[1])
+(4, 4)
+```
 
-[:, :, 2] =
- 1.064e-6
+**ScalarField case:**
+```jldoctest
+julia> wavelengths = [0.8, 1.064, 1.550];
 
-[:, :, 3] =
- 1.55e-6
+# Small example for documentation - use larger arrays in practice
+julia> data = zeros(ComplexF64, 4, 4, 3);
+
+julia> u = ScalarField(data, (1.0, 1.0), wavelengths);
 
 julia> u_vec = vec(u);  # Returns Vector{ScalarField} of length 3
 
+julia> length(u_vec)
+3
+
 julia> (u_vec[1].lambdas.val, u_vec[2].lambdas.val, u_vec[3].lambdas.val)
-(8.0e-7, 1.064e-6, 1.55e-6)
+(0.8, 1.064, 1.55)
 ```
 
-See also: [`ScalarField`](@ref)
+See also: [`ScalarField`](@ref), [`eachslice`](@ref)
 """
+function Base.vec(u::AbstractArray, nd::Integer)
+    @assert nd in (1, 2)
+    @assert ndims(u) >= nd
+    reshape(eachslice(u; dims = Tuple((nd + 1):ndims(u))), :)
+end
+
 function Base.vec(u::ScalarField{U, Nd}) where {U, Nd}
-    u_slices = eachslice(u.data; dims = Tuple((Nd + 1):ndims(u)))
+    u_slices = eachslice(u.electric; dims = Tuple((Nd + 1):ndims(u)))
     [ScalarField(data, u.ds, lambda; tilts)
      for (data, lambda, tilts...) in
          bzip(u_slices, u.lambdas.collection, u.tilts.collection...)]
 end
 
 """
+    intensity(u::AbstractArray, nd::Integer=2)
     intensity(u::ScalarField)
 
-Compute the total intensity I of the optical fields stored in u.
+Compute the total intensity |u|² of optical fields or arrays.
 
-Calculates the total intensity by summing |u|² over all modes/distributions,
-returning the combined intensity distribution for the spatial dimensions.
+Calculates intensity by summing |u|² over all extra dimensions beyond the spatial ones,
+returning the combined intensity distribution for the spatial dimensions only.
+
+# Arguments
+- `u::AbstractArray`: Array of complex values.
+- `nd::Integer=2`: Number of spatial dimensions (for AbstractArray case only).
+- `u::ScalarField`: Optical field with potentially multiple modes.
 
 # Mathematical definition
-For a 2D field:
 I[i,j] = Σₖ |u[i,j,k]|² where k runs over all extra dimensions
 
 # Returns
-Array with spatial dimensions only, containing the total intensity distribution.
+- **AbstractArray**: Array with spatial dimensions only, extra dims summed.
+- **ScalarField**: Array with spatial dimensions only, containing total intensity.
 
 # Examples
 
-**Single field:**
+**AbstractArray case:**
 ```jldoctest
-julia> data = rand(ComplexF64, 256, 256);
+# Small example for documentation - use larger arrays in practice
+julia> data = ones(ComplexF64, 4, 4, 3);  # 2 spatial + 1 extra dim
 
-julia> u = ScalarField(data, (1e-6, 1e-6), 1064e-9);
+julia> I = intensity(data, 2);  # Sum over 3rd dimension
 
-julia> I = intensity(u);  # Returns 256×256 array
+julia> size(I)
+(4, 4)
+
+julia> I[1,1]
+3.0
 ```
 
-**Multi-mode field - sums over all modes:**
+**ScalarField case:**
 ```jldoctest
-julia> data = rand(ComplexF64, 256, 256, 3);  # 3 modes
+# Small example for documentation - use larger arrays in practice
+julia> data = ones(ComplexF64, 4, 4, 3);  # 3 modes
 
-julia> u = ScalarField(data, (1e-6, 1e-6), 1064e-9);
+julia> u = ScalarField(data, (1.0, 1.0), 1.064);
 
-julia> I = intensity(u);  # Returns 256×256 array (total intensity of all 3 modes)
+julia> I = intensity(u);  # Returns 4×4 array (total intensity of all 3 modes)
+
+julia> size(I)
+(4, 4)
+
+julia> I[1,1]
+3.0
 ```
 
-See also: [`power`](@ref), [`phase`](@ref)
+See also: [`power`](@ref), [`phase`](@ref), [`abs2`](@ref)
 """
-function FluxOptics.intensity(u::ScalarField{U, Nd}) where {U, Nd}
-    reshape(sum(intensity, u.data; dims = Tuple((Nd + 1):ndims(u))), size(u)[1:Nd])
+function intensity(u::AbstractArray, nd::Integer = 2)
+    @assert nd in (1, 2)
+    @assert ndims(u) >= nd
+    reshape(sum(abs2, u, dims = Tuple((nd + 1):ndims(u))), size(u)[1:nd])
+end
+
+function intensity(u::ScalarField{U, Nd}) where {U, Nd}
+    intensity(u.electric)
 end
 
 """
-    correlation(u::ScalarField, v::ScalarField)
+    phase(u::AbstractArray)
+    phase(u::ScalarField)
 
-Compute the correlation coefficient between two optical fields.
+Compute the phase angle of complex arrays or optical fields.
 
-For multi-dimensional fields, computes correlation between corresponding field
-distributions (same extra dimension indices).
-
-# Mathematical definition
-corr = |⟨u,v⟩|² / (‖u‖ ‖v‖)
+Returns the argument (angle) of complex values in radians, preserving array structure.
+For optical fields, this gives the wavefront phase information across all modes.
 
 # Arguments
-- `u::ScalarField`: First field.
-- `v::ScalarField`: Second field with same spatial dimensions as `u`.
+- `u::AbstractArray`: Array of complex values.
+- `u::ScalarField`: Optical field (uses underlying data array).
+
+# Mathematical definition
+φ = arg(u) = atan(imag(u), real(u))
 
 # Returns
-Vector of correlation coefficients, one for each field distribution.
+- **AbstractArray**: Array of same dimensions containing phase values in radians [-π, π].
+- **ScalarField**: Calls `phase(u.electric)`, returns array with phase values.
 
 # Examples
 
-**Single-mode case:**
+**AbstractArray case:**
 ```jldoctest
-julia> field1_data = rand(ComplexF64, 256, 256);
+julia> data = [1.0+0.0im, 0.0+1.0im, -1.0+0.0im];
 
-julia> field2_data = rand(ComplexF64, 256, 256);
-
-julia> u = ScalarField(field1_data, (1e-6, 1e-6), 1064e-9);
-
-julia> v = ScalarField(field2_data, (1e-6, 1e-6), 1064e-9);
-
-julia> corr = correlation(u, v);  # 0-dimensional Array storing the correlation value
+julia> phase(data)
+3-element Vector{Float64}:
+ 0.0
+ 1.5707963267948966
+ 3.141592653589793
 ```
 
-**Multi-mode case:**
+**ScalarField case:**
 ```jldoctest
-julia> field1_data = rand(ComplexF64, 256, 256, 3);
+# Small example for documentation - use larger arrays in practice
+julia> data = [1.0+0.0im 0.0+1.0im; -1.0+0.0im 0.0-1.0im];
 
-julia> field2_data = rand(ComplexF64, 256, 256, 3);
+julia> u = ScalarField(data, (1.0, 1.0), 1.064);
 
-julia> u = ScalarField(field1_data, (1e-6, 1e-6), 1064e-9);
-
-julia> v = ScalarField(field2_data, (1e-6, 1e-6), 1064e-9);
-
-julia> corrs = correlation(u, v);  # 3-element Vector of correlations
+julia> phase(u)
+2×2 Matrix{Float64}:
+ 0.0        1.5708
+ 3.14159   -1.5708
 ```
 
-See also: [`dot`](@ref), [`power`](@ref)
+See also: [`intensity`](@ref), [`angle`](@ref)
 """
-function FluxOptics.correlation(u::ScalarField{U, Nd},
+function phase(u::AbstractArray)
+    angle.(u)
+end
+
+function phase(u::ScalarField)
+    phase(u.electric)
+end
+
+"""
+    coupling_efficiency(u, v)
+    coupling_efficiency(u::ScalarField, v::ScalarField)
+
+Compute the power coupling efficiency between two optical fields.
+
+For multi-dimensional fields, computes power coupling efficiency between corresponding field
+distributions (same extra dimension indices). This normalized metric returns values between 0 and 1,
+representing the fraction of power that would be transferred from field u to field v.
+
+# Mathematical definition
+η = |⟨u,v⟩|² / (‖u‖ ‖v‖)
+
+# Arguments
+- `u`: First field (ScalarField or AbstractArray).
+- `v`: Second field with same spatial dimensions as `u`.
+
+# Returns
+- For AbstractArrays: Scalar coupling efficiency [0,1].
+- For ScalarFields: Array of coupling efficiencies, one for each field distribution.
+
+# Examples
+
+**Array case:**
+```jldoctest
+# Small example for documentation - use larger arrays in practice
+julia> u = ones(ComplexF64, 4, 4);
+
+julia> v = ones(ComplexF64, 4, 4);
+
+julia> coupling_efficiency(u, v)
+1.0
+```
+
+**ScalarField single-mode case:**
+```jldoctest
+# Small example for documentation - use larger arrays in practice  
+julia> field1_data = ones(ComplexF64, 4, 4);
+
+julia> field2_data = ones(ComplexF64, 4, 4);
+
+julia> u = ScalarField(field1_data, (1.0, 1.0), 1.064);
+
+julia> v = ScalarField(field2_data, (1.0, 1.0), 1.064);
+
+julia> coupling_efficiency(u, v)
+0-dimensional Array{Float64, 0}:
+1.0
+```
+
+**ScalarField multi-mode case:**
+```jldoctest
+# Small example for documentation - use larger arrays in practice
+julia> field1_data = ones(ComplexF64, 4, 4, 3);
+
+julia> field2_data = ones(ComplexF64, 4, 4, 3);
+
+julia> u = ScalarField(field1_data, (1.0, 1.0), 1.064);
+
+julia> v = ScalarField(field2_data, (1.0, 1.0), 1.064);
+
+julia> coupling_efficiency(u, v)
+3-element Vector{Float64}:
+ 1.0
+ 1.0
+ 1.0
+```
+
+See also: [`dot`](@ref), [`power`](@ref), [`PowerCoupling`](@ref)
+"""
+function coupling_efficiency(u, v)
+    abs2(dot(u, v)/(norm(u)*norm(v)))
+end
+
+function coupling_efficiency(u::ScalarField{U, Nd},
         v::ScalarField{V, Nd}) where {U, V, Nd}
     u_vec = vec(u)
     v_vec = vec(v)
-    [correlation(u.data, v.data) for (u, v) in zip(u_vec, v_vec)]
+    [coupling_efficiency(u.electric, v.electric) for (u, v) in zip(u_vec, v_vec)]
 end
 
 """
@@ -446,7 +581,6 @@ For multi-dimensional fields, computes the dot product between corresponding
 field distributions (same extra dimension indices).
 
 # Mathematical definition  
-For a 2D field:
 ⟨u,v⟩ = ∫∫ u*(x,y) v(x,y) dx dy ≈ Σᵢⱼ u*[i,j] v[i,j]
 
 # Arguments
@@ -460,26 +594,28 @@ Vector of complex inner products, one for each field distribution.
 
 **Single-mode case:**
 ```jldoctest
-julia> field1_data = rand(ComplexF64, 256, 256);
+# Small example for documentation - use larger arrays in practice
+julia> field1_data = rand(ComplexF64, 4, 4);
 
-julia> field2_data = rand(ComplexF64, 256, 256);
+julia> field2_data = rand(ComplexF64, 4, 4);
 
-julia> u = ScalarField(field1_data, (1e-6, 1e-6), 1064e-9);
+julia> u = ScalarField(field1_data, (1.0, 1.0), 1.064);
 
-julia> v = ScalarField(field2_data, (1e-6, 1e-6), 1064e-9);
+julia> v = ScalarField(field2_data, (1.0, 1.0), 1.064);
 
 julia> overlap = dot(u, v);  # 0-dimensional Array storing the complex overlap integral
 ```
 
 **Multi-mode case:**
 ```jldoctest
-julia> field1_data = rand(ComplexF64, 256, 256, 3);
+# Small example for documentation - use larger arrays in practice
+julia> field1_data = rand(ComplexF64, 4, 4, 3);
 
-julia> field2_data = rand(ComplexF64, 256, 256, 3);
+julia> field2_data = rand(ComplexF64, 4, 4, 3);
 
-julia> u = ScalarField(field1_data, (1e-6, 1e-6), 1064e-9);
+julia> u = ScalarField(field1_data, (1.0, 1.0), 1.064);
 
-julia> v = ScalarField(field2_data, (1e-6, 1e-6), 1064e-9);
+julia> v = ScalarField(field2_data, (1.0, 1.0), 1.064);
 
 julia> overlaps = dot(u, v);  # 3-element Vector of complex overlaps
 ```
@@ -490,7 +626,7 @@ function LinearAlgebra.dot(u::ScalarField{U, Nd},
         v::ScalarField{V, Nd}) where {U, V, Nd}
     u_vec = vec(u)
     v_vec = vec(v)
-    [dot(u.data, v.data) for (u, v) in zip(u_vec, v_vec)]
+    [dot(u.electric, v.electric) for (u, v) in zip(u_vec, v_vec)]
 end
 
 """
@@ -502,7 +638,6 @@ Calculates the spatial integral of the intensity |u|² over the field domain,
 properly accounting for the spatial sampling.
 
 # Mathematical definition
-For a 2D field:
 P = ∫∫ |u(x,y)|² dx dy ≈ Σᵢⱼ |u[i,j]|² × dx × dy.
 
 # Returns  
@@ -510,9 +645,10 @@ Array of power value(s) with same dimensions as `u`, spatial dimensions being re
 
 # Examples
 ```jldoctest
-julia> data = rand(ComplexF64, 256, 256, 3);
+# Small example for documentation - use larger arrays in practice
+julia> data = rand(ComplexF64, 4, 4, 3);
 
-julia> u = ScalarField(data, (1e-6, 1e-6), 1064e-9);
+julia> u = ScalarField(data, (1.0, 1.0), 1.064);
 
 julia> P = power(u);  # Returns 1×1×3 Array
 ```
@@ -521,7 +657,7 @@ See also: [`normalize_power!`](@ref)
 """
 function power(u::ScalarField{U, Nd}) where {U, Nd}
     dims = ntuple(k -> k, Nd)
-    sum(abs2, u.data; dims = dims) .* prod(u.ds)
+    sum(abs2, u.electric; dims = dims) .* prod(u.ds)
 end
 
 """
@@ -542,7 +678,8 @@ The modified field `u`
 
 # Examples
 ```jldoctest
-julia> u = ScalarField(rand(ComplexF64, 256, 256, 3), (1e-6, 1e-6), 1064e-9);
+# Small example for documentation - use larger arrays in practice
+julia> u = ScalarField(rand(ComplexF64, 4, 4, 3), (1.0, 1.0), 1.064);
 
 julia> normalize_power!(u);        # Normalize all fields to 1 W
 
@@ -577,12 +714,12 @@ julia> power(u)
 See also: [`power`](@ref)
 """
 function normalize_power!(u::ScalarField, target_power = 1)
-    u.data .*= sqrt.(target_power ./ power(u))
+    u.electric .*= sqrt.(target_power ./ power(u))
     u
 end
 
 function Base.conj(u::ScalarField)
-    set_field_data(u, conj(u.data))
+    set_field_data(u, conj(u.electric))
 end
 
 end

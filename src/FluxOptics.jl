@@ -34,15 +34,11 @@ function Base.similar(A::Type{<: AbstractArray}, f::Function, ndims::Integer)
     A.name.wrapper{f(A.parameters[1]), ndims, A.parameters[3:end]...}
 end
 
-include("measure.jl")
-export vec2D
-export intensity, intensity2D, phase, rms_error, correlation
-
 include("Fields.jl")
 using .Fields
 export ScalarField
 export set_field_data
-export dot, power, normalize_power!
+export dot, power, normalize_power!, coupling_efficiency, intensity, phase
 
 include("metrics/Metrics.jl")
 using .Metrics
@@ -80,7 +76,7 @@ export FieldProbe
 export BasisProjectionWrapper, make_spatial_basis, make_fourier_basis
 export GainSheet
 export FourierWrapper
-export OpticalChain, get_layers
+export OpticalChain, get_layers, get_data, get_all_data
 
 include("OptimisersExt.jl")
 using .OptimisersExt

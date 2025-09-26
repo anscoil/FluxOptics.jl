@@ -144,17 +144,17 @@ function ChainRulesCore.rrule(::Type{<:ScalarField}, data, ds,
         lambdas::NamedTuple, tilts::NamedTuple)
     y = ScalarField(data, ds, lambdas, tilts)
     function pullback(∂y)
-        (NoTangent(), ∂y.data, NoTangent(), NoTangent(), NoTangent())
+        (NoTangent(), ∂y.electric, NoTangent(), NoTangent(), NoTangent())
     end
     return y, pullback
 end
 
 function ChainRulesCore.ProjectTo(u::ScalarField)
     function pullback(∂y)
-        if ∂y.data isa NoTangent
+        if ∂y.electric isa NoTangent
             NoTangent()
         else
-            ScalarField(∂y.data, u.ds, u.lambdas, u.tilts)
+            ScalarField(∂y.electric, u.ds, u.lambdas, u.tilts)
         end
     end
     pullback

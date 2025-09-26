@@ -51,9 +51,9 @@ struct CollinsProp{M, K, T, Tp, Nd} <: AbstractPropagator{M, K, T}
         @assert N >= Nd
         ns = size(u)[1:Nd]
         cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
-        a_chirp = ChirpKernel(u.data, ns, ds, cache_size)
-        d_chirp = ChirpKernel(u.data, ns, ds, cache_size)
-        conv_kernel = ConvolutionKernel(u.data, ns, ds, cache_size)
+        a_chirp = ChirpKernel(u.electric, ns, ds, cache_size)
+        d_chirp = ChirpKernel(u.electric, ns, ds, cache_size)
+        conv_kernel = ConvolutionKernel(u.electric, ns, ds, cache_size)
         kernel = CollinsKernel(a_chirp, d_chirp, conv_kernel)
         Tp = double_precision_kernel ? Float64 : T
         αs = Tuple([Tp(dx′/dx) for (dx, dx′) in zip(ds, ds′)])

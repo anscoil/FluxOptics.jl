@@ -27,7 +27,7 @@ struct FourierWrapper{M, S, W, P} <: AbstractPureComponent{M}
     function FourierWrapper(u::ScalarField{U, Nd},
             wrapped_components::Vararg{AbstractOpticalComponent}
     ) where {Nd, U}
-        u_plan = similar(u.data)
+        u_plan = similar(u.electric)
         p_f = make_fft_plans(u_plan, Tuple(1:Nd))
         FourierWrapper(p_f, wrapped_components...)
     end
@@ -43,24 +43,16 @@ function get_data(p::FourierWrapper)
     get_data(p.wrapped_components[1])
 end
 
-function get_wrapped_data(p::FourierWrapper)
-    map(get_data, p.wrapped_components)
+function get_all_data(p::FourierWrapper)
+    (; wrapped_data = map(get_all_data, p.wrapped_components))
 end
 
 trainable(p::FourierWrapper{<:Trainable}) = (; wrapped_components = p.wrapped_components)
 
 function propagate_wrapped_components(u::ScalarField, p::FourierWrapper,
-        direction::Type{Forward})
+        direction::Type{<:Direction})
     for c in p.wrapped_components
-        u = propagate!(u, c, Forward)
-    end
-    u
-end
-
-function propagate_wrapped_components(u::ScalarField, p::FourierWrapper,
-        direction::Type{Backward})
-    for c in reverse(p.wrapped_components)
-        u = propagate!(u, c, Backward)
+        u = propagate!(u, c, direction)
     end
     u
 end
