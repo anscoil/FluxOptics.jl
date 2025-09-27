@@ -96,32 +96,3 @@ function Base.merge(p1::OpticalSequence, p2::OpticalSequence)
         merge(head, tail)
     end
 end
-
-# function ma_fonction(x,
-#         y, 
-#         callback = begin
-#                        println("hello")
-#         x + y
-#     end
-# )
-#     (x -> begin
-#               blabla
-#           end)
-# end
-
-# function ma_fonction(x, y)
-#     begin
-#         println("hello")
-#         x + y
-#     end
-# end
-
-# result = some_function(
-#         begin
-#             # Indentation correcte ici aussi
-#         a = 1
-#         b = 2
-#         a + b
-#     end,
-#         other_arg
-# )
