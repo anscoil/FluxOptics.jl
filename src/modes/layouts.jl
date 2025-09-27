@@ -266,8 +266,14 @@ julia> size(modes_lg)  # No layout specified, modes at origin
 (64, 64, 3)
 ```
 """
-function generate_mode_stack(layout::AbstractLayout2D, nx, ny, dx, dy, m::Mode{Nd, T};
-        t::AbstractAffineMap = Id2D(), normalize = true) where {Nd, T}
+function generate_mode_stack(layout::AbstractLayout2D,
+                             nx,
+                             ny,
+                             dx,
+                             dy,
+                             m::Mode{Nd, T};
+                             t::AbstractAffineMap = Id2D(),
+                             normalize = true) where {Nd, T}
     n_modes = length(layout)
     xv, yv = spatial_vectors(nx, ny, dx, dy)
     modes = zeros(Complex{T}, (nx, ny, n_modes))
@@ -280,9 +286,14 @@ function generate_mode_stack(layout::AbstractLayout2D, nx, ny, dx, dy, m::Mode{N
     modes
 end
 
-function generate_mode_stack(
-        layout::AbstractLayout2D, nx, ny, dx, dy, m_v::AbstractVector{<:Mode};
-        t::AbstractAffineMap = Id2D(), normalize = true)
+function generate_mode_stack(layout::AbstractLayout2D,
+                             nx,
+                             ny,
+                             dx,
+                             dy,
+                             m_v::AbstractVector{<:Mode};
+                             t::AbstractAffineMap = Id2D(),
+                             normalize = true)
     @assert length(layout) == length(m_v)
     n_modes = length(layout)
     xv, yv = spatial_vectors(nx, ny, dx, dy)
@@ -297,8 +308,13 @@ function generate_mode_stack(
     modes
 end
 
-function generate_mode_stack(nx, ny, dx, dy, m_v::AbstractVector{<:Mode};
-        t::AbstractAffineMap = Id2D(), normalize = true)
+function generate_mode_stack(nx,
+                             ny,
+                             dx,
+                             dy,
+                             m_v::AbstractVector{<:Mode};
+                             t::AbstractAffineMap = Id2D(),
+                             normalize = true)
     n = length(m_v)
     layout = PointLayout(n)
     generate_mode_stack(layout, nx, ny, dx, dy, m_v; t, normalize)

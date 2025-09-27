@@ -37,14 +37,3 @@ end
 function propagate(u::ScalarField, p::FourierOperator, ::Type{<:Direction})
     propagate!(copy(u), p, direction)
 end
-
-function Base.merge(
-        p1::FourierOperator{Static, S},
-        p2::FourierOperator{Static, S}
-) where {S}
-    if p1.direct != p2.direct
-        OpticalSequence()
-    else
-        OpticalSequence(p1, p2)
-    end
-end

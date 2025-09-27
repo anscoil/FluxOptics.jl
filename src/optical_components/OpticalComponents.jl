@@ -73,6 +73,8 @@ function Base.collect(p::AbstractOpticalComponent)
     end
 end
 
+Base.length(p::AbstractOpticalComponent) = 1
+
 Base.size(p::AbstractOpticalComponent) = size(get_data(p))
 
 function Base.fill!(p::AbstractOpticalComponent, v::Real)
@@ -126,12 +128,12 @@ function propagate!(u, p::AbstractCustomComponent, direction::Type{<:Direction})
 end
 
 function propagate_and_save!(u, p::AbstractCustomComponent{Trainable{Buffered}},
-        direction::Type{<:Direction})
+                             direction::Type{<:Direction})
     error("Not implemented")
 end
 
 function propagate_and_save!(u, u_saved, p::AbstractCustomComponent{Trainable{Unbuffered}},
-        direction::Type{<:Direction})
+                             direction::Type{<:Direction})
     error("Not implemented")
 end
 
@@ -139,9 +141,9 @@ function backpropagate!(u, p::AbstractCustomComponent, direction::Type{<:Directi
     error("Not implemented")
 end
 
-function backpropagate_with_gradient!(
-        ∂v, u_saved, ∂p::NamedTuple, p::AbstractCustomComponent{<:Trainable},
-        direction::Type{<:Direction})
+function backpropagate_with_gradient!(∂v, u_saved, ∂p::NamedTuple,
+                                      p::AbstractCustomComponent{<:Trainable},
+                                      direction::Type{<:Direction})
     error("Not implemented")
 end
 
@@ -150,17 +152,17 @@ function propagate(u, p::AbstractCustomComponent, direction::Type{<:Direction})
 end
 
 function propagate(u::AbstractArray, p::AbstractCustomComponent,
-        λ::Real, direction::Type{<:Direction})
+                   λ::Real, direction::Type{<:Direction})
     propagate!(copy(u), p, λ, direction)
 end
 
 function propagate_and_save(u, p::AbstractCustomComponent{Trainable{Buffered}},
-        direction::Type{<:Direction})
+                            direction::Type{<:Direction})
     propagate_and_save!(copy(u), p, direction; saved_buffer)
 end
 
 function propagate_and_save(u, u_saved, p::AbstractCustomComponent{Trainable{Unbuffered}},
-        direction::Type{<:Direction})
+                            direction::Type{<:Direction})
     propagate_and_save!(copy(u), u_saved, p, direction; saved_buffer)
 end
 
@@ -168,9 +170,9 @@ function backpropagate(u, p::AbstractCustomComponent, direction::Type{<:Directio
     backpropagate!(copy(u), p, direction)
 end
 
-function backpropagate_with_gradient(
-        ∂v, u_saved, ∂p::NamedTuple, p::AbstractCustomComponent{<:Trainable},
-        direction::Type{<:Direction})
+function backpropagate_with_gradient(∂v, u_saved, ∂p::NamedTuple,
+                                     p::AbstractCustomComponent{<:Trainable},
+                                     direction::Type{<:Direction})
     backpropagate_with_gradient!(copy(∂v), u_saved, ∂p, p, direction)
 end
 
@@ -203,12 +205,12 @@ function get_preallocated_gradient(p::AbstractCustomSource{Trainable{Buffered}})
 end
 
 function propagate_and_save(p::AbstractCustomSource{Trainable{Buffered}},
-        direction::Type{<:Direction})
+                            direction::Type{<:Direction})
     error("Not implemented")
 end
 
-function backpropagate_with_gradient(
-        ∂v, ∂p::NamedTuple, p::AbstractCustomSource{<:Trainable})
+function backpropagate_with_gradient(∂v, ∂p::NamedTuple,
+                                     p::AbstractCustomSource{<:Trainable})
     error("Not implemented")
 end
 
@@ -221,7 +223,7 @@ function conj_direction(mask, ::Type{Backward})
 end
 
 function function_to_array(f::Function, ns::NTuple{Nd, Integer}, ds::NTuple{Nd, Real},
-        isfourier = false) where {Nd}
+                           isfourier = false) where {Nd}
     if isfourier
         xs = [fftfreq(nx, 1/dx) for (nx, dx) in zip(ns, ds)]
     else
@@ -268,7 +270,9 @@ export FourierOperator
 include("fourier_wrapper.jl")
 export FourierWrapper, FourierPhase, FourierMask
 
-include("optical_chain.jl")
-export OpticalChain, get_layers
+include("merge_rules.jl")
+
+include("optical_system.jl")
+export OpticalSystem, get_source, get_components
 
 end

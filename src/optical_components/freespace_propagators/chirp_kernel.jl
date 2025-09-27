@@ -2,12 +2,11 @@ struct ChirpKernel{K, V} <: AbstractKernel{K, V}
     s_vec::V
     kernel_cache::Union{Nothing, LRU{UInt, K}}
 
-    function ChirpKernel(
-            u::U,
-            ns::NTuple{Nd, Integer},
-            ds::NTuple{Nd, Real},
-            cache_size::Integer
-    ) where {N, Nd, U <: AbstractArray{<:Complex, N}}
+    function ChirpKernel(u::U,
+                         ns::NTuple{Nd, Integer},
+                         ds::NTuple{Nd, Real},
+                         cache_size::Integer) where {N, Nd,
+                                                     U <: AbstractArray{<:Complex, N}}
         @assert Nd in (1, 2)
         @assert N >= Nd
         @assert cache_size >= 0

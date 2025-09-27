@@ -11,7 +11,7 @@ function get_data(p::AbstractPropagator{M, <:AbstractKernel}) where {M}
 end
 
 function build_kernel_key_args(p::AbstractPropagator{M, <:AbstractKernel},
-        u::ScalarField) where {M}
+                               u::ScalarField) where {M}
     error("Not implemented")
 end
 
@@ -19,40 +19,44 @@ function build_kernel_args(p::AbstractPropagator{M, <:AbstractKernel}) where {M}
     error("Not implemented")
 end
 
-function _propagate_core!(
-        apply_kernel_fn!::F,
-        u::AbstractArray,
-        p::AbstractPropagator{M, <:AbstractKernel}) where {F, M}
+function _propagate_core!(apply_kernel_fn!::F,
+                          u::AbstractArray,
+                          p::AbstractPropagator{M, <:AbstractKernel}) where {F, M}
     error("Not implemented")
 end
 
 set_ds_out(p::AbstractPropagator, u::ScalarField, ::Type{<:Direction}) = u
 
-function propagate!(u::ScalarField, p::AbstractPropagator{M, <:AbstractKernel{Nothing}},
-        direction::Type{<:Direction}) where {M}
+function propagate!(u::ScalarField,
+                    p::AbstractPropagator{M, <:AbstractKernel{Nothing}},
+                    direction::Type{<:Direction}) where {M}
     kernels = get_kernels(p)
     kernel_key_args = map(f -> f(false), build_kernel_key_args(p, u))
     kernel_args = build_kernel_args(p)
     all_args = (kernel_key_args..., kernel_args...)
-    apply_kernel_fns = map(
-        kernel -> (v,
-            compute_kernel) -> apply_kernel!(
-            v, kernel, compute_kernel, all_args, direction),
-        kernels)
+    apply_kernel_fns = map(kernel -> (v,
+                                      compute_kernel) -> apply_kernel!(v, kernel,
+                                                                       compute_kernel,
+                                                                       all_args, direction),
+                           kernels)
     _propagate_core!(apply_kernel_fns, u.electric, p, direction)
     set_ds_out(p, u, direction)
 end
 
-function propagate!(u::ScalarField, p::AbstractPropagator{M, <:AbstractKernel{K}},
-        direction::Type{<:Direction}) where {M, K <: AbstractArray}
+function propagate!(u::ScalarField,
+                    p::AbstractPropagator{M, <:AbstractKernel{K}},
+                    direction::Type{<:Direction}) where {M, K <: AbstractArray}
     kernels = get_kernels(p)
     kernel_key_args = map(f -> f(true), build_kernel_key_args(p, u))
     kernel_args = build_kernel_args(p)
-    apply_kernel_fns = map(
-        kernel -> (v,
-            compute_kernel) -> apply_kernel!(
-            v, kernel, compute_kernel, kernel_key_args, kernel_args, direction),
-        kernels)
+    apply_kernel_fns = map(kernel -> (v,
+                                      compute_kernel) -> apply_kernel!(v,
+                                                                       kernel,
+                                                                       compute_kernel,
+                                                                       kernel_key_args,
+                                                                       kernel_args,
+                                                                       direction),
+                           kernels)
     _propagate_core!(apply_kernel_fns, u.electric, p, direction)
     set_ds_out(p, u, direction)
 end

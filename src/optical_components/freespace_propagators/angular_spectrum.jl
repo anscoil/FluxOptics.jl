@@ -1,46 +1,69 @@
-function as_kernel(fx::T, fy::T, λ::T, n0::Tp, z::Tp,
-        filter::H, z_pos::Val{true}) where {T <: Real, Tp <: Real, H}
+function as_kernel(fx::T,
+                   fy::T,
+                   λ::T,
+                   n0::Tp,
+                   z::Tp,
+                   filter::H,
+                   z_pos::Val{true}) where {T <: Real, Tp <: Real, H}
     fx, fy, λ = Tp(fx), Tp(fy), Tp(λ)/n0
     f² = complex(inv(λ^2))
     v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx, fy))
     Complex{T}(cis(Tp(2)*π*z*sqrt(f² - fx^2 - fy^2)) * v)
 end
 
-function as_kernel(fx::T, fy::T, λ::T, n0::Tp, z::Tp,
-        filter::H, z_pos::Val{false}) where {T <: Real, Tp <: Real, H}
+function as_kernel(fx::T,
+                   fy::T,
+                   λ::T,
+                   n0::Tp,
+                   z::Tp,
+                   filter::H,
+                   z_pos::Val{false}) where {T <: Real, Tp <: Real, H}
     fx, fy, λ = Tp(fx), Tp(fy), Tp(λ)/n0
     f² = complex(inv(λ^2))
     v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx, fy))
     Complex{T}(conj(cis(Tp(2)*π*(-z)*sqrt(f² - fx^2 - fy^2)) * v))
 end
 
-function as_kernel(fx::T, λ::T, n0::Tp, z::Tp, filter::H,
-        z_pos::Val{true}
-) where {T <: Real, Tp <: Real, H}
+function as_kernel(fx::T,
+                   λ::T,
+                   n0::Tp,
+                   z::Tp,
+                   filter::H,
+                   z_pos::Val{true}) where {T <: Real, Tp <: Real, H}
     fx, λ = Tp(fx), Tp(λ)/n0
     f² = complex(inv(λ)^2)
     v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx))
     Complex{T}(cis(Tp(2)*π*z*sqrt(f² - fx^2)) * v)
 end
 
-function as_kernel(fx::T, λ::T, n0::Tp, z::Tp, filter::H,
-        z_pos::Val{false}
-) where {T <: Real, Tp <: Real, H}
+function as_kernel(fx::T,
+                   λ::T,
+                   n0::Tp,
+                   z::Tp,
+                   filter::H,
+                   z_pos::Val{false}) where {T <: Real, Tp <: Real, H}
     fx, λ = Tp(fx), Tp(λ)/n0
     f² = complex(inv(λ)^2)
     v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx))
     Complex{T}(conj(cis(Tp(2)*π*(-z)*sqrt(f² - fx^2)) * v))
 end
 
-function as_paraxial_kernel(fx::T, fy::T, λ::T, n0::Tp, z::Tp,
-        filter::H) where {T <: Real, Tp <: Real, H}
+function as_paraxial_kernel(fx::T,
+                            fy::T,
+                            λ::T,
+                            n0::Tp,
+                            z::Tp,
+                            filter::H) where {T <: Real, Tp <: Real, H}
     fx, fy, λ = Tp(fx), Tp(fy), Tp(λ/n0)
     v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx, fy))
     Complex{T}(cis(-π*λ*z*(fx^2 + fy^2)) * v)
 end
 
-function as_paraxial_kernel(fx::T, λ::T, n0::Tp, z::Tp, filter::H
-) where {T <: Real, Tp <: Real, H}
+function as_paraxial_kernel(fx::T,
+                            λ::T,
+                            n0::Tp,
+                            z::Tp,
+                            filter::H) where {T <: Real, Tp <: Real, H}
     fx, λ = Tp(fx), Tp(λ/n0)
     v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx))
     Complex{T}(cis(-π*λ*z*fx^2) * v)
@@ -54,14 +77,15 @@ struct ASKernel{M, K, T, Tp, H} <: AbstractPropagator{M, K, T}
     filter::H
 
     function ASKernel(u::ScalarField{U, Nd},
-            ds::NTuple{Nd, Real},
-            z::Real;
-            use_cache::Bool = true,
-            n0::Real = 1,
-            filter::H = nothing,
-            paraxial::Bool = false,
-            double_precision_kernel::Bool = use_cache
-    ) where {Nd, T, H, U <: AbstractArray{Complex{T}}}
+                      ds::NTuple{Nd, Real},
+                      z::Real;
+                      use_cache::Bool = true,
+                      n0::Real = 1,
+                      filter::H = nothing,
+                      paraxial::Bool = false,
+                      double_precision_kernel::Bool = use_cache) where {Nd, T, H,
+                                                                        U <:
+                                                                        AbstractArray{Complex{T}}}
         ns = size(u)[1:Nd]
         cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
         kernel = FourierKernel(u.electric, ns, ds, cache_size)
@@ -84,8 +108,10 @@ function build_kernel_args(p::ASKernel)
     end
 end
 
-function _propagate_core!(
-        apply_kernel_fns::F, u::AbstractArray, p::ASKernel, ::Type{<:Direction}) where {F}
+function _propagate_core!(apply_kernel_fns::F,
+                          u::AbstractArray,
+                          p::ASKernel,
+                          ::Type{<:Direction}) where {F}
     apply_kernel_fn!, = apply_kernel_fns
     if p.is_paraxial
         apply_kernel_fn!(u, as_paraxial_kernel)
@@ -96,23 +122,24 @@ function _propagate_core!(
 end
 
 function ASProp(u::ScalarField{U, Nd},
-        ds::NTuple{Nd, Real},
-        z::Real;
-        use_cache::Bool = true,
-        n0::Real = 1,
-        filter = nothing,
-        paraxial::Bool = false,
-        double_precision_kernel::Bool = use_cache) where {U, Nd}
+                ds::NTuple{Nd, Real},
+                z::Real;
+                use_cache::Bool = true,
+                n0::Real = 1,
+                filter = nothing,
+                paraxial::Bool = false,
+                double_precision_kernel::Bool = use_cache) where {U, Nd}
     kernel = ASKernel(u, ds, z; use_cache, n0, filter, paraxial, double_precision_kernel)
     FourierWrapper(kernel.kernel.p_f, kernel)
 end
 
-function ASProp(u::ScalarField, z::Real;
-        use_cache::Bool = true,
-        n0::Real = 1,
-        filter = nothing,
-        paraxial::Bool = false,
-        double_precision_kernel::Bool = use_cache)
+function ASProp(u::ScalarField,
+                z::Real;
+                use_cache::Bool = true,
+                n0::Real = 1,
+                filter = nothing,
+                paraxial::Bool = false,
+                double_precision_kernel::Bool = use_cache)
     ASProp(u, u.ds, z; use_cache, n0, filter, paraxial, double_precision_kernel)
 end
 
@@ -128,14 +155,15 @@ struct ASPropZ{M, T, A, V, H} <: AbstractPureComponent{M}
     end
 
     function ASPropZ(u::ScalarField{U, Nd},
-            ds::NTuple{Nd, Real},
-            z::Real;
-            n0::Real = 1,
-            trainable::Bool = false,
-            paraxial::Bool = false,
-            filter::H = nothing,
-            double_precision_kernel::Bool = false
-    ) where {Nd, T, H, U <: AbstractArray{Complex{T}}}
+                     ds::NTuple{Nd, Real},
+                     z::Real;
+                     n0::Real = 1,
+                     trainable::Bool = false,
+                     paraxial::Bool = false,
+                     filter::H = nothing,
+                     double_precision_kernel::Bool = false) where {Nd, T, H,
+                                                                   U <:
+                                                                   AbstractArray{Complex{T}}}
         ns = size(u)[1:Nd]
         F = similar(U, real, 1)
         fs = [fftfreq(nx, 1/dx) |> F for (nx, dx) in zip(ns, ds)]
@@ -147,12 +175,13 @@ struct ASPropZ{M, T, A, V, H} <: AbstractPureComponent{M}
         new{M, Tp, typeof(z_arr), V, H}(Tp(n0), z_arr, paraxial, f_vec, filter)
     end
 
-    function ASPropZ(u::ScalarField, z::Real;
-            n0::Real = 1,
-            trainable::Bool = false,
-            paraxial::Bool = false,
-            filter = nothing,
-            double_precision_kernel::Bool = false)
+    function ASPropZ(u::ScalarField,
+                     z::Real;
+                     n0::Real = 1,
+                     trainable::Bool = false,
+                     paraxial::Bool = false,
+                     filter = nothing,
+                     double_precision_kernel::Bool = false)
         ASPropZ(u, u.ds, z; n0, trainable, paraxial, filter, double_precision_kernel)
     end
 end

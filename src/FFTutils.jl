@@ -10,8 +10,8 @@ export plan_czt, plan_czt!
 
 const FFTPlans = NamedTuple{(:ft, :ift), <:Tuple{AbstractFFTs.Plan, AbstractFFTs.Plan}}
 
-function make_fft_plans(
-        u::U, dims::NTuple{N, Integer}) where {N, U <: AbstractArray{<:Complex}}
+function make_fft_plans(u::U,
+                        dims::NTuple{N, Integer}) where {N, U <: AbstractArray{<:Complex}}
     p_ft = plan_fft!(u, dims, flags = FFTW.MEASURE)
     p_ift = plan_ifft!(u, dims, flags = FFTW.MEASURE)
     (; ft = p_ft, ift = p_ift)
@@ -54,12 +54,12 @@ struct CZTPlan{U, B, N, P}
     x_tmp::U
 
     function CZTPlan(x::U,
-            dims::NTuple{Nd, Integer};
-            a::NTuple{N} = ntuple(_ -> (1, 0), N),
-            w::NTuple{N} = ntuple(k -> (1, -2π/size(x, k)), N),
-            inplace = false,
-            center_on_grid::Bool = false
-    ) where {Nd, N, T <: Real, U <: AbstractArray{Complex{T}, N}}
+                     dims::NTuple{Nd, Integer};
+                     a::NTuple{N} = ntuple(_ -> (1, 0), N),
+                     w::NTuple{N} = ntuple(k -> (1, -2π/size(x, k)), N),
+                     inplace = false,
+                     center_on_grid::Bool = false) where {Nd, N, T <: Real,
+                                                          U <: AbstractArray{Complex{T}, N}}
         @assert unique(dims) == collect(dims)
         @assert all(k -> k >= 1 && k <= N, dims)
         input_chirp = T(1)
@@ -74,8 +74,11 @@ struct CZTPlan{U, B, N, P}
         dims_tmp = ntuple(k -> k in dims ? 2*size(x, k) - 1 : size(x, k), N)
         x_tmp = similar(x, dims_tmp)
         p_f = make_fft_plans(x_tmp, dims)
-        new{U, Val{inplace}, Nd, typeof(p_f)}(
-            p_f, input_chirp, output_chirp, fft(h, dims), x_tmp)
+        new{U, Val{inplace}, Nd, typeof(p_f)}(p_f,
+                                              input_chirp,
+                                              output_chirp,
+                                              fft(h, dims),
+                                              x_tmp)
     end
 end
 

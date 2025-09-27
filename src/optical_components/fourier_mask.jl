@@ -1,8 +1,8 @@
 function FourierMask(u::ScalarField{U, Nd},
-        ds::NTuple{Nd, Real},
-        f::Union{Function, AbstractArray} = (_...) -> 1;
-        trainable::Bool = false, buffered::Bool = false
-) where {Nd, U}
+                     ds::NTuple{Nd, Real},
+                     f::Union{Function, AbstractArray} = (_...) -> 1;
+                     trainable::Bool = false,
+                     buffered::Bool = false) where {Nd, U}
     if isa(f, Function)
         ns = size(u)[1:Nd]
         f = function_to_array(f, ns, ds, true)
@@ -12,9 +12,9 @@ function FourierMask(u::ScalarField{U, Nd},
 end
 
 function FourierMask(u::ScalarField{U, Nd},
-        f::Union{Function, AbstractArray} = (_...) -> 1;
-        trainable::Bool = false, buffered::Bool = false
-) where {Nd, U}
+                     f::Union{Function, AbstractArray} = (_...) -> 1;
+                     trainable::Bool = false,
+                     buffered::Bool = false) where {Nd, U}
     if isa(f, Function)
         ns = size(u)[1:Nd]
         f = function_to_array(f, ns, u.ds, true)

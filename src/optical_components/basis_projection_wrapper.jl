@@ -5,22 +5,23 @@ struct BasisProjectionWrapper{M, B, P, C, D} <: AbstractPureComponent{M}
     mapped_data::D
     ∂p::Union{Nothing, @NamedTuple{proj_coeffs::P}}
 
-    function BasisProjectionWrapper(
-            basis::B,
-            proj_coeffs::P,
-            wrapped_component::C,
-            mapped_data::D,
-            ∂p::Union{Nothing, @NamedTuple{proj_coeffs::P}}
-    ) where {B, P, C, D}
+    function BasisProjectionWrapper(basis::B,
+                                    proj_coeffs::P,
+                                    wrapped_component::C,
+                                    mapped_data::D,
+                                    ∂p::Union{Nothing, @NamedTuple{proj_coeffs::P}}) where {B,
+                                                                                            P,
+                                                                                            C,
+                                                                                            D}
         M = isnothing(∂p) ? Trainable{Unbuffered} : Trainable{Buffered}
         new{M, B, P, C, D}(basis, proj_coeffs, wrapped_component, mapped_data, ∂p)
     end
 
-    function BasisProjectionWrapper(
-            wrapped_component::C,
-            basis::AbstractArray,
-            proj_coeffs::AbstractArray
-    ) where {M <: Trainability, C <: AbstractPipeComponent{M}}
+    function BasisProjectionWrapper(wrapped_component::C,
+                                    basis::AbstractArray,
+                                    proj_coeffs::AbstractArray) where {M <: Trainability,
+                                                                       C <:
+                                                                       AbstractPipeComponent{M}}
         mapped_data = get_data(wrapped_component)
         if !isa(mapped_data, AbstractArray)
             mapped_data = filter(x -> isa(x, AbstractArray), get_data(wrapped_component))
@@ -69,26 +70,23 @@ function propagate(u::ScalarField, p::BasisProjectionWrapper, direction::Type{<:
 end
 
 function make_basis(f, xs::NTuple{Nd, AbstractArray{<:Real}}, args...) where {Nd}
-    r_args = map(x -> reshape(x, ntuple(k -> k <= Nd ? 1 : size(x, k-Nd), Nd+ndims(x))), args)
+    r_args = map(x -> reshape(x, ntuple(k -> k <= Nd ? 1 : size(x, k-Nd), Nd+ndims(x))),
+                 args)
     f.(xs..., r_args...)
 end
 
-function make_spatial_basis(
-        f,
-        ns::NTuple{Nd, Integer},
-        ds::NTuple{Nd, Real},
-        args...
-) where {Nd}
+function make_spatial_basis(f,
+                            ns::NTuple{Nd, Integer},
+                            ds::NTuple{Nd, Real},
+                            args...) where {Nd}
     @assert Nd in (1, 2)
     make_basis(f, spatial_vectors(ns, ds), args...)
 end
 
-function make_fourier_basis(
-        f,
-        ns::NTuple{Nd, Integer},
-        ds::NTuple{Nd, Real},
-        args...
-) where {Nd}
+function make_fourier_basis(f,
+                            ns::NTuple{Nd, Integer},
+                            ds::NTuple{Nd, Real},
+                            args...) where {Nd}
     @assert Nd in (1, 2)
     fs = Tuple([fftfreq(nx, 1/dx) for (nx, dx) in zip(ns, ds)])
     make_basis(f, fs, args...)

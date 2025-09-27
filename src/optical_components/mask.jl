@@ -8,12 +8,11 @@ struct Mask{M, A, U} <: AbstractCustomComponent{M}
         new{M, A, U}(m, ∂p, u)
     end
 
-    function Mask(
-            u::ScalarField{U, Nd},
-            ds::NTuple{Nd, Real},
-            f::Union{Function, AbstractArray} = (_...) -> 1;
-            trainable::Bool = false, buffered::Bool = false
-    ) where {Nd, U}
+    function Mask(u::ScalarField{U, Nd},
+                  ds::NTuple{Nd, Real},
+                  f::Union{Function, AbstractArray} = (_...) -> 1;
+                  trainable::Bool = false,
+                  buffered::Bool = false) where {Nd, U}
         M = trainability(trainable, buffered)
         @assert Nd in (1, 2)
         if isa(f, Function)
@@ -31,11 +30,10 @@ struct Mask{M, A, U} <: AbstractCustomComponent{M}
         new{M, A, U}(m, ∂p, u)
     end
 
-    function Mask(
-            u::ScalarField{U, Nd},
-            f::Union{Function, AbstractArray} = (_...) -> 1;
-            trainable::Bool = false, buffered::Bool = false
-    ) where {Nd, U}
+    function Mask(u::ScalarField{U, Nd},
+                  f::Union{Function, AbstractArray} = (_...) -> 1;
+                  trainable::Bool = false,
+                  buffered::Bool = false) where {Nd, U}
         Mask(u, u.ds, f; trainable, buffered)
     end
 end
@@ -52,25 +50,32 @@ alloc_saved_buffer(u::ScalarField, p::Mask{Trainable{Unbuffered}}) = similar(u.e
 
 get_saved_buffer(p::Mask{Trainable{Buffered}}) = p.u
 
-function propagate!(u::ScalarField, p::Mask, direction::Type{<:Direction};
-        u_saved = nothing)
+function propagate!(u::ScalarField,
+                    p::Mask,
+                    direction::Type{<:Direction};
+                    u_saved = nothing)
     copyto!(u_saved, u.electric)
     @. u.electric *= conj_direction(p.m, direction)
     u
 end
 
-function propagate_and_save!(u::ScalarField, p::Mask{Trainable{Buffered}},
-        direction::Type{<:Direction})
+function propagate_and_save!(u::ScalarField,
+                             p::Mask{Trainable{Buffered}},
+                             direction::Type{<:Direction})
     propagate!(u, p, direction; u_saved = p.u)
 end
 
-function propagate_and_save!(u::ScalarField, u_saved::AbstractArray,
-        p::Mask{Trainable{Unbuffered}}, direction::Type{<:Direction})
+function propagate_and_save!(u::ScalarField,
+                             u_saved::AbstractArray,
+                             p::Mask{Trainable{Unbuffered}},
+                             direction::Type{<:Direction})
     propagate!(u, p, direction; u_saved)
 end
 
-function compute_mask_gradient!(∂m::AbstractArray{<:Complex, Nd}, u_saved, ∂u::ScalarField,
-        direction) where {Nd}
+function compute_mask_gradient!(∂m::AbstractArray{<:Complex, Nd},
+                                u_saved,
+                                ∂u::ScalarField,
+                                direction) where {Nd}
     sdims = (Nd + 1):ndims(∂u.electric)
     g = @. conj_direction(∂u.electric*conj(u_saved), direction)
     copyto!(∂m, sum(g; dims = sdims))
@@ -78,16 +83,22 @@ end
 
 compute_mask_gradient!(::Nothing, ::Nothing, ∂u, direction) = nothing
 
-function backpropagate!(u::ScalarField, p::Mask, direction::Type{<:Direction};
-        u_saved = nothing, ∂p = nothing)
+function backpropagate!(u::ScalarField,
+                        p::Mask,
+                        direction::Type{<:Direction};
+                        u_saved = nothing,
+                        ∂p = nothing)
     ∂m = isnothing(∂p) ? nothing : ∂p.m
     compute_mask_gradient!(∂m, u_saved, u, direction)
     @. u.electric *= conj_direction(p.m, reverse(direction))
     u
 end
 
-function backpropagate_with_gradient!(∂v::ScalarField, u_saved::AbstractArray,
-        ∂p::NamedTuple, p::Mask{<:Trainable}, direction::Type{<:Direction})
+function backpropagate_with_gradient!(∂v::ScalarField,
+                                      u_saved::AbstractArray,
+                                      ∂p::NamedTuple,
+                                      p::Mask{<:Trainable},
+                                      direction::Type{<:Direction})
     ∂u = backpropagate!(∂v, p, direction; u_saved, ∂p)
     (∂u, ∂p)
 end

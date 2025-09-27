@@ -8,9 +8,9 @@ struct ScalarSource{M, S} <: AbstractCustomSource{M}
     end
 
     function ScalarSource(u::S;
-            trainable::Bool = false,
-            buffered::Bool = false
-    ) where {U <: AbstractArray{<:Complex}, S <: ScalarField{U}}
+                          trainable::Bool = false,
+                          buffered::Bool = false) where {U <: AbstractArray{<:Complex},
+                                                         S <: ScalarField{U}}
         u0 = copy(u)
         uf = similar(u)
         M = trainability(trainable, buffered)

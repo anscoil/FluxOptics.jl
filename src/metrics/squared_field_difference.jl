@@ -54,7 +54,8 @@ function compute_metric(m::SquaredFieldDifference, u::NTuple{N, ScalarField}) wh
 end
 
 function backpropagate_metric(m::SquaredFieldDifference,
-        u::NTuple{N, ScalarField}, ∂c) where {N}
+                              u::NTuple{N, ScalarField},
+                              ∂c) where {N}
     foreach(((x, c),) -> (@. x *= 2*c), zip(m.u, ∂c))
     Tuple(map(((x, y),) -> set_field_data(x, y), zip(u, m.u)))
 end

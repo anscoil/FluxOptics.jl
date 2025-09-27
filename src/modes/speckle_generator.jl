@@ -39,12 +39,14 @@ julia> isapprox(sum(abs2, speckle_1d) * 0.5, 1)
 true
 ```
 """
-function generate_speckle(
-        ns::NTuple{N, Integer}, ds::NTuple{Nd, Real}, λ::Real, NA::Real;
-        envelope::Union{Nothing, Mode{Nd}} = nothing,
-        center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd),
-        t::AbstractAffineMap = Id2D(), normalize = true
-) where {N, Nd}
+function generate_speckle(ns::NTuple{N, Integer},
+                          ds::NTuple{Nd, Real},
+                          λ::Real,
+                          NA::Real;
+                          envelope::Union{Nothing, Mode{Nd}} = nothing,
+                          center::NTuple{Nd, Real} = ntuple(_ -> 0, Nd),
+                          t::AbstractAffineMap = Id2D(),
+                          normalize = true) where {N, Nd}
     @assert Nd in 1:3
     @assert N >= Nd
     ns_d = ns[1:Nd]

@@ -76,7 +76,8 @@ export FieldProbe
 export BasisProjectionWrapper, make_spatial_basis, make_fourier_basis
 export GainSheet
 export OpticalSequence, FourierWrapper
-export OpticalChain, get_layers, get_data
+export OpticalSystem, get_source, get_components
+export get_data
 
 include("OptimisersExt.jl")
 using .OptimisersExt

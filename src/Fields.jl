@@ -13,9 +13,9 @@ export get_tilts, get_tilts_collection
 export select_lambdas, select_tilts, set_field_ds, set_field_data, set_field_tilts
 export power, normalize_power!, coupling_efficiency, intensity, phase
 
-function parse_val(u::U, val::AbstractArray,
-        Nd::Integer
-) where {N, T, U <: AbstractArray{Complex{T}, N}}
+function parse_val(u::U,
+                   val::AbstractArray,
+                   Nd::Integer) where {N, T, U <: AbstractArray{Complex{T}, N}}
     shape = ntuple(k -> k <= Nd ? 1 : size(val, k - Nd), N)
     val = reshape(val, shape) |> U |> real
     @assert isbroadcastable(val, u)
@@ -114,16 +114,27 @@ struct ScalarField{U, Nd, S, L, A}
     lambdas::L
     tilts::A
 
-    function ScalarField(u::U, ds::S, lambdas::L,
-            tilts::A
-    ) where {U, Nd, S <: NTuple{Nd}, L <: NamedTuple, A <: NamedTuple}
+    function ScalarField(u::U,
+                         ds::S,
+                         lambdas::L,
+                         tilts::A) where {U, Nd, S <: NTuple{Nd}, L <: NamedTuple,
+                                          A <: NamedTuple}
         new{U, Nd, S, L, A}(u, ds, lambdas, tilts)
     end
 
-    function ScalarField(u::U, ds::S,
-            lambdas::Union{Real, AbstractArray{<:Real}};
-            tilts::NTuple{Nd, Union{<:Real, <:AbstractArray}} = ntuple(_ -> 0, Nd)
-    ) where {Nd, N, S <: NTuple{Nd, Real}, T, U <: AbstractArray{Complex{T}, N}}
+    function ScalarField(u::U,
+                         ds::S,
+                         lambdas::Union{Real, AbstractArray{<:Real}};
+                         tilts::NTuple{Nd, Union{<:Real, <:AbstractArray}} = ntuple(_ -> 0,
+                                                                                    Nd)) where {Nd,
+                                                                                                N,
+                                                                                                S <:
+                                                                                                NTuple{Nd,
+                                                                                                       Real},
+                                                                                                T,
+                                                                                                U <:
+                                                                                                AbstractArray{Complex{T},
+                                                                                                              N}}
         @assert Nd in (1, 2)
         @assert N >= Nd
         lambdas = parse_lambdas(u, lambdas, Nd)
@@ -133,9 +144,10 @@ struct ScalarField{U, Nd, S, L, A}
         new{U, Nd, S, L, A}(u, ds, lambdas, tilts)
     end
 
-    function ScalarField(
-            nd::NTuple{N, Integer}, ds::NTuple{Nd, Real}, lambdas;
-            tilts = ntuple(_ -> 0, Nd)) where {N, Nd}
+    function ScalarField(nd::NTuple{N, Integer},
+                         ds::NTuple{Nd, Real},
+                         lambdas;
+                         tilts = ntuple(_ -> 0, Nd)) where {N, Nd}
         u = zeros(ComplexF64, nd)
         ScalarField(u, ds, lambdas; tilts)
     end
@@ -168,7 +180,8 @@ end
 
 function select_tilts(u::ScalarField)
     Tuple([is_collection -> is_collection ? collection : val
-           for (collection, val) in zip(u.tilts.collection, u.tilts.val)])
+           for
+           (collection, val) in zip(u.tilts.collection, u.tilts.val)])
 end
 
 function set_field_ds(u::ScalarField{U, Nd}, ds::NTuple{Nd, Real}) where {U, Nd}
@@ -217,8 +230,10 @@ end
 # end
 
 function Base.broadcasted(f, u::ScalarField)
-    ScalarField(complex(broadcast(f, u.electric)), u.ds, u.lambdas.collection;
-        tilts = u.tilts.collection)
+    ScalarField(complex(broadcast(f, u.electric)),
+                u.ds,
+                u.lambdas.collection;
+                tilts = u.tilts.collection)
 end
 
 # function Base.broadcasted(f, a::ScalarField, b::AbstractArray)
@@ -565,8 +580,7 @@ function coupling_efficiency(u, v)
     abs2(dot(u, v)/(norm(u)*norm(v)))
 end
 
-function coupling_efficiency(u::ScalarField{U, Nd},
-        v::ScalarField{V, Nd}) where {U, V, Nd}
+function coupling_efficiency(u::ScalarField{U, Nd}, v::ScalarField{V, Nd}) where {U, V, Nd}
     u_vec = vec(u)
     v_vec = vec(v)
     [coupling_efficiency(u.electric, v.electric) for (u, v) in zip(u_vec, v_vec)]
@@ -622,8 +636,7 @@ julia> overlaps = dot(u, v);  # 3-element Vector of complex overlaps
 
 See also: [`correlation`](@ref), [`power`](@ref)
 """
-function LinearAlgebra.dot(u::ScalarField{U, Nd},
-        v::ScalarField{V, Nd}) where {U, V, Nd}
+function LinearAlgebra.dot(u::ScalarField{U, Nd}, v::ScalarField{V, Nd}) where {U, V, Nd}
     u_vec = vec(u)
     v_vec = vec(v)
     [dot(u.electric, v.electric) for (u, v) in zip(u_vec, v_vec)]

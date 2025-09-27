@@ -4,12 +4,11 @@ struct ConvolutionKernel{K, Nd, V, P, U} <: AbstractKernel{K, V}
     p_f::P
     u_plan::U
 
-    function ConvolutionKernel(
-            u::U,
-            ns::NTuple{Nd, Integer},
-            ds::NTuple{Nd, Real},
-            cache_size::Integer
-    ) where {N, Nd, U <: AbstractArray{<:Complex, N}}
+    function ConvolutionKernel(u::U,
+                               ns::NTuple{Nd, Integer},
+                               ds::NTuple{Nd, Real},
+                               cache_size::Integer) where {N, Nd,
+                                                           U <: AbstractArray{<:Complex, N}}
         @assert Nd in (1, 2)
         @assert N >= Nd
         @assert cache_size >= 0
@@ -46,11 +45,11 @@ function get_kernel_vectors(kernel::ConvolutionKernel)
 end
 
 function transform_kernel!(kernel_val::Broadcast.Broadcasted,
-        kernel::ConvolutionKernel{K, Nd}) where {K, Nd}
+                           kernel::ConvolutionKernel{K, Nd}) where {K, Nd}
     fft!(Broadcast.materialize(kernel_val), Tuple(1:Nd))
 end
 
 function transform_kernel!(kernel_val::AbstractArray,
-        kernel::ConvolutionKernel{K, Nd}) where {K, Nd}
+                           kernel::ConvolutionKernel{K, Nd}) where {K, Nd}
     fft!(kernel_val, Tuple(1:Nd))
 end

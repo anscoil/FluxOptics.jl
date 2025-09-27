@@ -1,5 +1,6 @@
 function finite_difference_forward!(DA::AbstractArray{T},
-        A::AbstractArray{T, Nd}, dim::Integer) where {Nd, T <: Real}
+                                    A::AbstractArray{T, Nd},
+                                    dim::Integer) where {Nd, T <: Real}
     @assert dim in 1:Nd
     n = size(A, dim)
     DA_v = view(DA, ntuple(k -> k == dim ? (1:(n - 1)) : axes(A, k), Nd)..., dim)
@@ -10,7 +11,9 @@ function finite_difference_forward!(DA::AbstractArray{T},
 end
 
 function finite_difference_backward!(A::AbstractArray{T, Nd},
-        DA::AbstractArray{T}, dim::Integer, add = false) where {Nd, T <: Real}
+                                     DA::AbstractArray{T},
+                                     dim::Integer,
+                                     add = false) where {Nd, T <: Real}
     @assert dim in 1:Nd
     n = size(A, dim)
     A_v = view(A, ntuple(k -> k == dim ? (2:n) : axes(A, k), Nd)...)
@@ -95,8 +98,11 @@ struct TVProx <: AbstractProximalOperator
     isotropic::Bool
     rule::AbstractRule
 
-    function TVProx(λ::Real, n_iter::Integer = 50; tol::Union{Nothing, Real} = nothing,
-            isotropic = true, rule = isotropic ? Fista(0.25) : Fista(2.5))
+    function TVProx(λ::Real,
+                    n_iter::Integer = 50;
+                    tol::Union{Nothing, Real} = nothing,
+                    isotropic = true,
+                    rule = isotropic ? Fista(0.25) : Fista(2.5))
         new(λ, n_iter, tol, isotropic, rule)
     end
 end
@@ -186,8 +192,12 @@ julia> result = TV_denoise!(copy(noisy), 0.05) |> x -> clamp.(x, 0, 1);
 
 See also: [`TVProx`](@ref), [`ClampProx`](@ref), [`PositiveProx`](@ref)
 """
-function TV_denoise!(y::AbstractArray, λ::Real, n_iter::Integer = 50;
-        tol = nothing, isotropic = true, rule = isotropic ? Fista(0.25) : Fista(2.5))
+function TV_denoise!(y::AbstractArray,
+                     λ::Real,
+                     n_iter::Integer = 50;
+                     tol = nothing,
+                     isotropic = true,
+                     rule = isotropic ? Fista(0.25) : Fista(2.5))
     tv = TVProx(λ, n_iter; tol, isotropic, rule)
     tv_state = init(tv, y)
     apply!(tv, tv_state, y)

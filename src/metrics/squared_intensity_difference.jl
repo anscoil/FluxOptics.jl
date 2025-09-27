@@ -61,12 +61,10 @@ struct SquaredIntensityDifference{U, V, A} <: AbstractMetric
     v_tmp::V
     c::A
 
-    function SquaredIntensityDifference(v::Vararg{Tuple{
-            ScalarField, AbstractArray{<:Real}}})
+    function SquaredIntensityDifference(v::Vararg{Tuple{ScalarField, AbstractArray{<:Real}}})
         u0, v = zip(v...)
-        dims = map(
-            ((x, y),) -> ntuple(k -> k <= ndims(y, true) ? 1 : size(x, k), ndims(x)),
-            zip(v, u0))
+        dims = map(((x, y),) -> ntuple(k -> k <= ndims(y, true) ? 1 : size(x, k), ndims(x)),
+                   zip(v, u0))
         u = map(x -> similar(x.electric), u0)
         v_tmp = map(x -> similar(x), v)
         c = map(((x, d),) -> similar(x, d), zip(v, dims))
@@ -85,7 +83,8 @@ function compute_metric(m::SquaredIntensityDifference, u::NTuple{N, ScalarField}
 end
 
 function backpropagate_metric(m::SquaredIntensityDifference,
-        u::NTuple{N, ScalarField}, ∂c) where {N}
+                              u::NTuple{N, ScalarField},
+                              ∂c) where {N}
     foreach(((x, y, c),) -> (@. x *= 4*c*y.electric), zip(m.u, u, ∂c))
     Tuple(map(((x, y),) -> set_field_data(x, y), zip(u, m.u)))
 end

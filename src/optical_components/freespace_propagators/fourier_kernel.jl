@@ -3,13 +3,13 @@ struct FourierKernel{K, V, P} <: AbstractKernel{K, V}
     kernel_cache::Union{Nothing, LRU{UInt, K}}
     p_f::P
 
-    function FourierKernel(
-            u::U,
-            ns::NTuple{Nd, Integer},
-            ds::NTuple{Nd, Real},
-            cache_size::Integer,
-            kernel_dim::Integer = Nd
-    ) where {N, Nd, U <: AbstractArray{<:Complex, N}}
+    function FourierKernel(u::U,
+                           ns::NTuple{Nd, Integer},
+                           ds::NTuple{Nd, Real},
+                           cache_size::Integer,
+                           kernel_dim::Integer = Nd) where {N, Nd,
+                                                            U <:
+                                                            AbstractArray{<:Complex, N}}
         @assert Nd in (1, 2)
         @assert N >= Nd
         @assert cache_size >= 0

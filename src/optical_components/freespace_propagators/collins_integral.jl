@@ -2,26 +2,38 @@
 # Terms of Matrix Optics*," J. Opt. Soc. Am. 60, 1168-1177 (1970)
 # https://doi.org/10.1364/JOSA.60.001168
 
-function collins_a_chirp(
-        x::T, y::T, λ::T, αx::Tp, αy::Tp, a::Tp, b::Tp,
-        d::Tp
-) where {T <: Real, Tp <: Real}
+function collins_a_chirp(x::T,
+                         y::T,
+                         λ::T,
+                         αx::Tp,
+                         αy::Tp,
+                         a::Tp,
+                         b::Tp,
+                         d::Tp) where {T <: Real, Tp <: Real}
     x, y, λ = Tp(x), Tp(y), Tp(λ)
     Complex{T}(cis(π*(x^2*(a-αx) + y^2*(a-αy))/(b*λ))/λ)
 end
 
-function collins_d_chirp(
-        x::T, y::T, λ::T, αx::Tp, αy::Tp, a::Tp, b::Tp,
-        d::Tp
-) where {T <: Real, Tp <: Real}
+function collins_d_chirp(x::T,
+                         y::T,
+                         λ::T,
+                         αx::Tp,
+                         αy::Tp,
+                         a::Tp,
+                         b::Tp,
+                         d::Tp) where {T <: Real, Tp <: Real}
     x, y, λ = Tp(x), Tp(y), Tp(λ)
     Complex{T}(cis(π*(x^2*αx*(d*αx-1) + y^2*αy*(d*αy-1))/(b*λ)))
 end
 
-function collins_convolution_kernel(
-        x::T, y::T, λ::T, αx::Tp, αy::Tp, a::Tp, b::Tp,
-        d::Tp
-) where {T <: Real, Tp <: Real}
+function collins_convolution_kernel(x::T,
+                                    y::T,
+                                    λ::T,
+                                    αx::Tp,
+                                    αy::Tp,
+                                    a::Tp,
+                                    b::Tp,
+                                    d::Tp) where {T <: Real, Tp <: Real}
     x, y, λ = Tp(x), Tp(y), Tp(λ)
     Complex{T}(cis(π*(x^2*αx + y^2*αy)/(b*λ)))
 end
@@ -42,12 +54,14 @@ struct CollinsProp{M, K, T, Tp, Nd} <: AbstractPropagator{M, K, T}
     nrm_bwd::Complex{Tp}
 
     function CollinsProp(u::ScalarField{U, Nd},
-            ds::NTuple{Nd, Real},
-            ds′::NTuple{Nd, Real},
-            abd::Tuple{Real, Real, Real};
-            use_cache::Bool = true,
-            double_precision_kernel::Bool = use_cache
-    ) where {N, Nd, T, U <: AbstractArray{Complex{T}, N}}
+                         ds::NTuple{Nd, Real},
+                         ds′::NTuple{Nd, Real},
+                         abd::Tuple{Real, Real, Real};
+                         use_cache::Bool = true,
+                         double_precision_kernel::Bool = use_cache) where {N, Nd, T,
+                                                                           U <:
+                                                                           AbstractArray{Complex{T},
+                                                                                         N}}
         @assert N >= Nd
         ns = size(u)[1:Nd]
         cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
@@ -60,16 +74,17 @@ struct CollinsProp{M, K, T, Tp, Nd} <: AbstractPropagator{M, K, T}
         _, b = abd
         nrm_fwd = Complex{Tp}(prod(ds ./ sqrt(im*b)))
         nrm_bwd = Complex{Tp}(prod(ds′ ./ sqrt(-im*b)))
-        new{Static, typeof(kernel), T, Tp, Nd}(
-            kernel, αs, ds, ds′, Tp.(abd), nrm_fwd, nrm_bwd)
+        new{Static, typeof(kernel), T, Tp, Nd}(kernel, αs, ds, ds′, Tp.(abd), nrm_fwd,
+                                               nrm_bwd)
     end
 
     function CollinsProp(u::ScalarField{U, Nd},
-            ds′::NTuple{Nd, Real},
-            abd::Tuple{Real, Real, Real};
-            use_cache::Bool = true,
-            double_precision_kernel::Bool = use_cache
-    ) where {Nd, U <: AbstractArray{<:Complex}}
+                         ds′::NTuple{Nd, Real},
+                         abd::Tuple{Real, Real, Real};
+                         use_cache::Bool = true,
+                         double_precision_kernel::Bool = use_cache) where {Nd,
+                                                                           U <:
+                                                                           AbstractArray{<:Complex}}
         CollinsProp(u, u.ds, ds′, abd; use_cache, double_precision_kernel)
     end
 end
@@ -108,8 +123,10 @@ function normalize_collins!(u::AbstractArray, p::CollinsProp, ::Type{Backward})
     u .*= p.nrm_bwd
 end
 
-function _propagate_core!(apply_kernel_fns::F, u::AbstractArray,
-        p::CollinsProp, direction::Type{<:Direction}) where {F}
+function _propagate_core!(apply_kernel_fns::F,
+                          u::AbstractArray,
+                          p::CollinsProp,
+                          direction::Type{<:Direction}) where {F}
     apply_a_chirp!, apply_d_chirp!, apply_kernel_fn! = apply_kernel_fns
     p_f = p.kernel.convolution_kernel.p_f
     u_tmp = p.kernel.convolution_kernel.u_plan

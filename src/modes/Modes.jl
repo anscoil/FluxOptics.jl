@@ -24,9 +24,9 @@ function (m::Mode{1})(x_vec::AbstractVector; xc = 0.0)
 end
 
 function (m::Mode{2, T})(u::AbstractArray{Complex{T}, 2},
-        x_vec::AbstractVector,
-        y_vec::AbstractVector,
-        t::AbstractAffineMap = Id2D()) where {T}
+                         x_vec::AbstractVector,
+                         y_vec::AbstractVector,
+                         t::AbstractAffineMap = Id2D()) where {T}
     @assert size(u, 1) == length(x_vec)
     @assert size(u, 2) == length(y_vec)
     t = inv(t)
@@ -38,8 +38,9 @@ function (m::Mode{2, T})(u::AbstractArray{Complex{T}, 2},
     u
 end
 
-function (m::Mode{2, T})(x_vec::AbstractVector, y_vec::AbstractVector,
-        t::AbstractAffineMap = Id2D()) where {T}
+function (m::Mode{2, T})(x_vec::AbstractVector,
+                         y_vec::AbstractVector,
+                         t::AbstractAffineMap = Id2D()) where {T}
     nx = length(x_vec)
     ny = length(y_vec)
     u = zeros(Complex{T}, (nx, ny))

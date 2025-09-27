@@ -82,7 +82,7 @@ using .ProximalOperators
 export PointwiseProx, IstaProx, ClampProx, PositiveProx, TVProx
 export TV_denoise!
 
-Optimisers.trainable(p::OpticalChain) = (; layers = p.layers)
+Optimisers.trainable(p::OpticalSystem) = (; source = p.source, components = p.components)
 
 Optimisers.trainable(p::AbstractOpticalComponent) = OpticalComponents.trainable(p)
 
@@ -126,9 +126,9 @@ julia> opt_state = setup(rules, NoDescent(), model);
 
 See also: [`make_rules`](@ref), [`update!`](@ref), [`ProxRule`](@ref), [`NoDescent`](@ref)
 """
-function Optimisers.setup(
-        rules::IdDict{K, <:AbstractRule}, default_rule::AbstractRule, model
-) where {K}
+function Optimisers.setup(rules::IdDict{K, <:AbstractRule},
+                          default_rule::AbstractRule,
+                          model) where {K}
     cache = IdDict()
     tree = Optimisers._setup(rules, default_rule, model; cache)
     isempty(cache) && @warn "setup found no trainable parameters in this model"
@@ -197,16 +197,15 @@ julia> opt_state = setup(rules, source |> phase_mask);
 
 See also: [`setup`](@ref), [`ProxRule`](@ref), [`Phase`](@ref), [`ScalarSource`](@ref)
 """
-function make_rules(
-        pairs::Pair{
-        <:K, <:AbstractRule}...
-) where {K <: Union{AbstractArray, AbstractOpticalComponent}}
+function make_rules(pairs::Pair{<:K, <:AbstractRule}...) where {K <: Union{AbstractArray,
+                                                                      AbstractOpticalComponent}}
     new_pairs = Vector{Tuple{AbstractArray, AbstractRule}}([])
     for (x, v) in pairs
         if isa(x, AbstractOpticalComponent)
             data = get_data(x)
             if isa(data, Tuple)
-                foreach(d -> isa(d, AbstractArray) ? push!(new_pairs, (d, v)) : nothing, data)
+                foreach(d -> isa(d, AbstractArray) ? push!(new_pairs, (d, v)) : nothing,
+                        data)
             end
             if isa(data, AbstractArray)
                 push!(new_pairs, (data, v))

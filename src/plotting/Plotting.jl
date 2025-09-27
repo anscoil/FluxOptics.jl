@@ -9,8 +9,9 @@ using ..OpticalComponents
 
 export visualize, visualize_slider
 
-function complex_to_rgb(
-        A::AbstractArray{Complex{T}}; colormap = :dark, rmax = nothing) where {T}
+function complex_to_rgb(A::AbstractArray{Complex{T}};
+                        colormap = :dark,
+                        rmax = nothing) where {T}
     A_abs = abs.(A)
     absmax = isnothing(rmax) ? maximum(A_abs) : rmax
 
@@ -70,11 +71,14 @@ function parse_args(args, n_cols, n_fields_per_col)
     end
 end
 
-Plottable = Union{
-    ScalarField, AbstractOpticalComponent, AbstractArray{T, 2} where {T <: Number}}
+Plottable = Union{ScalarField, AbstractOpticalComponent,
+                  AbstractArray{T, 2} where {T <: Number}}
 
-function visualize(u_vec, fs::Union{Function, Tuple};
-        colormap = :viridis, height = 200, show_colorbars = false)
+function visualize(u_vec,
+                   fs::Union{Function, Tuple};
+                   colormap = :viridis,
+                   height = 200,
+                   show_colorbars = false)
     n_lines = length(u_vec)
     @assert n_lines > 0
     n_fields_per_col = length(first(u_vec))
@@ -98,8 +102,11 @@ function visualize(u_vec, fs::Union{Function, Tuple};
                 hidedecorations!(ax)
                 hm, is_complex, factor = fill_heatmap!(ax, f[k], img, cmap[k])
                 if show_colorbars && !is_complex
-                    Colorbar(cell[1, 2], hm;
-                        width = 10, height = height, tickformat = "{:.1f}")
+                    Colorbar(cell[1, 2],
+                             hm;
+                             width = 10,
+                             height = height,
+                             tickformat = "{:.1f}")
                     if !iszero(factor)
                         lbl = Label(cell[1, 2, Top()], LaTeXString("\\times 10^{$factor}"))
                         lbl.padding[] = (0, 0, 2, 0)
@@ -112,21 +119,29 @@ function visualize(u_vec, fs::Union{Function, Tuple};
     fig
 end
 
-function visualize(
-        u_vec::Union{AbstractVector{U}, Tuple{Vararg{U}}},
-        fs::Union{Function, Tuple}; colormap = :viridis, height = 200,
-        show_colorbars = false) where {U <: Plottable}
+function visualize(u_vec::Union{AbstractVector{U}, Tuple{Vararg{U}}},
+                   fs::Union{Function, Tuple};
+                   colormap = :viridis,
+                   height = 200,
+                   show_colorbars = false) where {U <: Plottable}
     visualize(map(u -> (collect(u),), u_vec), fs; colormap, height, show_colorbars)
 end
 
-function visualize(u::Plottable, fs::Union{Function, Tuple};
-        colormap = :viridis, ratio = 1, max_width = 1024,
-        width = nothing, height = 200, show_colorbars = false)
+function visualize(u::Plottable,
+                   fs::Union{Function, Tuple};
+                   colormap = :viridis,
+                   ratio = 1,
+                   max_width = 1024,
+                   width = nothing,
+                   height = 200,
+                   show_colorbars = false)
     visualize(((collect(u),),), fs; colormap, height, show_colorbars)
 end
 
-function visualize_slider(u_vec, fs::Union{Function, Tuple};
-        colormap = :viridis, height = 400)
+function visualize_slider(u_vec,
+                          fs::Union{Function, Tuple};
+                          colormap = :viridis,
+                          height = 400)
     n_lines = length(u_vec)
     @assert n_lines > 0
     n_fields_per_col = length(first(u_vec))
@@ -170,10 +185,10 @@ function visualize_slider(u_vec, fs::Union{Function, Tuple};
     fig
 end
 
-function visualize_slider(
-        u_vec::Union{AbstractVector{U}, Tuple{Vararg{U}}},
-        fs::Union{Function, Tuple};
-        colormap = :viridis, height = 400) where {U <: Plottable}
+function visualize_slider(u_vec::Union{AbstractVector{U}, Tuple{Vararg{U}}},
+                          fs::Union{Function, Tuple};
+                          colormap = :viridis,
+                          height = 400) where {U <: Plottable}
     visualize_slider(map(u -> (collect(u),), u_vec), fs; colormap, height)
 end
 

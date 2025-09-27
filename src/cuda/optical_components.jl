@@ -19,7 +19,9 @@ function kernel_phase_gradient!(∂ϕ, ∂u, u, s)
 end
 
 function OpticalComponents.compute_phase_gradient!(∂ϕ::CuArray{<:Real, Nd},
-        u_saved, ∂u::ScalarField, direction) where {Nd}
+                                                   u_saved,
+                                                   ∂u::ScalarField,
+                                                   direction) where {Nd}
     nx, ny = size(u_saved)
     @assert size(∂u) == size(u_saved)
     @assert size(∂ϕ, 1) == nx
@@ -29,28 +31,30 @@ function OpticalComponents.compute_phase_gradient!(∂ϕ::CuArray{<:Real, Nd},
 
     tx, ty = compute_thread_config()
     threads = (tx, ty)
-    blocks = (
-        cld(size(∂ϕ, 1), tx),
-        cld(size(∂ϕ, 2), ty)
-    )
+    blocks = (cld(size(∂ϕ, 1), tx), cld(size(∂ϕ, 2), ty))
 
-    @cuda threads=threads blocks=blocks kernel_phase_gradient!(
-        ∂ϕ, reshape(∂u.electric, (nx, ny, nz)), reshape(u_saved, (nx, ny, nz)), s)
+    @cuda threads=threads blocks=blocks kernel_phase_gradient!(∂ϕ,
+                                                               reshape(∂u.electric,
+                                                                       (nx, ny, nz)),
+                                                               reshape(u_saved,
+                                                                       (nx, ny, nz)),
+                                                               s)
 
     ∂ϕ
 end
 
-function OpticalComponents.make_nufft_plan(
-        u::CuArray{Complex{T}, 2}, ns::Tuple{Integer, Integer},
-        s::Tuple{AbstractMatrix, AbstractMatrix}, type::Integer,
-        isign::Integer, eps::Real) where {T <: Real}
+function OpticalComponents.make_nufft_plan(u::CuArray{Complex{T}, 2},
+                                           ns::Tuple{Integer, Integer},
+                                           s::Tuple{AbstractMatrix, AbstractMatrix},
+                                           type::Integer,
+                                           isign::Integer,
+                                           eps::Real) where {T <: Real}
     p_nft = cufinufft_makeplan(type, [ns...], isign, 1, eps; dtype = T)
     cufinufft_setpts!(p_nft, s...)
     p_nft
 end
 
-function OpticalComponents.exec_nufft_plan!(
-        p, u::CuArray{Complex{T}, 2}) where {T <: Real}
+function OpticalComponents.exec_nufft_plan!(p, u::CuArray{Complex{T}, 2}) where {T <: Real}
     nx, ny = size(u)
     u_in = reshape(u, (nx, ny, 1))
     u_out = reshape(u, (:, 1))

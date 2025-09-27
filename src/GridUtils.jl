@@ -54,8 +54,9 @@ julia> collect(x)
 
 See also: [`Shift2D`](@ref), [`Rot2D`](@ref)
 """
-function spatial_vectors(ns::NTuple{Nd, Real}, ds::NTuple{Nd, Real};
-        offset::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)) where {Nd}
+function spatial_vectors(ns::NTuple{Nd, Real},
+                         ds::NTuple{Nd, Real};
+                         offset::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)) where {Nd}
     Tuple([((0:(nx - 1)) .- (nx-1)/2)*dx .- xc for (nx, dx, xc) in zip(ns, ds, offset)])
 end
 

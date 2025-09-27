@@ -8,12 +8,12 @@ struct GainSheet{M, T, A} <: AbstractPureComponent{M}
     end
 
     function GainSheet(u::ScalarField{U, Nd},
-            ds::NTuple{Nd, Real},
-            dz::Real,
-            Isat::Real,
-            f::Function;
-            trainable::Bool = false
-    ) where {Nd, T, U <: AbstractArray{Complex{T}}}
+                       ds::NTuple{Nd, Real},
+                       dz::Real,
+                       Isat::Real,
+                       f::Function;
+                       trainable::Bool = false) where {Nd, T,
+                                                       U <: AbstractArray{Complex{T}}}
         ns = size(u)[1:Nd]
         A = similar(U, real, Nd)
         xs = spatial_vectors(ns, ds)
