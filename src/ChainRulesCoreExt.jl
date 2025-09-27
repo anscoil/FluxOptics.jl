@@ -4,14 +4,17 @@ using ..Metrics
 using ..FFTutils
 using ..Fields
 using ..OpticalComponents
-using ..OpticalComponents: Trainability, Static, Trainable
-using ..OpticalComponents: Buffering, Buffered, Unbuffered
 using ..OpticalComponents: get_preallocated_gradient, get_saved_buffer
 using ..OpticalComponents: propagate_and_save!, backpropagate!, backpropagate_with_gradient!
 
 using ChainRulesCore
 using Functors: fleaves
 using LinearAlgebra: mul!
+
+ACTB = AbstractCustomComponent{Trainable{Buffered}}
+ACTU = AbstractCustomComponent{Trainable{Unbuffered}}
+ASTB = AbstractCustomSource{Trainable{Buffered}}
+ASTU = AbstractCustomSource{Trainable{Unbuffered}}
 
 function ChainRulesCore.rrule(::typeof(propagate),
                               u,
@@ -30,8 +33,7 @@ end
 function ChainRulesCore.rrule(::typeof(propagate),
                               u,
                               p::P,
-                              direction::Type{<:Direction}) where {P <:
-                                                                   AbstractCustomComponent{Trainable{Buffered}}}
+                              direction::Type{<:Direction}) where {P <: ACTB}
     v = propagate_and_save(u, p, direction)
 
     function pullback(∂v)
@@ -47,8 +49,7 @@ end
 function ChainRulesCore.rrule(::typeof(propagate),
                               u,
                               p::P,
-                              direction::Type{<:Direction}) where {P <:
-                                                                   AbstractCustomComponent{Trainable{Unbuffered}}}
+                              direction::Type{<:Direction}) where {P <: ACTU}
     u_saved = alloc_saved_buffer(u, p)
     v = propagate_and_save(u, u_saved, p, direction)
 
@@ -78,8 +79,7 @@ end
 function ChainRulesCore.rrule(::typeof(propagate!),
                               u,
                               p::P,
-                              direction::Type{<:Direction}) where {P <:
-                                                                   AbstractCustomComponent{Trainable{Buffered}}}
+                              direction::Type{<:Direction}) where {P <: ACTB}
     v = propagate_and_save!(u, p, direction)
 
     function pullback(∂v)
@@ -95,8 +95,7 @@ end
 function ChainRulesCore.rrule(::typeof(propagate!),
                               u,
                               p::P,
-                              direction::Type{<:Direction}) where {P <:
-                                                                   AbstractCustomComponent{Trainable{Unbuffered}}}
+                              direction::Type{<:Direction}) where {P <: ACTU}
     u_saved = alloc_saved_buffer(u, p)
     v = propagate_and_save!(u, u_saved, p, direction)
 
@@ -119,8 +118,7 @@ function ChainRulesCore.rrule(::typeof(propagate), p::AbstractCustomSource{Stati
     return v, pullback
 end
 
-function ChainRulesCore.rrule(::typeof(propagate),
-                              p::P) where {P <: AbstractCustomSource{Trainable{Buffered}}}
+function ChainRulesCore.rrule(::typeof(propagate), p::P) where {P <: ASTB}
     v = propagate_and_save(p)
 
     function pullback(∂v)
@@ -132,8 +130,7 @@ function ChainRulesCore.rrule(::typeof(propagate),
     return v, pullback
 end
 
-function ChainRulesCore.rrule(::typeof(propagate),
-                              p::P) where {P <: AbstractCustomSource{Trainable{Unbuffered}}}
+function ChainRulesCore.rrule(::typeof(propagate), p::P) where {P <: ASTU}
     v = propagate_and_save(p)
 
     function pullback(∂v)

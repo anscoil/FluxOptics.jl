@@ -61,7 +61,9 @@ using .FFTutils
 
 include("optical_components/OpticalComponents.jl")
 using .OpticalComponents
+export OpticalComponents
 export Forward, Backward
+export Trainable, Static, Buffered, Unbuffered
 export propagate!, propagate
 export AbstractPipeComponent, AbstractOpticalSource
 export AbstractCustomComponent, AbstractCustomSource
