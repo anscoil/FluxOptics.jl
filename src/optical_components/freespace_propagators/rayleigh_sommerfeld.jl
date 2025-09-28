@@ -8,10 +8,7 @@ end
 
 function rs_kernel(x::T, y::T, λ::T, z::Tp, nrm_f::Tp,
                    z_pos::Val{false}) where {T <: Real, Tp <: Real}
-    x, y = Tp(x), Tp(y)
-    k = Tp(2π/λ)
-    r = sqrt(x^2 + y^2 + z^2)
-    Complex{T}(conj(nrm_f*(cis(k*r)/r)*(z/r)*(1/r-im*k)))
+    conj(rs_kernel(x, y, λ, -z, nrm_f, Val(true)))
 end
 
 struct RSProp{M, K, T, Tp} <: AbstractPropagator{M, K, T}

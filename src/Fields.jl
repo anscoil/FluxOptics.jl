@@ -114,27 +114,18 @@ struct ScalarField{U, Nd, S, L, A}
     lambdas::L
     tilts::A
 
-    function ScalarField(u::U,
-                         ds::S,
-                         lambdas::L,
-                         tilts::A) where {U, Nd, S <: NTuple{Nd}, L <: NamedTuple,
+    function ScalarField(u::U, ds::S, lambdas::L,
+                         tilts::A) where {U, Nd,
+                                          S <: NTuple{Nd},
+                                          L <: NamedTuple,
                                           A <: NamedTuple}
         new{U, Nd, S, L, A}(u, ds, lambdas, tilts)
     end
 
-    function ScalarField(u::U,
-                         ds::S,
-                         lambdas::Union{Real, AbstractArray{<:Real}};
-                         tilts::NTuple{Nd, Union{<:Real, <:AbstractArray}} = ntuple(_ -> 0,
-                                                                                    Nd)) where {Nd,
-                                                                                                N,
-                                                                                                S <:
-                                                                                                NTuple{Nd,
-                                                                                                       Real},
-                                                                                                T,
-                                                                                                U <:
-                                                                                                AbstractArray{Complex{T},
-                                                                                                              N}}
+    function ScalarField(u::U, ds::S, lambdas::Union{Real, AbstractArray{<:Real}};
+                         tilts::NTuple{Nd, Union{<:Real, <:AbstractArray}}
+                         = ntuple(_ -> 0, Nd)) where {Nd, N, S <: NTuple{Nd, Real}, T,
+                                                      U <: AbstractArray{Complex{T}, N}}
         @assert Nd in (1, 2)
         @assert N >= Nd
         lambdas = parse_lambdas(u, lambdas, Nd)
@@ -144,9 +135,7 @@ struct ScalarField{U, Nd, S, L, A}
         new{U, Nd, S, L, A}(u, ds, lambdas, tilts)
     end
 
-    function ScalarField(nd::NTuple{N, Integer},
-                         ds::NTuple{Nd, Real},
-                         lambdas;
+    function ScalarField(nd::NTuple{N, Integer}, ds::NTuple{Nd, Real}, lambdas;
                          tilts = ntuple(_ -> 0, Nd)) where {N, Nd}
         u = zeros(ComplexF64, nd)
         ScalarField(u, ds, lambdas; tilts)

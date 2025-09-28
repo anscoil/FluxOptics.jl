@@ -662,7 +662,7 @@ export FourierWrapper, FourierPhase, FourierMask
 include("freespace_propagators/freespace.jl")
 export ASProp, ASPropZ, TiltedASProp, ShiftProp
 export RSProp, CollinsProp, FourierLens, ParaxialProp
-export as_rotation!, as_rotation, plan_as_rotation, field_rotation_matrix
+export as_rotation!, as_rotation, field_rotation_matrix
 
 include("bulk_propagators/bulk_propagators.jl")
 export BPM, AS_BPM, TiltedAS_BPM, Shift_BPM
