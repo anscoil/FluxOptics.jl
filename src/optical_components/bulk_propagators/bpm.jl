@@ -1,4 +1,4 @@
-const BPMProp = Union{typeof(ASProp), typeof(TiltedASProp), typeof(ShiftProp)}
+const BPMProp = Union{typeof(ASProp), typeof(ShiftProp)}
 
 function compute_cos_correction(u::ScalarField)
     θs = get_tilts(u)
@@ -93,27 +93,6 @@ function AS_BPM(u::ScalarField,
         aperture,
         double_precision_kernel,
         kwargs = (; paraxial = true, n0))
-end
-
-function TiltedAS_BPM(u::ScalarField,
-                      thickness::Real,
-                      n0::Real,
-                      dn0::AbstractArray{<:Real};
-                      use_cache::Bool = true,
-                      trainable::Bool = false,
-                      buffered::Bool = false,
-                      aperture::Function = (_...) -> 1,
-                      double_precision_kernel::Bool = use_cache)
-    BPM(TiltedASProp,
-        use_cache,
-        u,
-        thickness,
-        dn0;
-        trainable,
-        buffered,
-        aperture,
-        double_precision_kernel,
-        kwargs = (; n0))
 end
 
 function Shift_BPM(u::ScalarField,

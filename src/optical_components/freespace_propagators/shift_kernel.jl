@@ -36,14 +36,14 @@ get_kernels(p::ShiftKernel) = (p.kernel,)
 
 build_kernel_key_args(p::ShiftKernel, u::ScalarField) = (select_tilts(u)...,)
 
-build_kernel_args(p::ShiftKernel) = (p.z,)
+build_kernel_args(p::ShiftKernel, ::ScalarField) = (p.z,)
 
 function _propagate_core!(apply_kernel_fns::F,
-                          u::AbstractArray,
+                          u::ScalarField,
                           p::ShiftKernel,
                           ::Type{<:Direction}) where {F}
     apply_kernel_fn!, = apply_kernel_fns
-    apply_kernel_fn!(u, shift_kernel)
+    apply_kernel_fn!(u.electric, shift_kernel)
     u
 end
 

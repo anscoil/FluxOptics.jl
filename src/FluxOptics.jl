@@ -68,7 +68,7 @@ export propagate!, propagate
 export AbstractPipeComponent, AbstractOpticalSource
 export AbstractCustomComponent, AbstractCustomSource
 export AbstractPureComponent, AbstractPureSource
-export ASProp, ASPropZ, TiltedASProp, ShiftProp
+export ASProp, ASPropZ, ShiftProp
 export RSProp, CollinsProp, FourierLens, ParaxialProp
 export as_rotation!, as_rotation, field_rotation_matrix
 export AS_BPM, TiltedAS_BPM, Shift_BPM

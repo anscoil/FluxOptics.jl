@@ -79,7 +79,7 @@ end
 
 build_kernel_key_args(p::CollinsProp, u::ScalarField) = (select_lambdas(u),)
 
-build_kernel_args(p::CollinsProp) = (p.αs..., p.abd...)
+build_kernel_args(p::CollinsProp, ::ScalarField) = (p.αs..., p.abd...)
 
 function apply_collins_first_chirp!(u_tmp, apply_a_chirp!, apply_d_chirp!, ::Type{Forward})
     apply_a_chirp!(u_tmp, collins_a_chirp)
@@ -106,22 +106,22 @@ function normalize_collins!(u::AbstractArray, p::CollinsProp, ::Type{Backward})
 end
 
 function _propagate_core!(apply_kernel_fns::F,
-                          u::AbstractArray,
+                          u::ScalarField,
                           p::CollinsProp,
                           direction::Type{<:Direction}) where {F}
     apply_a_chirp!, apply_d_chirp!, apply_kernel_fn! = apply_kernel_fns
     p_f = p.kernel.convolution_kernel.p_f
     u_tmp = p.kernel.convolution_kernel.u_plan
     u_tmp .= 0
-    u_view = view(u_tmp, axes(u)...)
-    copyto!(u_view, u)
+    u_view = view(u_tmp, axes(u.electric)...)
+    copyto!(u_view, u.electric)
     apply_collins_first_chirp!(u_tmp, apply_a_chirp!, apply_d_chirp!, direction)
     p_f.ft * u_tmp
     apply_kernel_fn!(u_tmp, collins_convolution_kernel)
     p_f.ift * u_tmp
     apply_collins_last_chirp!(u_tmp, apply_a_chirp!, apply_d_chirp!, direction)
-    copyto!(u, u_view)
-    normalize_collins!(u, p, direction)
+    copyto!(u.electric, u_view)
+    normalize_collins!(u.electric, p, direction)
     u
 end
 

@@ -103,6 +103,6 @@ end
 
 simplify(p::Union{FourierPhase, FourierMask}) = OpticalSequence(get_sequence(p)...)
 
-# ASProp, TiltedASProp, ShiftProp
+# ASProp, ShiftProp
 
-simplify(p::Union{ASProp, TiltedASProp, ShiftProp}) = OpticalSequence(get_sequence(p)...)
+simplify(p::Union{ASProp, ShiftProp}) = OpticalSequence(get_sequence(p)...)

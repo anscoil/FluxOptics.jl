@@ -45,21 +45,21 @@ get_kernels(p::RSProp) = (p.kernel,)
 
 build_kernel_key_args(p::RSProp, u::ScalarField) = (select_lambdas(u),)
 
-build_kernel_args(p::RSProp) = (p.z, p.nrm_f, Val(sign(p.z) > 0))
+build_kernel_args(p::RSProp, ::ScalarField) = (p.z, p.nrm_f, Val(sign(p.z) > 0))
 
 function _propagate_core!(apply_kernel_fns::F,
-                          u::AbstractArray,
+                          u::ScalarField,
                           p::RSProp,
                           ::Type{<:Direction}) where {F}
     apply_kernel_fn!, = apply_kernel_fns
     p_f = p.kernel.p_f
     u_tmp = p.kernel.u_plan
     u_tmp .= 0
-    u_view = view(u_tmp, axes(u)...)
-    copyto!(u_view, u)
+    u_view = view(u_tmp, axes(u.electric)...)
+    copyto!(u_view, u.electric)
     p_f.ft * u_tmp
     apply_kernel_fn!(u_tmp, rs_kernel)
     p_f.ift * u_tmp
-    copyto!(u, u_view)
+    copyto!(u.electric, u_view)
     u
 end

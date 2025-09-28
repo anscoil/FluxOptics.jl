@@ -660,7 +660,7 @@ include("fourier_wrapper.jl")
 export FourierWrapper, FourierPhase, FourierMask
 
 include("freespace_propagators/freespace.jl")
-export ASProp, ASPropZ, TiltedASProp, ShiftProp
+export ASProp, ASPropZ, ShiftProp
 export RSProp, CollinsProp, FourierLens, ParaxialProp
 export as_rotation!, as_rotation, field_rotation_matrix
 

@@ -7,9 +7,9 @@ struct FourierKernel{K, V, P} <: AbstractKernel{K, V}
                            ns::NTuple{Nd, Integer},
                            ds::NTuple{Nd, Real},
                            cache_size::Integer,
-                           kernel_dim::Integer = Nd) where {N, Nd,
-                                                            U <:
-                                                            AbstractArray{<:Complex, N}}
+                           kernel_dim::Integer = Nd;
+                           p_f = nothing) where {N, Nd,
+                                                 U <: AbstractArray{<:Complex, N}}
         @assert Nd in (1, 2)
         @assert N >= Nd
         @assert cache_size >= 0
@@ -18,7 +18,7 @@ struct FourierKernel{K, V, P} <: AbstractKernel{K, V}
         f_vec = Nd == 2 ? (; x = fs[1], y = fs[2]') : (; x = fs[1])
         V = typeof(f_vec)
         u_plan = similar(u)
-        p_f = make_fft_plans(u_plan, Tuple(1:Nd))
+        p_f = isnothing(p_f) ? make_fft_plans(u_plan, Tuple(1:Nd)) : p_f
         P = typeof(p_f)
         if iszero(cache_size)
             new{Nothing, V, P}(f_vec, nothing, p_f)

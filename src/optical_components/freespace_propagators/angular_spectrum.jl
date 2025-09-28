@@ -38,56 +38,106 @@ function as_paraxial_kernel(fx::T, λ::T, n0::Tp, z::Tp,
     Complex{T}(cis(-π*λ*z*fx^2) * v)
 end
 
-struct ASKernel{M, K, T, Tp, H} <: AbstractPropagator{M, K, T}
+function tilted_as_kernel(fx::T, fy::T, λ::T, θx::T, θy::T, track_tilts::Bool,
+                          n0::Tp, z::Tp, filter::H,
+                          z_pos::Val{true}) where {T <: Real, Tp <: Real, H}
+    fx, fy, λ = Tp(fx), Tp(fy), Tp(λ)/n0
+    θx, θy = Tp(θx), Tp(θy)
+    f² = complex(inv(λ)^2)
+    f0x, f0y = sin(θx)/λ, sin(θy)/λ
+    offset = track_tilts ? (f0x*fx + f0y*fy)*λ : Tp(0)
+    v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx+f0x, fy+f0y))
+    Complex{T}(cis(Tp(2)*π*z*(sqrt(f²-(fx+f0x)^2-(fy+f0y)^2) + offset)) * v)
+end
+
+function tilted_as_kernel(fx::T, fy::T, λ::T, θx::T, θy::T, track_tilts::Bool,
+                          n0::Tp, z::Tp, filter::H,
+                          z_pos::Val{false}) where {T <: Real, Tp <: Real, H}
+    conj(tilted_as_kernel(fx, fy, λ, θx, θy, track_tilts, n0, -z, filter, Val(true)))
+end
+
+function tilted_as_kernel(fx::T, λ::T, θx::T, track_tilts::Bool, n0::Tp, z::Tp, filter::H,
+                          z_pos::Val{true}) where {T <: Real, Tp <: Real, H}
+    fx, λ, θx = Tp(fx), Tp(λ)/n0, Tp(θx)
+    f² = complex(inv(λ^2))
+    f0x = sin(θx)/λ
+    offset = track_tilts ? f0x*fx*λ : Tp(0)
+    v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx+f0x))
+    Complex{T}(cis(Tp(2)*π*z*(sqrt(f²-(fx+f0x)^2) + offset)) * v)
+end
+
+function tilted_as_kernel(fx::T, λ::T, θx::T, track_tilts::Bool, n0::Tp, z::Tp, filter::H,
+                          z_pos::Val{false}) where {T <: Real, Tp <: Real, H}
+    conj(tilted_as_kernel(fx, λ, θx, track_tilts, n0, -z, filter, Val(true)))
+end
+
+struct ASKernelProp{M, K, T, Tp, H} <: AbstractPropagator{M, K, T}
     kernel::K
-    is_paraxial::Bool
+    track_tilts::Bool
     n0::Tp
     z::Tp
     filter::H
+    is_paraxial::Bool
 
-    function ASKernel(u::ScalarField{U, Nd},
-                      ds::NTuple{Nd, Real},
-                      z::Real;
-                      use_cache::Bool = true,
-                      n0::Real = 1,
-                      filter::H = nothing,
-                      paraxial::Bool = false,
-                      double_precision_kernel::Bool = use_cache) where {Nd, T, H,
-                                                                        U <:
-                                                                        AbstractArray{Complex{T}}}
+    function ASKernelProp(u::ScalarField{U, Nd},
+                          ds::NTuple{Nd, Real},
+                          z::Real;
+                          use_cache::Bool = true,
+                          track_tilts::Bool = false,
+                          n0::Real = 1,
+                          filter::H = nothing,
+                          paraxial::Bool = false,
+                          double_precision_kernel::Bool = use_cache) where {Nd, T, H,
+                                                                            U <:
+                                                                            AbstractArray{Complex{T}}}
         ns = size(u)[1:Nd]
         cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
         kernel = FourierKernel(u.electric, ns, ds, cache_size)
         Tp = double_precision_kernel ? Float64 : T
-        new{Static, typeof(kernel), T, Tp, H}(kernel, paraxial, Tp(n0), Tp(z), filter)
+        new{Static, typeof(kernel), T, Tp, H}(kernel, track_tilts, Tp(n0), Tp(z), filter,
+                                              paraxial)
     end
 end
 
-Functors.@functor ASKernel ()
+Functors.@functor ASKernelProp ()
 
-get_data(p::ASKernel) = p.kernel
+get_data(p::ASKernelProp) = p.kernel
 
-get_kernels(p::ASKernel) = (p.kernel,)
+get_kernels(p::ASKernelProp) = (p.kernel,)
 
-build_kernel_key_args(p::ASKernel, u::ScalarField) = (select_lambdas(u),)
-
-function build_kernel_args(p::ASKernel)
-    if p.is_paraxial
-        (p.n0, p.z, p.filter)
+function build_kernel_key_args(p::ASKernelProp, u::ScalarField)
+    if all(x -> isa(x, Real), u.tilts.val) && all(iszero, u.tilts.val)
+        (select_lambdas(u),)
     else
-        (p.n0, p.z, p.filter, Val(sign(p.z) > 0))
+        (select_lambdas(u), select_tilts(u)...)
+    end
+end
+
+function build_kernel_args(p::ASKernelProp, u::ScalarField)
+    if all(x -> isa(x, Real), u.tilts.val) && all(iszero, u.tilts.val)
+        if p.is_paraxial
+            (p.n0, p.z, p.filter)
+        else
+            (p.n0, p.z, p.filter, Val(sign(p.z) > 0))
+        end
+    else
+        (p.track_tilts, p.n0, p.z, p.filter, Val(sign(p.z) > 0))
     end
 end
 
 function _propagate_core!(apply_kernel_fns::F,
-                          u::AbstractArray,
-                          p::ASKernel,
+                          u::ScalarField,
+                          p::ASKernelProp,
                           ::Type{<:Direction}) where {F}
     apply_kernel_fn!, = apply_kernel_fns
-    if p.is_paraxial
-        apply_kernel_fn!(u, as_paraxial_kernel)
+    if all(x -> isa(x, Real), u.tilts.val) && all(iszero, u.tilts.val)
+        if p.is_paraxial
+            apply_kernel_fn!(u.electric, as_paraxial_kernel)
+        else
+            apply_kernel_fn!(u.electric, as_kernel)
+        end
     else
-        apply_kernel_fn!(u, as_kernel)
+        apply_kernel_fn!(u.electric, tilted_as_kernel)
     end
     u
 end
@@ -146,12 +196,13 @@ struct ASProp{M, C} <: AbstractSequence{M}
                     ds::NTuple{Nd, Real},
                     z::Real;
                     use_cache::Bool = true,
+                    track_tilts::Bool = false,
                     n0::Real = 1,
                     filter = nothing,
                     paraxial::Bool = false,
                     double_precision_kernel::Bool = use_cache) where {U, Nd}
-        kernel = ASKernel(u, ds, z; use_cache, n0, filter, paraxial,
-                          double_precision_kernel)
+        kernel = ASKernelProp(u, ds, z; use_cache, track_tilts, n0, filter, paraxial,
+                              double_precision_kernel)
         wrapper = FourierWrapper(kernel.kernel.p_f, kernel)
         M = get_trainability(wrapper)
         optical_components = get_sequence(wrapper)
@@ -162,11 +213,13 @@ struct ASProp{M, C} <: AbstractSequence{M}
     function ASProp(u::ScalarField,
                     z::Real;
                     use_cache::Bool = true,
+                    track_tilts::Bool = false,
                     n0::Real = 1,
                     filter = nothing,
                     paraxial::Bool = false,
                     double_precision_kernel::Bool = use_cache)
-        ASProp(u, u.ds, z; use_cache, n0, filter, paraxial, double_precision_kernel)
+        ASProp(u, u.ds, z; use_cache, track_tilts, n0, filter, paraxial,
+               double_precision_kernel)
     end
 end
 
@@ -270,11 +323,17 @@ function propagate(u::ScalarField, p::ASPropZ, direction::Type{<:Direction})
     ndims = length(p.f_vec)
     dims = ntuple(i -> i, ndims)
     lambdas = get_lambdas(u)
-    if p.is_paraxial
-        kernel = @. as_paraxial_kernel(p.f_vec..., lambdas, p.n0, p.z, p.filter)
+    if isa(u.tilts.val, Real) && iszero(u.tilts.val)
+        if p.is_paraxial
+            kernel = @. as_paraxial_kernel(p.f_vec..., lambdas, p.n0, p.z, p.filter)
+        else
+            z_pos = Val(all(sign.(p.z) .> 0))
+            kernel = @. as_kernel(p.f_vec..., lambdas, p.n0, p.z, p.filter, z_pos)
+        end
     else
         z_pos = Val(all(sign.(p.z) .> 0))
-        kernel = @. as_kernel(p.f_vec..., lambdas, p.n0, p.z, p.filter, z_pos)
+        kernel = @. tilted_as_kernel(p.f_vec..., lambdas, p.track_tilts, p.tilts.val...,
+                                     p.n0, p.z, p.filter, z_pos)
     end
     data = ifft(fft(u.electric, dims) .* conj_direction(kernel, direction), dims)
     set_field_data(u, data)
