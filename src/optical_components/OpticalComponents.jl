@@ -225,6 +225,8 @@ See also: [`Trainability`](@ref), [`get_data`](@ref)
 """
 abstract type AbstractOpticalComponent{M <: Trainability} end
 
+get_trainability(p::AbstractOpticalComponent{M}) where {M} = M
+
 istrainable(p::AbstractOpticalComponent{Static}) = false
 istrainable(p::AbstractOpticalComponent{<:Trainable}) = true
 isbuffered(p::AbstractOpticalComponent) = false
@@ -636,11 +638,6 @@ function function_to_array(f::Function, ns::NTuple{Nd, Integer}, ds::NTuple{Nd, 
     Nd == 2 ? f.(xs[1], xs[2]') : f.(xs[1])
 end
 
-include("freespace_propagators/freespace.jl")
-export ASProp, ASPropZ, TiltedASProp, ShiftProp
-export RSProp, CollinsProp, FourierLens, ParaxialProp
-export as_rotation!, as_rotation, plan_as_rotation, field_rotation_matrix
-
 include("scalar_source.jl")
 export ScalarSource, get_source
 
@@ -653,6 +650,20 @@ export Mask
 include("tea_doe.jl")
 export TeaDOE, TeaReflector
 
+include("optical_sequence.jl")
+export AbstractSequence, OpticalSequence
+
+include("fourier_operator.jl")
+export FourierOperator
+
+include("fourier_wrapper.jl")
+export FourierWrapper, FourierPhase, FourierMask
+
+include("freespace_propagators/freespace.jl")
+export ASProp, ASPropZ, TiltedASProp, ShiftProp
+export RSProp, CollinsProp, FourierLens, ParaxialProp
+export as_rotation!, as_rotation, plan_as_rotation, field_rotation_matrix
+
 include("bulk_propagators/bulk_propagators.jl")
 export BPM, AS_BPM, TiltedAS_BPM, Shift_BPM
 
@@ -664,15 +675,6 @@ export BasisProjectionWrapper, set_basis_projection!, make_spatial_basis, make_f
 
 include("active_media/active_media.jl")
 export GainSheet
-
-include("optical_sequence.jl")
-export OpticalSequence
-
-include("fourier_operator.jl")
-export FourierOperator
-
-include("fourier_wrapper.jl")
-export FourierWrapper, FourierPhase, FourierMask
 
 include("merge_rules.jl")
 

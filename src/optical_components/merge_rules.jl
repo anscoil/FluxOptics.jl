@@ -1,3 +1,5 @@
+simplify(p::AbstractPipeComponent) = p
+
 # Phase
 
 function Base.merge(p1::Phase{Static}, p2::Phase{Static})
@@ -52,7 +54,7 @@ end
 # OpticalSequence
 
 function Base.merge(p1::AbstractPipeComponent, p2::AbstractPipeComponent)
-    OpticalSequence(p1, p2)
+    OpticalSequence(simplify(p1), simplify(p2))
 end
 
 function Base.merge(p1::OpticalSequence, p2::AbstractPipeComponent)
@@ -71,11 +73,11 @@ function Base.merge(p::OpticalSequence)
         merge(p.optical_components...)
     else
         p_merge = merge(OpticalSequence(), p)
-        # while p_merge != p
-        #     p = p_merge
-        #     p_merge = merge(OpticalSequence(), p)
-        # end
-        # p_merge
+        while p_merge != p
+            p = p_merge
+            p_merge = merge(OpticalSequence(), p)
+        end
+        p_merge
     end
 end
 
@@ -96,3 +98,11 @@ function Base.merge(p1::OpticalSequence, p2::OpticalSequence)
         merge(head, tail)
     end
 end
+
+# FourierPhase, FourierMask
+
+simplify(p::Union{FourierPhase, FourierMask}) = OpticalSequence(get_sequence(p))
+
+# ASProp, TiltedASProp, ShiftProp
+
+simplify(p::Union{ASProp, TiltedASProp, ShiftProp}) = OpticalSequence(get_sequence(p))

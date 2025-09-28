@@ -30,6 +30,12 @@ struct FourierKernel{K, V, P} <: AbstractKernel{K, V}
     end
 end
 
+Functors.@leaf LRU
+
+Functors.@functor FourierKernel (kernel_cache,)
+
+get_data(kernel::FourierKernel) = kernel.kernel_cache
+
 function get_kernel_cache(kernel::FourierKernel)
     kernel.kernel_cache
 end

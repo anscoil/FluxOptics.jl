@@ -2,37 +2,19 @@
 # Terms of Matrix Optics*," J. Opt. Soc. Am. 60, 1168-1177 (1970)
 # https://doi.org/10.1364/JOSA.60.001168
 
-function collins_a_chirp(x::T,
-                         y::T,
-                         λ::T,
-                         αx::Tp,
-                         αy::Tp,
-                         a::Tp,
-                         b::Tp,
+function collins_a_chirp(x::T, y::T, λ::T, αx::Tp, αy::Tp, a::Tp, b::Tp,
                          d::Tp) where {T <: Real, Tp <: Real}
     x, y, λ = Tp(x), Tp(y), Tp(λ)
     Complex{T}(cis(π*(x^2*(a-αx) + y^2*(a-αy))/(b*λ))/λ)
 end
 
-function collins_d_chirp(x::T,
-                         y::T,
-                         λ::T,
-                         αx::Tp,
-                         αy::Tp,
-                         a::Tp,
-                         b::Tp,
+function collins_d_chirp(x::T, y::T, λ::T, αx::Tp, αy::Tp, a::Tp, b::Tp,
                          d::Tp) where {T <: Real, Tp <: Real}
     x, y, λ = Tp(x), Tp(y), Tp(λ)
     Complex{T}(cis(π*(x^2*αx*(d*αx-1) + y^2*αy*(d*αy-1))/(b*λ)))
 end
 
-function collins_convolution_kernel(x::T,
-                                    y::T,
-                                    λ::T,
-                                    αx::Tp,
-                                    αy::Tp,
-                                    a::Tp,
-                                    b::Tp,
+function collins_convolution_kernel(x::T, y::T, λ::T, αx::Tp, αy::Tp, a::Tp, b::Tp,
                                     d::Tp) where {T <: Real, Tp <: Real}
     x, y, λ = Tp(x), Tp(y), Tp(λ)
     Complex{T}(cis(π*(x^2*αx + y^2*αy)/(b*λ)))

@@ -1,9 +1,4 @@
-function as_kernel(fx::T,
-                   fy::T,
-                   λ::T,
-                   n0::Tp,
-                   z::Tp,
-                   filter::H,
+function as_kernel(fx::T, fy::T, λ::T, n0::Tp, z::Tp, filter::H,
                    z_pos::Val{true}) where {T <: Real, Tp <: Real, H}
     fx, fy, λ = Tp(fx), Tp(fy), Tp(λ)/n0
     f² = complex(inv(λ^2))
@@ -11,12 +6,7 @@ function as_kernel(fx::T,
     Complex{T}(cis(Tp(2)*π*z*sqrt(f² - fx^2 - fy^2)) * v)
 end
 
-function as_kernel(fx::T,
-                   fy::T,
-                   λ::T,
-                   n0::Tp,
-                   z::Tp,
-                   filter::H,
+function as_kernel(fx::T, fy::T, λ::T, n0::Tp, z::Tp, filter::H,
                    z_pos::Val{false}) where {T <: Real, Tp <: Real, H}
     fx, fy, λ = Tp(fx), Tp(fy), Tp(λ)/n0
     f² = complex(inv(λ^2))
@@ -24,11 +14,7 @@ function as_kernel(fx::T,
     Complex{T}(conj(cis(Tp(2)*π*(-z)*sqrt(f² - fx^2 - fy^2)) * v))
 end
 
-function as_kernel(fx::T,
-                   λ::T,
-                   n0::Tp,
-                   z::Tp,
-                   filter::H,
+function as_kernel(fx::T, λ::T, n0::Tp, z::Tp, filter::H,
                    z_pos::Val{true}) where {T <: Real, Tp <: Real, H}
     fx, λ = Tp(fx), Tp(λ)/n0
     f² = complex(inv(λ)^2)
@@ -36,11 +22,7 @@ function as_kernel(fx::T,
     Complex{T}(cis(Tp(2)*π*z*sqrt(f² - fx^2)) * v)
 end
 
-function as_kernel(fx::T,
-                   λ::T,
-                   n0::Tp,
-                   z::Tp,
-                   filter::H,
+function as_kernel(fx::T, λ::T, n0::Tp, z::Tp, filter::H,
                    z_pos::Val{false}) where {T <: Real, Tp <: Real, H}
     fx, λ = Tp(fx), Tp(λ)/n0
     f² = complex(inv(λ)^2)
@@ -48,21 +30,14 @@ function as_kernel(fx::T,
     Complex{T}(conj(cis(Tp(2)*π*(-z)*sqrt(f² - fx^2)) * v))
 end
 
-function as_paraxial_kernel(fx::T,
-                            fy::T,
-                            λ::T,
-                            n0::Tp,
-                            z::Tp,
+function as_paraxial_kernel(fx::T, fy::T, λ::T, n0::Tp, z::Tp,
                             filter::H) where {T <: Real, Tp <: Real, H}
     fx, fy, λ = Tp(fx), Tp(fy), Tp(λ/n0)
     v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx, fy))
     Complex{T}(cis(-π*λ*z*(fx^2 + fy^2)) * v)
 end
 
-function as_paraxial_kernel(fx::T,
-                            λ::T,
-                            n0::Tp,
-                            z::Tp,
+function as_paraxial_kernel(fx::T, λ::T, n0::Tp, z::Tp,
                             filter::H) where {T <: Real, Tp <: Real, H}
     fx, λ = Tp(fx), Tp(λ/n0)
     v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx))
@@ -95,6 +70,8 @@ struct ASKernel{M, K, T, Tp, H} <: AbstractPropagator{M, K, T}
 end
 
 Functors.@functor ASKernel ()
+
+get_data(p::ASKernel) = p.kernel
 
 get_kernels(p::ASKernel) = (p.kernel,)
 
@@ -164,27 +141,44 @@ julia> u_prop = propagate(u, prop, Forward);
 
 See also: [`ASPropZ`](@ref), [`TiltedASProp`](@ref), [`ParaxialProp`](@ref)
 """
-function ASProp(u::ScalarField{U, Nd},
-                ds::NTuple{Nd, Real},
-                z::Real;
-                use_cache::Bool = true,
-                n0::Real = 1,
-                filter = nothing,
-                paraxial::Bool = false,
-                double_precision_kernel::Bool = use_cache) where {U, Nd}
-    kernel = ASKernel(u, ds, z; use_cache, n0, filter, paraxial, double_precision_kernel)
-    FourierWrapper(kernel.kernel.p_f, kernel)
+struct ASProp{M, C} <: AbstractSequence{M}
+    optical_components::C
+
+    function ASProp(optical_components::C) where {C}
+        new{Trainable, C}(optical_components)
+    end
+
+    function ASProp(u::ScalarField{U, Nd},
+                    ds::NTuple{Nd, Real},
+                    z::Real;
+                    use_cache::Bool = true,
+                    n0::Real = 1,
+                    filter = nothing,
+                    paraxial::Bool = false,
+                    double_precision_kernel::Bool = use_cache) where {U, Nd}
+        kernel = ASKernel(u, ds, z; use_cache, n0, filter, paraxial,
+                          double_precision_kernel)
+        wrapper = FourierWrapper(kernel.kernel.p_f, kernel)
+        M = get_trainability(wrapper)
+        optical_components = get_sequence(wrapper)
+        C = typeof(optical_components)
+        new{M, C}(optical_components)
+    end
+
+    function ASProp(u::ScalarField,
+                    z::Real;
+                    use_cache::Bool = true,
+                    n0::Real = 1,
+                    filter = nothing,
+                    paraxial::Bool = false,
+                    double_precision_kernel::Bool = use_cache)
+        ASProp(u, u.ds, z; use_cache, n0, filter, paraxial, double_precision_kernel)
+    end
 end
 
-function ASProp(u::ScalarField,
-                z::Real;
-                use_cache::Bool = true,
-                n0::Real = 1,
-                filter = nothing,
-                paraxial::Bool = false,
-                double_precision_kernel::Bool = use_cache)
-    ASProp(u, u.ds, z; use_cache, n0, filter, paraxial, double_precision_kernel)
-end
+Functors.@functor ASProp (optical_components,)
+
+get_sequence(p::ASProp) = p.optical_components
 
 """
     ASPropZ(u::ScalarField, ds::NTuple, z::Real; n0=1, trainable=false, paraxial=false, filter=nothing, double_precision_kernel=false)

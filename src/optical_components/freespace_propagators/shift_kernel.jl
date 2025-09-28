@@ -47,18 +47,30 @@ function _propagate_core!(apply_kernel_fns::F,
     u
 end
 
-function ShiftProp(u::ScalarField{U, Nd},
-                   ds::NTuple{Nd, Real},
-                   z::Real;
-                   use_cache::Bool = true,
-                   double_precision_kernel::Bool = use_cache) where {U, Nd}
-    kernel = ShiftKernel(u, ds, z; use_cache, double_precision_kernel)
-    FourierWrapper(kernel.kernel.p_f, kernel)
+struct ShiftProp{M, C} <: AbstractSequence{M}
+    optical_components::C
+
+    function ShiftProp(u::ScalarField{U, Nd},
+                       ds::NTuple{Nd, Real},
+                       z::Real;
+                       use_cache::Bool = true,
+                       double_precision_kernel::Bool = use_cache) where {U, Nd}
+        kernel = ShiftKernel(u, ds, z; use_cache, double_precision_kernel)
+        wrapper = FourierWrapper(kernel.kernel.p_f, kernel)
+        M = get_trainability(wrapper)
+        optical_components = get_sequence(wrapper)
+        C = typeof(optical_components)
+        new{M, C}(optical_components)
+    end
+
+    function ShiftProp(u::ScalarField,
+                       z::Real;
+                       use_cache::Bool = true,
+                       double_precision_kernel::Bool = use_cache)
+        ShiftProp(u, u.ds, z; use_cache, double_precision_kernel)
+    end
 end
 
-function ShiftProp(u::ScalarField,
-                   z::Real;
-                   use_cache::Bool = true,
-                   double_precision_kernel::Bool = use_cache)
-    ShiftProp(u, u.ds, z; use_cache, double_precision_kernel)
-end
+Functors.@functor ShiftProp (optical_components,)
+
+get_sequence(p::ShiftProp) = p.optical_components

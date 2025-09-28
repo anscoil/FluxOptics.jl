@@ -1,8 +1,4 @@
-function rs_kernel(x::T,
-                   y::T,
-                   λ::T,
-                   z::Tp,
-                   nrm_f::Tp,
+function rs_kernel(x::T, y::T, λ::T, z::Tp, nrm_f::Tp,
                    z_pos::Val{true}) where {T <: Real, Tp <: Real}
     x, y = Tp(x), Tp(y)
     k = Tp(2π/λ)
@@ -10,11 +6,7 @@ function rs_kernel(x::T,
     Complex{T}(nrm_f*(cis(k*r)/r)*(z/r)*(1/r-im*k))
 end
 
-function rs_kernel(x::T,
-                   y::T,
-                   λ::T,
-                   z::Tp,
-                   nrm_f::Tp,
+function rs_kernel(x::T, y::T, λ::T, z::Tp, nrm_f::Tp,
                    z_pos::Val{false}) where {T <: Real, Tp <: Real}
     x, y = Tp(x), Tp(y)
     k = Tp(2π/λ)
