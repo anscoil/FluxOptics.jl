@@ -29,7 +29,7 @@ function ParaxialProp(u::ScalarField{U, Nd},
                       double_precision_kernel::Bool = use_cache) where {Nd,
                                                                         U <:
                                                                         AbstractArray{<:Complex}}
-    ParaxialProp(u, u.ds, ds′, z; use_cache, double_precision_kernel)
+    ParaxialProp(u, Tuple(u.ds), ds′, z; use_cache, double_precision_kernel)
 end
 
 function ParaxialProp(u::ScalarField,

@@ -34,7 +34,7 @@ struct Mask{M, A, U} <: AbstractCustomComponent{M}
                   f::Union{Function, AbstractArray} = (_...) -> 1;
                   trainable::Bool = false,
                   buffered::Bool = false) where {Nd, U}
-        Mask(u, u.ds, f; trainable, buffered)
+        Mask(u, Tuple(u.ds), f; trainable, buffered)
     end
 end
 

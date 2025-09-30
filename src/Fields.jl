@@ -2,6 +2,7 @@ module Fields
 
 using Functors
 using LinearAlgebra
+using StaticArrays
 using ..FluxOptics
 using ..FluxOptics: isbroadcastable, bzip
 
@@ -9,17 +10,19 @@ import Base: +, -, *, /
 
 export ScalarField
 export get_lambdas, get_lambdas_collection
-export get_tilts, get_tilts_collection
-export select_lambdas, select_tilts, set_field_ds, set_field_data, set_field_tilts
+export get_tilts, get_tilts_collection, offset_tilts!
+export select_lambdas, select_tilts, set_field_ds!, set_field_data, set_field_tilts
+export is_on_axis
 export power, normalize_power!, coupling_efficiency, intensity, phase
 
-function parse_val(u::U,
+function parse_val(u::AbstractArray{Complex{T}, N},
                    val::AbstractArray,
-                   Nd::Integer) where {N, T, U <: AbstractArray{Complex{T}, N}}
+                   Nd::Integer) where {N, T}
     shape = ntuple(k -> k <= Nd ? 1 : size(val, k - Nd), N)
-    val = reshape(val, shape) |> U |> real
-    @assert isbroadcastable(val, u)
-    val
+    val_adapt = similar(u, T, shape)
+    copyto!(val_adapt, val)
+    @assert isbroadcastable(val_adapt, u)
+    val_adapt
 end
 
 function parse_lambdas(u::U, lambdas, Nd::Integer) where {T, U <: AbstractArray{Complex{T}}}
@@ -29,8 +32,8 @@ function parse_lambdas(u::U, lambdas, Nd::Integer) where {T, U <: AbstractArray{
 end
 
 function parse_tilts(u::U, tilts, Nd::Integer) where {T, U <: AbstractArray{Complex{T}}}
-    tilts_collection = map(θ -> isa(θ, Real) ? T(θ) : T.(θ), tilts)
-    tilts_val = map(θ -> isa(θ, Real) ? T(θ) : parse_val(u, θ, Nd), tilts)
+    tilts_collection = map(θ -> isa(θ, Real) ? T.([θ]) : T.(θ), tilts)
+    tilts_val = map(θ -> parse_val(u, isa(θ, Real) ? [θ] : θ, Nd), tilts)
     (; val = tilts_val, collection = tilts_collection)
 end
 
@@ -108,23 +111,22 @@ julia> v = ScalarField(data, (1.0, 1.0), 1.064; tilts=([0.01, 0.02, 0.03], 0));
 
 See also: [`set_field_data`](@ref), [`power`](@ref), [`normalize_power!`](@ref)
 """
-struct ScalarField{U, Nd, S, L, A}
+struct ScalarField{U, Nd, L, A}
     electric::U
-    ds::S
+    ds::MVector{Nd, Float64}
     lambdas::L
     tilts::A
 
     function ScalarField(u::U, ds::S, lambdas::L,
-                         tilts::A) where {U, Nd,
-                                          S <: NTuple{Nd},
-                                          L <: NamedTuple,
+                         tilts::A) where {U, Nd, S <: MVector{Nd}, L <: NamedTuple,
                                           A <: NamedTuple}
-        new{U, Nd, S, L, A}(u, ds, lambdas, tilts)
+        new{U, Nd, L, A}(u, ds, lambdas, tilts)
     end
 
-    function ScalarField(u::U, ds::S, lambdas::Union{Real, AbstractArray{<:Real}};
+    function ScalarField(u::U, ds::NTuple{Nd, Real},
+                         lambdas::Union{Real, AbstractArray{<:Real}};
                          tilts::NTuple{Nd, Union{<:Real, <:AbstractArray}}
-                         = ntuple(_ -> 0, Nd)) where {Nd, N, S <: NTuple{Nd, Real}, T,
+                         = ntuple(_ -> 0, Nd)) where {Nd, N, T,
                                                       U <: AbstractArray{Complex{T}, N}}
         @assert Nd in (1, 2)
         @assert N >= Nd
@@ -132,7 +134,7 @@ struct ScalarField{U, Nd, S, L, A}
         tilts = parse_tilts(u, tilts, Nd)
         L = typeof(lambdas)
         A = typeof(tilts)
-        new{U, Nd, S, L, A}(u, ds, lambdas, tilts)
+        new{U, Nd, L, A}(u, ds, lambdas, tilts)
     end
 
     function ScalarField(nd::NTuple{N, Integer}, ds::NTuple{Nd, Real}, lambdas;
@@ -173,8 +175,9 @@ function select_tilts(u::ScalarField)
            (collection, val) in zip(u.tilts.collection, u.tilts.val)])
 end
 
-function set_field_ds(u::ScalarField{U, Nd}, ds::NTuple{Nd, Real}) where {U, Nd}
-    ScalarField(u.electric, ds, u.lambdas, u.tilts)
+function set_field_ds!(u::ScalarField{U, Nd}, ds::NTuple{Nd, Real}) where {U, Nd}
+    u.ds .= ds
+    u
 end
 
 """
@@ -203,15 +206,34 @@ julia> u_new = set_field_data(u, new_data);
 ```
 """
 function set_field_data(u::ScalarField{U, Nd}, data::V) where {U, V, Nd}
-    ScalarField(data, u.ds, u.lambdas.collection; tilts = u.tilts.collection)
+    ScalarField(data, Tuple(u.ds), u.lambdas.collection; tilts = u.tilts.collection)
 end
 
 function set_field_data(u::ScalarField{U, Nd}, data::U) where {U, Nd}
-    ScalarField(data, u.ds, u.lambdas, u.tilts)
+    ScalarField(data, copy(u.ds), u.lambdas, u.tilts)
 end
 
 function set_field_tilts(u::ScalarField{U, Nd}, tilts) where {U, Nd}
-    ScalarField(u.electric, u.ds, u.lambdas.collection; tilts)
+    ScalarField(u.electric, Tuple(u.ds), u.lambdas.collection; tilts)
+end
+
+function is_on_axis(u::ScalarField)
+    all(iszero, u.tilts.collection)
+end
+
+function offset_tilts!(u::ScalarField{U, Nd},
+                       tilts::NTuple{Nd, Union{<:Real, <:AbstractArray}}) where {U, Nd}
+    if tilts == u.tilts.collection
+        return u
+    end
+    tilts = parse_tilts(u.electric, tilts, Nd)
+    θx0, θy0 = u.tilts.val
+    θx, θy = tilts.val
+    xv, yv = spatial_vectors(size(u)[1:Nd]..., u.ds...)
+    @. u.electric *= cis(2π/u.lambdas.val*((sin(θx0)-sin(θx))*xv + (sin(θy0)-sin(θy))*yv'))
+    foreach(((y, x),) -> copyto!(y, x), zip(u.tilts.val, tilts.val))
+    foreach(((y, x),) -> copyto!(y, x), zip(u.tilts.collection, tilts.collection))
+    u
 end
 
 # function Base.broadcastable(sf::ScalarField)
@@ -220,7 +242,7 @@ end
 
 function Base.broadcasted(f, u::ScalarField)
     ScalarField(complex(broadcast(f, u.electric)),
-                u.ds,
+                Tuple(u.ds),
                 u.lambdas.collection;
                 tilts = u.tilts.collection)
 end
@@ -231,6 +253,22 @@ end
 
 function +(u::ScalarField, v::ScalarField)
     set_field_data(u, u.electric + v.electric)
+end
+
+function -(u::ScalarField, v::ScalarField)
+    set_field_data(u, u.electric - v.electric)
+end
+
+function *(a::Number, u::ScalarField)
+    set_field_data(u, a .* u.electric)
+end
+
+function *(u::ScalarField, a::Number)
+    a * u
+end
+
+function /(u::ScalarField, a::Number)
+    set_field_data(u, u.electric ./ a)
 end
 
 Base.getindex(u::ScalarField, i...) = view(u.electric, i...)
@@ -273,7 +311,7 @@ julia> u_copy = copy(u);
 See also: [`similar`](@ref)
 """
 function Base.copy(u::ScalarField)
-    set_field_data(u, copy(u.electric))
+    ScalarField(copy(u.electric), copy(u.ds), deepcopy(u.lambdas), deepcopy(u.tilts))
 end
 
 function Base.copyto!(u::ScalarField, v::ScalarField)
@@ -300,7 +338,7 @@ julia> u_tmp = similar(u);  # Same grid/wavelengths/tilts, but data is uninitial
 See also: [`copy`](@ref), [`set_field_data`](@ref)
 """
 function Base.similar(u::ScalarField)
-    set_field_data(u, similar(u.electric))
+    ScalarField(similar(u.electric), copy(u.ds), deepcopy(u.lambdas), deepcopy(u.tilts))
 end
 
 function Base.collect(u::ScalarField)
@@ -313,8 +351,8 @@ end
 
 Convert multi-dimensional arrays or fields into vector of slices.
 
-For AbstractArrays, splits along dimensions beyond the first `nd` spatial dimensions.
-For ScalarFields, converts into vector of individual ScalarField objects, each representing
+For AbstractArray, splits along dimensions beyond the first `nd` spatial dimensions.
+For ScalarField, converts into vector of individual ScalarField objects, each representing
 a single slice along non-spatial dimensions. Useful for iteration and visualization.
 
 # Arguments
@@ -322,8 +360,8 @@ a single slice along non-spatial dimensions. Useful for iteration and visualizat
 - `nd::Integer`: Number of spatial dimensions (for AbstractArray case only).
 
 # Returns
-- For AbstractArrays: Vector of array slices along non-spatial dimensions.
-- For ScalarFields: Vector of ScalarField objects, one per slice along non-spatial dimensions.
+- For AbstractArray: Vector of array slices along non-spatial dimensions.
+- For ScalarField: Vector of ScalarField objects, one per slice along non-spatial dimensions.
 
 # Examples
 
@@ -369,7 +407,7 @@ end
 
 function Base.vec(u::ScalarField{U, Nd}) where {U, Nd}
     u_slices = eachslice(u.electric; dims = Tuple((Nd + 1):ndims(u)))
-    [ScalarField(data, u.ds, lambda; tilts)
+    [ScalarField(data, Tuple(u.ds), lambda; tilts)
      for (data, lambda, tilts...) in
          bzip(u_slices, u.lambdas.collection, u.tilts.collection...)]
 end
@@ -565,7 +603,7 @@ julia> coupling_efficiency(u, v)
 
 See also: [`dot`](@ref), [`power`](@ref), [`PowerCoupling`](@ref)
 """
-function coupling_efficiency(u, v)
+function coupling_efficiency(u::AbstractArray, v::AbstractArray)
     abs2(dot(u, v)/(norm(u)*norm(v)))
 end
 

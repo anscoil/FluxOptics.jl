@@ -11,12 +11,15 @@ using ..GridUtils
 using ..Fields
 using ..FFTutils
 
+import Zygote: pullback
+
 export Direction, Forward, Backward
 export Trainability, Trainable, Static, Buffering, Buffered, Unbuffered
 export AbstractOpticalComponent, AbstractPipeComponent, AbstractOpticalSource
 export AbstractCustomComponent, AbstractCustomSource
 export AbstractPureComponent, AbstractPureSource
 export propagate!, propagate
+export backpropagate!, backpropagate
 export alloc_saved_buffer, get_saved_buffer
 export get_data
 export istrainable, isbuffered
@@ -301,6 +304,149 @@ See also: [`AbstractOpticalSource`](@ref), [`propagate!`](@ref), [`|>`](@ref)
 abstract type AbstractPipeComponent{M} <: AbstractOpticalComponent{M} end
 
 """
+    AbstractPureComponent{M} <: AbstractPipeComponent{M}
+
+Abstract type for optical components with functional interface.
+
+Pure components provide a functional interface where the same input always gives
+the same output, without requiring manual implementation of gradient rules. They
+can wrap complex internal state (including `AbstractCustomComponent`s) but expose
+a pure functional interface that works seamlessly with automatic differentiation.
+
+# Type Parameter
+- `M::Trainability`: Usually `Static`, but can support `Trainable` for Zygote-based components
+
+# Required Methods
+All subtypes must implement:
+- `propagate(u, component, direction)`: Direct field transformation
+- `get_data(component)`: Access to component parameters
+
+# Characteristics
+- **Functional interface**: Same input → same output, regardless of internal complexity
+- **Zygote compatible**: Automatic differentiation works without custom rules
+- **Composable**: Can wrap and combine other components
+- **Implementation agnostic**: Internal state hidden behind pure interface
+
+# Examples
+```jldoctest
+julia> u = ScalarField(ones(ComplexF64, 64, 64), (2.0, 2.0), 1.064);
+
+julia> prop_z = ASPropZ(u, 500.0; trainable=true);
+
+julia> typeof(prop_z) <: AbstractPureComponent
+true
+```
+
+See also: [`AbstractCustomComponent`](@ref), [`ASPropZ`](@ref), [`OpticalSequence`](@ref)
+"""
+abstract type AbstractPureComponent{M} <: AbstractPipeComponent{M} end
+
+function propagate(u, p::AbstractPureComponent, direction::Type{<:Direction})
+    error("Not implemented")
+end
+
+function propagate!(u, p::AbstractPureComponent, direction::Type{<:Direction})
+    propagate(u, p, direction)
+end
+
+"""
+    backpropagate!(∂v::ScalarField, component::AbstractPipeComponent, direction::Type{<:Direction})
+
+Backpropagate gradients through an optical component in-place.
+
+Computes the adjoint (reverse-mode) propagation of gradients through the component,
+modifying `∂v` in-place to contain the gradient with respect to the input field.
+This is useful for debugging gradient flow, educational purposes, or manual gradient
+computation outside of automatic differentiation frameworks.
+
+For `AbstractPureComponent`s, this is implemented automatically using Zygote's pullback.
+For `AbstractCustomComponent`s, this must be implemented manually for each component type.
+
+# Arguments
+- `∂v::ScalarField`: Gradient with respect to output field (modified in-place to become ∂u)
+- `component::AbstractPipeComponent`: Optical component to backpropagate through
+- `direction::Type{<:Direction}`: Original propagation direction (`Forward` or `Backward`)
+
+# Returns
+The modified `∂v`, now containing the gradient with respect to the input field.
+
+# Notes
+- The `direction` parameter specifies the **original forward direction**, not the backprop direction
+- For `AbstractPureComponent`, uses automatic differentiation via Zygote
+- For `AbstractCustomComponent`, requires manual implementation of adjoint propagation
+- Only computes gradient with respect to the input field, not the component parameters
+
+# Examples
+```jldoctest
+julia> w0 = 10.0;
+
+julia> xv, yv = spatial_vectors(64, 64, 2.0, 2.0);
+
+julia> u = ScalarField(Gaussian(w0)(xv, yv), (2.0, 2.0), 1.064);
+
+julia> phase_mask = Phase(u, (x, y) -> 0.01 * (x^2 + y^2));
+
+julia> propagator1 = ASProp(u, 200.0);
+
+julia> propagator2 = ASProp(u, 300.0);
+
+julia> sequence = OpticalSequence(propagator1, phase_mask, propagator2);
+
+julia> v = propagate(u, sequence, Forward);
+
+julia> ∂v = copy(v);
+
+julia> ∂u = backpropagate!(∂v, sequence, Forward);
+
+# Coupling efficiency ≈ 1 demonstrates unitary optical propagation
+julia> coupling_efficiency(u, ∂u)
+1-element Vector{Float64}:
+ 1.0000000000000036
+
+# Step-by-step backprop for debugging
+julia> v2 = propagate(u, sequence, Forward);
+
+julia> ∂v2 = copy(v2);
+
+# Second propagator appearing first in reverse mode
+julia> ∂after_prop2 = backpropagate!(∂v2, propagator2, Forward);
+
+julia> ∂after_phase = backpropagate!(∂after_prop2, phase_mask, Forward);
+
+julia> ∂u_step = backpropagate!(∂after_phase, propagator1, Forward);
+
+julia> coupling_efficiency(u, ∂u_step)
+1-element Vector{Float64}:
+ 1.0000000000000036
+```
+
+See also: [`backpropagate`](@ref), [`propagate!`](@ref), [`Forward`](@ref), [`Backward`](@ref)
+"""
+function backpropagate!(∂v::ScalarField,
+                        p::AbstractPureComponent,
+                        direction::Type{<:Direction})
+    _, back = pullback(u -> propagate(u, p, direction), ∂v)
+    ∂u, = back(∂v)
+    ∂u
+end
+
+"""
+    backpropagate(∂v::ScalarField, component::AbstractPipeComponent, direction::Type{<:Direction})
+
+Backpropagate gradients through an optical component (non-mutating).
+
+This is the non-mutating version of [`backpropagate!`](@ref). Creates a copy of the 
+gradient field before computing the adjoint propagation.
+
+See also: [`backpropagate!`](@ref), [`propagate`](@ref)
+"""
+function backpropagate(∂v::ScalarField,
+                       p::AbstractPipeComponent,
+                       direction::Type{<:Direction})
+    backpropagate!(copy(∂v), p, direction)
+end
+
+"""
     AbstractCustomComponent{M} <: AbstractPipeComponent{M}
 
 Abstract type for stateful optical components with custom propagation logic.
@@ -397,7 +543,7 @@ function propagate_and_save!(u, u_saved, p::AbstractCustomComponent{Trainable{Un
     error("Not implemented")
 end
 
-function backpropagate!(u, p::AbstractCustomComponent, direction::Type{<:Direction})
+function backpropagate!(∂v, p::AbstractCustomComponent, direction::Type{<:Direction})
     error("Not implemented")
 end
 
@@ -463,60 +609,10 @@ function propagate_and_save(u, u_saved, p::AbstractCustomComponent{Trainable{Unb
     propagate_and_save!(copy(u), u_saved, p, direction; saved_buffer)
 end
 
-function backpropagate(u, p::AbstractCustomComponent, direction::Type{<:Direction})
-    backpropagate!(copy(u), p, direction)
-end
-
 function backpropagate_with_gradient(∂v, u_saved, ∂p::NamedTuple,
                                      p::AbstractCustomComponent{<:Trainable},
                                      direction::Type{<:Direction})
     backpropagate_with_gradient!(copy(∂v), u_saved, ∂p, p, direction)
-end
-
-"""
-    AbstractPureComponent{M} <: AbstractPipeComponent{M}
-
-Abstract type for optical components with functional interface.
-
-Pure components provide a functional interface where the same input always gives
-the same output, without requiring manual implementation of gradient rules. They
-can wrap complex internal state (including `AbstractCustomComponent`s) but expose
-a pure functional interface that works seamlessly with automatic differentiation.
-
-# Type Parameter
-- `M::Trainability`: Usually `Static`, but can support `Trainable` for Zygote-based components
-
-# Required Methods
-All subtypes must implement:
-- `propagate(u, component, direction)`: Direct field transformation
-- `get_data(component)`: Access to component parameters
-
-# Characteristics
-- **Functional interface**: Same input → same output, regardless of internal complexity
-- **Zygote compatible**: Automatic differentiation works without custom rules
-- **Composable**: Can wrap and combine other components
-- **Implementation agnostic**: Internal state hidden behind pure interface
-
-# Examples
-```jldoctest
-julia> u = ScalarField(ones(ComplexF64, 64, 64), (2.0, 2.0), 1.064);
-
-julia> prop_z = ASPropZ(u, 500.0; trainable=true);
-
-julia> typeof(prop_z) <: AbstractPureComponent
-true
-```
-
-See also: [`AbstractCustomComponent`](@ref), [`ASPropZ`](@ref), [`OpticalSequence`](@ref)
-"""
-abstract type AbstractPureComponent{M} <: AbstractPipeComponent{M} end
-
-function propagate(u, p::AbstractPureComponent, direction::Type{<:Direction})
-    error("Not implemented")
-end
-
-function propagate!(u, p::AbstractPureComponent, direction::Type{<:Direction})
-    propagate(u, p, direction)
 end
 
 """
@@ -620,6 +716,10 @@ function backpropagate_with_gradient(∂v, ∂p::NamedTuple,
     error("Not implemented")
 end
 
+Base.conj(::Type{Forward}) = Backward
+
+Base.conj(::Type{Backward}) = Forward
+
 function conj_direction(mask, ::Type{Forward})
     mask
 end
@@ -658,6 +758,9 @@ export FourierOperator
 
 include("fourier_wrapper.jl")
 export FourierWrapper, FourierPhase, FourierMask
+
+include("tilt_anchor.jl")
+export TiltAnchor
 
 include("freespace_propagators/freespace.jl")
 export ASProp, ASPropZ, ShiftProp

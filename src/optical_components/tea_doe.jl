@@ -44,7 +44,7 @@ struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
                     r::Union{Number, Function} = 1,
                     trainable::Bool = false,
                     buffered::Bool = false) where {U <: AbstractArray{<:Complex}, Nd}
-        TeaDOE(u, u.ds, dn, f; r, trainable, buffered)
+        TeaDOE(u, Tuple(u.ds), dn, f; r, trainable, buffered)
     end
 end
 

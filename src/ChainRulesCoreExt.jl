@@ -5,7 +5,8 @@ using ..FFTutils
 using ..Fields
 using ..OpticalComponents
 using ..OpticalComponents: get_preallocated_gradient, get_saved_buffer
-using ..OpticalComponents: propagate_and_save!, backpropagate!, backpropagate_with_gradient!
+using ..OpticalComponents: alloc_gradient, alloc_saved_buffer
+using ..OpticalComponents: propagate_and_save!, backpropagate_with_gradient!
 
 using ChainRulesCore
 using Functors: fleaves

@@ -67,7 +67,7 @@ struct ShiftProp{M, C} <: AbstractSequence{M}
                        z::Real;
                        use_cache::Bool = true,
                        double_precision_kernel::Bool = use_cache)
-        ShiftProp(u, u.ds, z; use_cache, double_precision_kernel)
+        ShiftProp(u, Tuple(u.ds), z; use_cache, double_precision_kernel)
     end
 end
 

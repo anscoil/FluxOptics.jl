@@ -26,7 +26,7 @@ struct FourierMask{M, C} <: AbstractSequence{M}
                          f::Union{Function, AbstractArray} = (_...) -> 1;
                          trainable::Bool = false,
                          buffered::Bool = false) where {Nd, U}
-        FourierMask(u, u.ds, f; trainable, buffered)
+        FourierMask(u, Tuple(u.ds), f; trainable, buffered)
     end
 end
 

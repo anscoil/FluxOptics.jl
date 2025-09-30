@@ -266,12 +266,14 @@ function rotate_scalar_field!(u::ScalarField{U, 2},
                               eps = 2e-7,
                               compensate_tilt = true) where {U <:
                                                              AbstractArray{<:Complex, 2}}
-    @assert isreal(u.lambdas.val) && all(isreal.(u.tilts.val))
+    @assert isreal(u.lambdas.val) && all(map(x -> length(x) == 1, u.tilts.collection))
+    tilts_val = map(x -> first(x), u.tilts.collection)
     θs = Tuple(asin.(Mf[1:2, 3]))
-    M0 = field_rotation_matrix(u.tilts.val...)
-    as_rotation!(u.electric, u.ds, u.lambdas.val, Mf, direction; eps, compensate_tilt, M0)
-    tilts = compensate_tilt ? θs : u.tilts.val
-    ScalarField(u.electric, u.ds, u.lambdas.collection; tilts)
+    M0 = field_rotation_matrix(tilts_val...)
+    as_rotation!(u.electric, Tuple(u.ds), u.lambdas.val, Mf, direction; eps,
+                 compensate_tilt, M0)
+    tilts = compensate_tilt ? θs : tilts_val
+    ScalarField(u.electric, Tuple(u.ds), u.lambdas.collection; tilts)
 end
 
 function rotate_scalar_field!(u::ScalarField{U, 2},
@@ -279,17 +281,12 @@ function rotate_scalar_field!(u::ScalarField{U, 2},
                               eps = 2e-7,
                               compensate_tilt = true) where {U <:
                                                              AbstractArray{<:Complex, 2}}
-    @assert isreal(u.lambdas.val) && all(isreal.(u.tilts.val))
-    as_rotation!(u.electric,
-                 u.ds,
-                 u.lambdas.val,
-                 θs,
-                 direction;
-                 eps,
-                 compensate_tilt,
-                 initial_tilts = u.tilts.val)
-    tilts = compensate_tilt ? θs : u.tilts.val
-    ScalarField(u.electric, u.ds, u.lambdas.val; tilts)
+    @assert isreal(u.lambdas.val) && all(map(x -> length(x) == 1, u.tilts.collection))
+    tilts_val = map(x -> first(x), u.tilts.collection)
+    as_rotation!(u.electric, Tuple(u.ds), u.lambdas.val, θs, direction;
+                 eps, compensate_tilt, initial_tilts = tilts_val)
+    tilts = compensate_tilt ? θs : tilts_val
+    ScalarField(u.electric, Tuple(u.ds), u.lambdas.val; tilts)
 end
 
 array_from_view(v) = v
@@ -316,7 +313,7 @@ function as_rotation!(u::ScalarField{U, 2},
                                       compensate_tilt),
             vec(u))
     tilts = compensate_tilt ? θs : u.tilts.collection
-    ScalarField(u.electric, u.ds, u.lambdas.collection; tilts)
+    ScalarField(u.electric, Tuple(u.ds), u.lambdas.collection; tilts)
 end
 
 function as_rotation!(u::ScalarField{U, 2},
@@ -331,7 +328,7 @@ function as_rotation!(u::ScalarField{U, 2},
                                       compensate_tilt),
             vec(u))
     tilts = compensate_tilt ? θs : u.tilts.collection
-    ScalarField(u.electric, u.ds, u.lambdas.collection; tilts)
+    ScalarField(u.electric, Tuple(u.ds), u.lambdas.collection; tilts)
 end
 
 function as_rotation(u::ScalarField{U, 2},

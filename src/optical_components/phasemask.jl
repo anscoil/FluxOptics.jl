@@ -34,7 +34,7 @@ struct Phase{M, A, U} <: AbstractCustomComponent{M}
                    f::Union{Function, AbstractArray{<:Real}} = (_...) -> 0;
                    trainable::Bool = false,
                    buffered::Bool = false) where {Nd, U}
-        Phase(u, u.ds, f; trainable, buffered)
+        Phase(u, Tuple(u.ds), f; trainable, buffered)
     end
 end
 

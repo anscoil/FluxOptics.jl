@@ -26,7 +26,7 @@ function _propagate_core!(apply_kernel_fn!::F,
     error("Not implemented")
 end
 
-set_ds_out(p::AbstractPropagator, u::ScalarField, ::Type{<:Direction}) = u
+set_ds_out!(p::AbstractPropagator, u::ScalarField, ::Type{<:Direction}) = u
 
 function propagate!(u::ScalarField,
                     p::AbstractPropagator{M, <:AbstractKernel{Nothing}},
@@ -41,7 +41,7 @@ function propagate!(u::ScalarField,
                                                                        all_args, direction),
                            kernels)
     _propagate_core!(apply_kernel_fns, u, p, direction)
-    set_ds_out(p, u, direction)
+    set_ds_out!(p, u, direction)
 end
 
 function propagate!(u::ScalarField,
@@ -59,7 +59,7 @@ function propagate!(u::ScalarField,
                                                                        direction),
                            kernels)
     _propagate_core!(apply_kernel_fns, u, p, direction)
-    set_ds_out(p, u, direction)
+    set_ds_out!(p, u, direction)
 end
 
 function backpropagate!(u, p::AbstractPropagator, direction::Type{<:Direction})

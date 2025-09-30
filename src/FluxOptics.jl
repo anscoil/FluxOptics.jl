@@ -37,7 +37,7 @@ end
 include("Fields.jl")
 using .Fields
 export ScalarField
-export set_field_data
+export set_field_data, offset_tilts!
 export dot, power, normalize_power!, coupling_efficiency, intensity, phase
 
 include("metrics/Metrics.jl")
@@ -65,10 +65,11 @@ export OpticalComponents
 export Forward, Backward
 export Trainable, Static, Buffered, Unbuffered
 export propagate!, propagate
+export backpropagate!, backpropagate
 export AbstractPipeComponent, AbstractOpticalSource
 export AbstractCustomComponent, AbstractCustomSource
 export AbstractPureComponent, AbstractPureSource
-export ASProp, ASPropZ, ShiftProp
+export TiltAnchor, ASProp, ASPropZ, ShiftProp
 export RSProp, CollinsProp, FourierLens, ParaxialProp
 export as_rotation!, as_rotation, field_rotation_matrix
 export AS_BPM, TiltedAS_BPM, Shift_BPM

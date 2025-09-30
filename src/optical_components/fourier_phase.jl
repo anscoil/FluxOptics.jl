@@ -26,7 +26,7 @@ struct FourierPhase{M, C} <: AbstractSequence{M}
                           f::Union{Function, AbstractArray{<:Real}} = (_...) -> 0;
                           trainable::Bool = false,
                           buffered::Bool = false) where {Nd, U}
-        FourierPhase(u, u.ds, f; trainable, buffered)
+        FourierPhase(u, Tuple(u.ds), f; trainable, buffered)
     end
 end
 
