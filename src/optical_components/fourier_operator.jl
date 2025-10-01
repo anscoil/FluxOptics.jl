@@ -26,8 +26,16 @@ end
 
 get_data(p::FourierOperator) = ()
 
-function propagate!(u::ScalarField, p::FourierOperator, ::Type{<:Direction})
+function propagate!(u::ScalarField, p::FourierOperator, ::Type{Forward})
     if p.direct
+        compute_ft!(p.p_f, u)
+    else
+        compute_ift!(p.p_f, u)
+    end
+end
+
+function propagate!(u::ScalarField, p::FourierOperator, ::Type{Backward})
+    if !p.direct
         compute_ft!(p.p_f, u)
     else
         compute_ift!(p.p_f, u)

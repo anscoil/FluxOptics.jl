@@ -69,6 +69,7 @@ export backpropagate!, backpropagate
 export AbstractPipeComponent, AbstractOpticalSource
 export AbstractCustomComponent, AbstractCustomSource
 export AbstractPureComponent, AbstractPureSource
+export pad, crop, PadCropOperator
 export TiltAnchor, ASProp, ASPropZ, ShiftProp
 export RSProp, CollinsProp, FourierLens, ParaxialProp
 export as_rotation!, as_rotation, field_rotation_matrix

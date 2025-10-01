@@ -188,6 +188,30 @@ function ChainRulesCore.rrule(::typeof(compute_ift!), p_f, u)
     return v, pullback
 end
 
+function ChainRulesCore.rrule(::typeof(pad), u::AbstractArray, ns::NTuple{Nd, Integer};
+                              offset, pad_val) where {Nd}
+    v = pad(u, ns; offset, pad_val)
+
+    function pullback(∂v)
+        ∂u = crop(∂v, size(u)[1:Nd]; offset)
+        return (NoTangent(), ∂u, NoTangent())
+    end
+
+    return v, pullback
+end
+
+function ChainRulesCore.rrule(::typeof(crop), v::AbstractArray, ns::NTuple{Nd, Integer};
+                              offset) where {Nd}
+    u = crop(v, ns; offset)
+
+    function pullback(∂u)
+        ∂v = pad(∂u, size(v)[1:Nd]; offset, pad_val = 0)
+        return (NoTangent(), ∂v, NoTangent())
+    end
+
+    return u, pullback
+end
+
 function compute_basis_projection!(proj_coeffs, r_basis, r_data)
     mul!(proj_coeffs, r_basis', r_data)
 end

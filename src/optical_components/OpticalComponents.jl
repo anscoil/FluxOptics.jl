@@ -716,10 +716,6 @@ function backpropagate_with_gradient(∂v, ∂p::NamedTuple,
     error("Not implemented")
 end
 
-Base.conj(::Type{Forward}) = Backward
-
-Base.conj(::Type{Backward}) = Forward
-
 function conj_direction(mask, ::Type{Forward})
     mask
 end
@@ -758,6 +754,9 @@ export FourierOperator
 
 include("fourier_wrapper.jl")
 export FourierWrapper, FourierPhase, FourierMask
+
+include("pad_crop_operators.jl")
+export pad, crop, PadCropOperator
 
 include("tilt_anchor.jl")
 export TiltAnchor

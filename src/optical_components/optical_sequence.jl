@@ -18,9 +18,16 @@ end
 
 trainable(p::AbstractSequence{<:Trainable}) = (; optical_components = get_sequence(p))
 
-function propagate!(u::ScalarField, p::AbstractSequence, direction::Type{<:Direction})
+function propagate!(u::ScalarField, p::AbstractSequence, ::Type{Forward})
     for c in get_sequence(p)
-        u = propagate!(u, c, direction)
+        u = propagate!(u, c, Forward)
+    end
+    u
+end
+
+function propagate!(u::ScalarField, p::AbstractSequence, ::Type{Backward})
+    for c in reverse(get_sequence(p))
+        u = propagate!(u, c, Backward)
     end
     u
 end

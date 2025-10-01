@@ -62,8 +62,8 @@ function propagate!(u::ScalarField,
     set_ds_out!(p, u, direction)
 end
 
-function backpropagate!(u, p::AbstractPropagator, direction::Type{<:Direction})
-    propagate!(u, p, reverse(direction))
+function backpropagate!(∂v, p::AbstractPropagator, direction::Type{<:Direction})
+    propagate!(∂v, p, reverse(direction))
 end
 
 include("fourier_kernel.jl")

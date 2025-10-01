@@ -151,7 +151,7 @@ function apply_collins_first_chirp!(u_tmp, apply_a!, apply_d!, on_axis, ::Type{B
 end
 
 function apply_collins_last_chirp!(u_tmp, apply_a!, apply_d!, on_axis, direction)
-    apply_collins_first_chirp!(u_tmp, apply_a!, apply_d!, on_axis, conj(direction))
+    apply_collins_first_chirp!(u_tmp, apply_a!, apply_d!, on_axis, reverse(direction))
 end
 
 function normalize_collins!(u::AbstractArray, p::CollinsKernelProp, ::Type{Forward})

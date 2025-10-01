@@ -23,7 +23,7 @@ end
 
 function rs_tilted_kernel(x::T, y::T, λ::T, θx::T, θy::T, track_tilts::Bool,
                           z::Tp, nrm_f::Tp, z_pos::Val{false}) where {T <: Real, Tp <: Real}
-    conj(rs_kernel(x, y, λ, θx, θy, track_tilts, -z, nrm_f, Val(true)))
+    conj(rs_tilted_kernel(x, y, λ, θx, θy, track_tilts, -z, nrm_f, Val(true)))
 end
 
 function rs_valid_distance(nx, ny, dx, dy, λ)
@@ -35,19 +35,19 @@ function rs_valid_distance(nx, ny, dx, dy, λ)
     max(zc_x, zc_y)
 end
 
-struct RSProp{M, K, T, Tp} <: AbstractPropagator{M, K, T}
+struct RSKernelProp{M, K, T, Tp} <: AbstractPropagator{M, K, T}
     kernel::K
     track_tilts::Bool
     z::Tp
     nrm_f::Tp
 
-    function RSProp(u::ScalarField{U, Nd},
-                    ds::NTuple{Nd, Real},
-                    z::Real;
-                    use_cache::Bool = true,
-                    track_tilts::Bool = false,
-                    double_precision_kernel::Bool
-                    = use_cache) where {T, U <: AbstractArray{Complex{T}}, Nd}
+    function RSKernelProp(u::ScalarField{U, Nd},
+                          ds::NTuple{Nd, Real},
+                          z::Real;
+                          use_cache::Bool = true,
+                          track_tilts::Bool = false,
+                          double_precision_kernel::Bool
+                          = use_cache) where {T, U <: AbstractArray{Complex{T}}, Nd}
         ns = size(u)[1:Nd]
         zc = rs_valid_distance(ns..., ds..., minimum(u.lambdas.collection))
         if abs(z) < zc
@@ -60,6 +60,64 @@ struct RSProp{M, K, T, Tp} <: AbstractPropagator{M, K, T}
         nrm_f = Tp(prod(ds)/2π)
         new{Static, typeof(kernel), T, Tp}(kernel, track_tilts, Tp(z), nrm_f)
     end
+end
+
+Functors.@functor RSKernelProp ()
+
+get_kernels(p::RSKernelProp) = (p.kernel,)
+
+function build_kernel_key_args(p::RSKernelProp, u::ScalarField)
+    if is_on_axis(u)
+        (select_lambdas(u),)
+    else
+        (select_lambdas(u), select_tilts(u)...)
+    end
+end
+
+function build_kernel_args(p::RSKernelProp, u::ScalarField)
+    if is_on_axis(u)
+        (p.z, p.nrm_f, Val(sign(p.z) > 0))
+    else
+        (p.track_tilts, p.z, p.nrm_f, Val(sign(p.z) > 0))
+    end
+end
+
+function _propagate_core!(apply_kernel_fns::F,
+                          u::ScalarField,
+                          p::RSKernelProp,
+                          ::Type{<:Direction}) where {F}
+    apply_kernel_fn!, = apply_kernel_fns
+    if is_on_axis(u)
+        apply_kernel_fn!(u.electric, rs_kernel)
+    else
+        apply_kernel_fn!(u.electric, rs_tilted_kernel)
+    end
+    u
+end
+
+struct RSProp{M, C} <: AbstractSequence{M}
+    optical_components::C
+
+    function RSProp(optical_components::C) where {C}
+        new{Trainable, C}(optical_components)
+    end
+
+    function RSProp(u::ScalarField{U, Nd},
+                    ds::NTuple{Nd, Real},
+                    z::Real;
+                    use_cache::Bool = true,
+                    track_tilts::Bool = false,
+                    double_precision_kernel::Bool
+                    = use_cache) where {T, U <: AbstractArray{Complex{T}}, Nd}
+        rs = RSKernelProp(u, ds, z; use_cache, track_tilts, double_precision_kernel)
+        wrapper = FourierWrapper(rs.kernel.p_f, rs)
+        pad_op = PadCropOperator(u, rs.kernel.u_plan, true)
+        crop_op = adjoint(pad_op)
+        optical_components = (pad_op, get_sequence(wrapper)..., crop_op)
+        M = get_trainability(wrapper)
+        C = typeof(optical_components)
+        new{M, C}(optical_components)
+    end
 
     function RSProp(u::ScalarField,
                     z::Real;
@@ -70,43 +128,6 @@ struct RSProp{M, K, T, Tp} <: AbstractPropagator{M, K, T}
     end
 end
 
-Functors.@functor RSProp ()
+Functors.@functor RSProp (optical_components,)
 
-get_kernels(p::RSProp) = (p.kernel,)
-
-function build_kernel_key_args(p::RSProp, u::ScalarField)
-    if is_on_axis(u)
-        (select_lambdas(u),)
-    else
-        (select_lambdas(u), select_tilts(u)...)
-    end
-end
-
-function build_kernel_args(p::RSProp, u::ScalarField)
-    if is_on_axis(u)
-        (p.z, p.nrm_f, Val(sign(p.z) > 0))
-    else
-        (p.track_tilts, p.z, p.nrm_f, Val(sign(p.z) > 0))
-    end
-end
-
-function _propagate_core!(apply_kernel_fns::F,
-                          u::ScalarField,
-                          p::RSProp,
-                          ::Type{<:Direction}) where {F}
-    apply_kernel_fn!, = apply_kernel_fns
-    p_f = p.kernel.p_f
-    u_tmp = p.kernel.u_plan
-    u_tmp .= 0
-    u_view = view(u_tmp, axes(u.electric)...)
-    copyto!(u_view, u.electric)
-    p_f.ft * u_tmp
-    if is_on_axis(u)
-        apply_kernel_fn!(u_tmp, rs_kernel)
-    else
-        apply_kernel_fn!(u_tmp, rs_tilted_kernel)
-    end
-    p_f.ift * u_tmp
-    copyto!(u.electric, u_view)
-    u
-end
+get_sequence(p::RSProp) = p.optical_components
