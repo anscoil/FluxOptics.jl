@@ -63,9 +63,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
       - name: Run doctests
-        shell: julia --project=docs --color=yes {0}
-        run: |
-          using Documenter: DocMeta, doctest
-          using FluxOptics
-          DocMeta.setdocmeta!(FluxOptics, :DocTestSetup, :(using FluxOptics); recursive=true)
-          doctest(FluxOptics)
+        run: julia --project=. --color=yes docs/jldoctest.jl

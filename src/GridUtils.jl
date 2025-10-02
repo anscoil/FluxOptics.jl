@@ -41,8 +41,7 @@ julia> collect(x)
   0.5
   1.5
 
-# 2D case with offset
-julia> x, y = spatial_vectors(4, 4, 1.0, 1.0; xc=2.0);
+julia> x, y = spatial_vectors(4, 4, 1.0, 1.0; xc=2.0); # 2D case with offset
 
 julia> collect(x)
 4-element Vector{Float64}:
@@ -87,15 +86,14 @@ with other transformations using the ∘ operator.
 julia> t = Shift2D(2.0, 3.0);
 
 julia> t([1.0, 1.0])  # Apply transformation
-2-element StaticArrays.SVector{2, Float64}:
+2-element StaticArraysCore.SVector{2, Float64} with indices SOneTo(2):
  3.0
  4.0
 
-# Composition with rotation
-julia> combined = Shift2D(1.0, 0.0) ∘ Rot2D(π/4);
+julia> combined = Shift2D(1.0, 0.0) ∘ Rot2D(π/4); # Composition with rotation
 
 julia> combined([1.0, 0.0])  # Rotate then translate
-2-element StaticArrays.SVector{2, Float64}:
+2-element StaticArraysCore.SVector{2, Float64} with indices SOneTo(2):
  1.7071067811865475
  0.7071067811865475
 ```
@@ -124,15 +122,14 @@ Can be composed with other transformations using the ∘ operator.
 julia> r = Rot2D(π/2);  # 90° rotation
 
 julia> r([1.0, 0.0])  # Rotate point
-2-element StaticArrays.SVector{2, Float64}:
-  6.123233995736766e-17
-  1.0
+2-element StaticArraysCore.SVector{2, Float64} with indices SOneTo(2):
+ 6.123233995736766e-17
+ 1.0
 
-# Composition: translate then rotate
-julia> transform = Rot2D(π/4) ∘ Shift2D(2.0, 0.0);
+julia> transform = Rot2D(π/4) ∘ Shift2D(2.0, 0.0); # Composition: translate then rotate
 
 julia> transform([0.0, 0.0])
-2-element StaticArrays.SVector{2, Float64}:
+2-element StaticArraysCore.SVector{2, Float64} with indices SOneTo(2):
  1.4142135623730951
  1.414213562373095
 ```

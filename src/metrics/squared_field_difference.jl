@@ -26,7 +26,7 @@ julia> current = ScalarField(data2, (1.0, 1.0), 1.064);
 julia> metric = SquaredFieldDifference(target);
 
 julia> metric(current)
-1×1 Array{Float64, 2}:
+1×1 Matrix{Float64}:
  16.0
 ```
 

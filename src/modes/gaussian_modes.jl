@@ -66,15 +66,15 @@ julia> x, = spatial_vectors(40, dx);
 
 julia> amplitudes = g(x);
 
-julia> sum(abs2, amplitudes) * dx  # Normalization to 1 by default
-0.9999999999999194
+julia> isapprox(sum(abs2, amplitudes) * dx, 1)  # Normalization to 1 by default
+true
 
 julia> g_prop = Gaussian1D(10.0, 1.064, 1000.0);  # Propagated 1 mm
 
 julia> amplitudes_prop = g_prop(x);
 
-julia> sum(abs2, amplitudes_prop) * dx
-0.9999943872148783
+julia> isapprox(sum(abs2, amplitudes_prop) * dx, 1; atol=1e-5)
+true
 ```
 
 See also: [`HermiteGaussian1D`](@ref), [`Gaussian`](@ref), [`HermiteGaussian`](@ref), [`LaguerreGaussian`](@ref)
@@ -164,15 +164,15 @@ julia> field = zeros(ComplexF64, nx, ny);
 
 julia> g(field, xv, yv);  # Evaluate on grid (in-place)
 
-julia> sum(abs2, field) * dx * dy  # Check normalization
-0.9999999999998386
+julia> isapprox(sum(abs2, field) * dx * dy, 1)  # Check normalization
+true
 
 julia> g_ellip = Gaussian(10.0, 20.0, 1.064, 1000.0);  # Elliptical beam, wavelength 1.064 µm, propagated 1 mm
 
 julia> field_ellip = g_ellip(xv, yv);  # Direct evaluation (out-of-place)
 
-julia> sum(abs2, field_ellip) * dx * dy
-0.9999999999996259
+julia> isapprox(sum(abs2, field_ellip) * dx * dy, 1)
+true
 ```
 
 See also: [`HermiteGaussian`](@ref), [`LaguerreGaussian`](@ref)
@@ -276,11 +276,11 @@ julia> field0 = hg0(x);
 
 julia> field1 = hg1(x);
 
-julia> sum(abs2, field0) * dx  # Check normalization
-0.9999999998550136
+julia> isapprox(sum(abs2, field0) * dx, 1)  # Check normalization
+true
 
-julia> sum(field0 .* conj.(field1)) * dx  # Orthogonality check
--5.9951169107384464e-18 + 0.0im
+julia> isapprox(sum(field0 .* conj.(field1)) * dx, 0; atol = 1e-15)  # Orthogonality check
+true
 ```
 
 See also: [`Gaussian1D`](@ref), [`Gaussian`](@ref), [`HermiteGaussian`](@ref), [`LaguerreGaussian`](@ref)
@@ -363,11 +363,11 @@ julia> field00 = hg00(xv, yv);
 
 julia> field10 = hg10(xv, yv);
 
-julia> sum(abs2, field00) * dx * dy  # Check normalization
-0.9999999999999993
+julia> isapprox(sum(abs2, field00) * dx * dy, 1)  # Check normalization
+true
 
-julia> sum(field00 .* conj.(field10)) * dx * dy  # Orthogonality
-4.851917976626765e-18 + 0.0im
+julia> isapprox(sum(field00 .* conj.(field10)) * dx * dy, 0; atol = 1e-15)  # Orthogonality
+true
 ```
 
 See also: [`Gaussian`](@ref), [`LaguerreGaussian`](@ref)
@@ -527,8 +527,8 @@ julia> field00 = lg00(xv, yv);
 
 julia> field01 = lg01(xv, yv);
 
-julia> sum(abs2, field00) * dx * dy  # Check normalization
-0.9999999999999998
+julia> isapprox(sum(abs2, field00) * dx * dy, 1)  # Check normalization
+true
 
 julia> abs(field01[nx÷2+1, ny÷2+1]) < 1e-10  # LG_01 has zero at center (vortex)
 true

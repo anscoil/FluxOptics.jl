@@ -175,6 +175,8 @@ The modified input array (for chaining).
 
 # Examples
 ```jldoctest
+julia> using Statistics
+
 julia> noisy = randn(64, 64) + 5 * sin.(0.1 * (1:64)) * sin.(0.1 * (1:64)');
 
 julia> original_var = var(noisy);
@@ -187,6 +189,7 @@ julia> denoised_var < original_var  # Reduced variation
 true
 
 julia> # Can chain operations:
+
 julia> result = TV_denoise!(copy(noisy), 0.05) |> x -> clamp.(x, 0, 1);
 ```
 

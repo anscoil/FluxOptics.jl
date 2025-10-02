@@ -121,7 +121,7 @@ julia> u = ScalarField(zeros(ComplexF64, 32, 32), (2.0, 2.0), 1.064);
 
 julia> source = ScalarSource(u; trainable=true);
 
-julia> opt_state = setup(rules, NoDescent(), model);
+julia> opt_state = setup(rules, NoDescent(), source |> phase_mask |> mask);
 ```
 
 See also: [`make_rules`](@ref), [`update!`](@ref), [`ProxRule`](@ref), [`NoDescent`](@ref)
@@ -182,7 +182,7 @@ julia> phase_mask = Phase(u, (x, y) -> 0.1*(x^2 + y^2); trainable=true);
 julia> source = ScalarSource(u; trainable=true);
 
 julia> rules = make_rules(
-           phase => Descent(0.01),    # Slow learning for phase
+           phase_mask => Descent(0.01),    # Slow learning for phase
            source => Descent(0.1)     # Fast learning for source
        );
 

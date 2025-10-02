@@ -268,7 +268,8 @@ julia> prop_z_custom = ASPropZ(u, (1.5, 1.5), 500.0; trainable=true);
 
 julia> u_prop = propagate(u, prop_z, Forward);
 
-# Distance can be optimized via gradients
+julia> # Distance can be optimized via gradients
+
 julia> OpticalComponents.trainable(prop_z).z isa AbstractArray
 true
 ```

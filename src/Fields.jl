@@ -69,7 +69,8 @@ different spatial modes. Each mode can hold independent wavelength and tilt info
 
 **Creating from existing data:**
 ```jldoctest
-# Small example for documentation - use larger arrays in practice
+julia> # Small example for documentation - use larger arrays in practice
+
 julia> data = rand(ComplexF64, 4, 4);
 
 julia> u = ScalarField(data, (1.0, 1.0), 1.064);
@@ -80,7 +81,8 @@ julia> size(u)
 
 **Creating zero-initialized field:**
 ```jldoctest
-# Small example for documentation - use larger arrays in practice
+julia> # Small example for documentation - use larger arrays in practice
+
 julia> u = ScalarField((4, 4), (1.0, 1.0), 1.064);
 
 julia> size(u)
@@ -91,7 +93,8 @@ julia> size(u)
 ```jldoctest
 julia> wavelengths = [0.8, 1.064, 1.550];
 
-# Small example for documentation - use larger arrays in practice
+julia> # Small example for documentation - use larger arrays in practice
+
 julia> data = zeros(ComplexF64, 4, 4, 3);
 
 julia> u = ScalarField(data, (1.0, 1.0), wavelengths);
@@ -101,7 +104,8 @@ julia> u = ScalarField(data, (1.0, 1.0), wavelengths);
 ```jldoctest
 julia> wavelengths = [0.8, 1.064, 1.55];
 
-# Small example for documentation - use larger arrays in practice
+julia> # Small example for documentation - use larger arrays in practice
+
 julia> data = zeros(ComplexF64, 4, 4, 3);
 
 julia> u = ScalarField(data, (1.0, 1.0), 1.064; tilts=(0.01, 0.005));
@@ -197,7 +201,8 @@ New `ScalarField` with updated data.
 
 # Examples
 ```jldoctest
-# Small example for documentation - use larger arrays in practice
+julia> # Small example for documentation - use larger arrays in practice
+
 julia> u = ScalarField(zeros(ComplexF64, 4, 4), (1.0, 1.0), 1.064);
 
 julia> new_data = rand(ComplexF64, 4, 4);
@@ -300,12 +305,15 @@ Creates a copy of the field data, while sharing the internal representation of o
 
 # Examples
 ```jldoctest
-# Small example for documentation - use larger arrays in practice
+julia> # Small example for documentation - use larger arrays in practice
+
 julia> u = ScalarField(zeros(ComplexF64, 4, 4), (1.0, 1.0), 1.064);
 
 julia> u_copy = copy(u);
-# Modifying u_copy.electric will not affect u, but the internal arrays representing 
-# the wavelengths or tilts must never be modified.
+
+julia> # Modifying u_copy.electric will not affect u, but the internal arrays representing
+
+julia> # the wavelengths or tilts must never be modified.
 ```
 
 See also: [`similar`](@ref)
@@ -329,7 +337,8 @@ structures as an existing field.
 
 # Examples
 ```jldoctest
-# Small example for documentation - use larger arrays in practice
+julia> # Small example for documentation - use larger arrays in practice
+
 julia> u = ScalarField(zeros(ComplexF64, 4, 4), (1.0, 1.0), 1.064);
 
 julia> u_tmp = similar(u);  # Same grid/wavelengths/tilts, but data is uninitialized
@@ -367,7 +376,8 @@ a single slice along non-spatial dimensions. Useful for iteration and visualizat
 
 **AbstractArray case:**
 ```jldoctest
-# Small example for documentation - use larger arrays in practice
+julia> # Small example for documentation - use larger arrays in practice
+
 julia> data = ones(4, 4, 3);  # 2 spatial dims + 1 extra
 
 julia> slices = vec(data, 2);  # Split after 2 spatial dimensions
@@ -383,7 +393,8 @@ julia> size(slices[1])
 ```jldoctest
 julia> wavelengths = [0.8, 1.064, 1.550];
 
-# Small example for documentation - use larger arrays in practice
+julia> # Small example for documentation - use larger arrays in practice
+
 julia> data = zeros(ComplexF64, 4, 4, 3);
 
 julia> u = ScalarField(data, (1.0, 1.0), wavelengths);
@@ -437,7 +448,8 @@ I[i,j] = Σₖ |u[i,j,k]|² where k runs over all extra dimensions
 
 **AbstractArray case:**
 ```jldoctest
-# Small example for documentation - use larger arrays in practice
+julia> # Small example for documentation - use larger arrays in practice
+
 julia> data = ones(ComplexF64, 4, 4, 3);  # 2 spatial + 1 extra dim
 
 julia> I = intensity(data, 2);  # Sum over 3rd dimension
@@ -451,7 +463,8 @@ julia> I[1,1]
 
 **ScalarField case:**
 ```jldoctest
-# Small example for documentation - use larger arrays in practice
+julia> # Small example for documentation - use larger arrays in practice
+
 julia> data = ones(ComplexF64, 4, 4, 3);  # 3 modes
 
 julia> u = ScalarField(data, (1.0, 1.0), 1.064);
@@ -512,15 +525,16 @@ julia> phase(data)
 
 **ScalarField case:**
 ```jldoctest
-# Small example for documentation - use larger arrays in practice
+julia> # Small example for documentation - use larger arrays in practice
+
 julia> data = [1.0+0.0im 0.0+1.0im; -1.0+0.0im 0.0-1.0im];
 
 julia> u = ScalarField(data, (1.0, 1.0), 1.064);
 
 julia> phase(u)
 2×2 Matrix{Float64}:
- 0.0        1.5708
- 3.14159   -1.5708
+ 0.0       1.5708
+ 3.14159  -1.5708
 ```
 
 See also: [`intensity`](@ref), [`angle`](@ref)
@@ -558,7 +572,8 @@ representing the fraction of power that would be transferred from field u to fie
 
 **Array case:**
 ```jldoctest
-# Small example for documentation - use larger arrays in practice
+julia> # Small example for documentation - use larger arrays in practice
+
 julia> u = ones(ComplexF64, 4, 4);
 
 julia> v = ones(ComplexF64, 4, 4);
@@ -569,7 +584,8 @@ julia> coupling_efficiency(u, v)
 
 **ScalarField single-mode case:**
 ```jldoctest
-# Small example for documentation - use larger arrays in practice  
+julia> # Small example for documentation - use larger arrays in practice
+
 julia> field1_data = ones(ComplexF64, 4, 4);
 
 julia> field2_data = ones(ComplexF64, 4, 4);
@@ -579,13 +595,14 @@ julia> u = ScalarField(field1_data, (1.0, 1.0), 1.064);
 julia> v = ScalarField(field2_data, (1.0, 1.0), 1.064);
 
 julia> coupling_efficiency(u, v)
-0-dimensional Array{Float64, 0}:
-1.0
+1-element Vector{Float64}:
+ 1.0
 ```
 
 **ScalarField multi-mode case:**
 ```jldoctest
-# Small example for documentation - use larger arrays in practice
+julia> # Small example for documentation - use larger arrays in practice
+
 julia> field1_data = ones(ComplexF64, 4, 4, 3);
 
 julia> field2_data = ones(ComplexF64, 4, 4, 3);
@@ -635,7 +652,8 @@ Vector of complex inner products, one for each field distribution.
 
 **Single-mode case:**
 ```jldoctest
-# Small example for documentation - use larger arrays in practice
+julia> # Small example for documentation - use larger arrays in practice
+
 julia> field1_data = rand(ComplexF64, 4, 4);
 
 julia> field2_data = rand(ComplexF64, 4, 4);
@@ -649,7 +667,8 @@ julia> overlap = dot(u, v);  # 0-dimensional Array storing the complex overlap i
 
 **Multi-mode case:**
 ```jldoctest
-# Small example for documentation - use larger arrays in practice
+julia> # Small example for documentation - use larger arrays in practice
+
 julia> field1_data = rand(ComplexF64, 4, 4, 3);
 
 julia> field2_data = rand(ComplexF64, 4, 4, 3);
@@ -685,7 +704,8 @@ Array of power value(s) with same dimensions as `u`, spatial dimensions being re
 
 # Examples
 ```jldoctest
-# Small example for documentation - use larger arrays in practice
+julia> # Small example for documentation - use larger arrays in practice
+
 julia> data = rand(ComplexF64, 4, 4, 3);
 
 julia> u = ScalarField(data, (1.0, 1.0), 1.064);
@@ -718,37 +738,25 @@ The modified field `u`
 
 # Examples
 ```jldoctest
-# Small example for documentation - use larger arrays in practice
+julia> # Small example for documentation - use larger arrays in practice
+
 julia> u = ScalarField(rand(ComplexF64, 4, 4, 3), (1.0, 1.0), 1.064);
 
 julia> normalize_power!(u);        # Normalize all fields to 1 W
 
 julia> normalize_power!(u, 1e-3);  # Normalize all fields to 1 mW
 
-julia> power(u)
-1×1×3 Array{Float64, 3}:
-[:, :, 1] =
- 0.001
+julia> all(x -> isapprox(x, 1e-3), power(u))
+true
 
-[:, :, 2] =
- 0.001
+julia> # For multiple fields: normalize each field separately
 
-[:, :, 3] =
- 0.001
+julia> power_values = reshape([1e-3, 2e-3, 3e-3], 1, 1, 3);
 
-# For multiple fields: normalize each field separately
-julia> normalize_power!(u, reshape([1e-3, 1.8e-3, 3e-3], 1, 1, 3));  # Different power per field
+julia> normalize_power!(u, power_values);  # Different power per field
 
-julia> power(u)
-1×1×3 Array{Float64, 3}:
-[:, :, 1] =
- 0.001
-
-[:, :, 2] =
- 0.0018
-
-[:, :, 3] =
- 0.003
+julia> isapprox(power(u), power_values)
+true
 ```
 
 See also: [`power`](@ref)

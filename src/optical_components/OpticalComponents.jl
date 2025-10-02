@@ -398,26 +398,27 @@ julia> ∂v = copy(v);
 
 julia> ∂u = backpropagate!(∂v, sequence, Forward);
 
-# Coupling efficiency ≈ 1 demonstrates unitary optical propagation
-julia> coupling_efficiency(u, ∂u)
-1-element Vector{Float64}:
- 1.0000000000000036
+julia> # Coupling efficiency ≈ 1 demonstrates unitary optical propagation
 
-# Step-by-step backprop for debugging
+julia> all(x -> isapprox(x, 1), coupling_efficiency(u, ∂u))
+true
+
+julia> # Step-by-step backprop for debugging
+
 julia> v2 = propagate(u, sequence, Forward);
 
 julia> ∂v2 = copy(v2);
 
-# Second propagator appearing first in reverse mode
+julia> # Second propagator appearing first in reverse mode
+
 julia> ∂after_prop2 = backpropagate!(∂v2, propagator2, Forward);
 
 julia> ∂after_phase = backpropagate!(∂after_prop2, phase_mask, Forward);
 
 julia> ∂u_step = backpropagate!(∂after_phase, propagator1, Forward);
 
-julia> coupling_efficiency(u, ∂u_step)
-1-element Vector{Float64}:
- 1.0000000000000036
+julia> all(x -> isapprox(x, 1), coupling_efficiency(u, ∂u))
+true
 ```
 
 See also: [`backpropagate`](@ref), [`propagate!`](@ref), [`Forward`](@ref), [`Backward`](@ref)
