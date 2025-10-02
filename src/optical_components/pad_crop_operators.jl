@@ -142,50 +142,56 @@ function (p::CropOperator{U, Nd})(u::ScalarField{U, Nd}) where {U, Nd}
     set_field_data(u, electric_crop)
 end
 
+function (p::CropOperator{U, Nd})(u::ScalarField{U, Nd}, u_tmp::U) where {U, Nd}
+    crop!(u_tmp, u.electric; offset = p.offset)
+    set_field_data(u, u_tmp)
+end
+
 struct PadCropOperator{M, U, Nd, T, N} <: AbstractCustomComponent{M}
     p_pad::PadOperator{U, Nd, T, N}
     p_crop::CropOperator{U, Nd, N}
+    u_tmp::Ref{U}
     ispad::Bool
 
     function PadCropOperator(p_pad::PadOperator{U, Nd, T, N},
                              p_crop::CropOperator{U, Nd, N},
+                             u_tmp::Ref{U},
                              ispad::Bool) where {U, Nd, T, N}
-        new{Static, U, Nd, T, N}(p_pad, p_crop, ispad)
+        new{Static, U, Nd, T, N}(p_pad, p_crop, u_tmp, ispad)
     end
 
-    function PadCropOperator(u::ScalarField{U, Nd}, u_tmp::U, ispad::Bool;
+    function PadCropOperator(u::ScalarField{U, Nd}, u_tmp::U;
                              offset::NTuple{Nd, Integer} = ntuple(_ -> 0, Nd),
                              pad_val = 0) where {T, N, U <: AbstractArray{T, N}, Nd}
-        if ispad
-            p_pad = PadOperator(u, u_tmp; offset, pad_val)
-            p_crop = CropOperator(u_tmp, u.electric, Nd)
-        else
-            p_crop = CropOperator(u, u_tmp; offset)
-            p_pad = PadOperator(u_tmp, u.electric, Nd; offset, pad_val)
-        end
-        new{Static, U, Nd, T, N}(p_pad, p_crop, ispad)
+        p_pad = PadOperator(u, u_tmp; offset, pad_val)
+        p_crop = CropOperator(u_tmp, size(u)[1:Nd])
+        new{Static, U, Nd, T, N}(p_pad, p_crop, Ref{U}(), true)
     end
 end
 
-Base.adjoint(p::PadCropOperator) = PadCropOperator(p.p_pad, p.p_crop, !p.ispad)
+function Base.adjoint(p::PadCropOperator{M, U}) where {M, U}
+    PadCropOperator(p.p_pad, p.p_crop, p.u_tmp, !p.ispad)
+end
 
 Functors.@functor PadCropOperator ()
 
 function propagate!(u::ScalarField{U, Nd}, p::PadCropOperator{M, U, Nd},
                     ::Type{Forward}) where {M, U, Nd}
     if p.ispad
+        p.u_tmp[] = u.electric
         p.p_pad(u)
     else
-        p.p_crop(u)
+        p.p_crop(u, p.u_tmp[])
     end
 end
 
 function propagate!(u::ScalarField{U, Nd}, p::PadCropOperator{M, U, Nd},
                     ::Type{Backward}) where {M, U, Nd}
     if !p.ispad
+        p.u_tmp[] = u.electric
         p.p_pad(u)
     else
-        p.p_crop(u)
+        p.p_crop(u, p.u_tmp[])
     end
 end
 

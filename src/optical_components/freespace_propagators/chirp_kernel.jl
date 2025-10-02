@@ -11,7 +11,7 @@ struct ChirpKernel{K, V} <: AbstractKernel{K, V}
         @assert N >= Nd
         @assert cache_size >= 0
         F = similar(U, real, 1)
-        s = [((0:(2 * (nx - 1))) .- (nx-1)/2) .* dx |> F for (nx, dx) in zip(ns, ds)]
+        s = F.(spatial_vectors(ns, ds))
         s_vec = Nd == 2 ? s_vec = (; x = s[1], y = s[2]') : (; x = s[1])
         V = typeof(s_vec)
         if iszero(cache_size)

@@ -49,11 +49,6 @@ struct RSKernelProp{M, K, T, Tp} <: AbstractPropagator{M, K, T}
                           double_precision_kernel::Bool
                           = use_cache) where {T, U <: AbstractArray{Complex{T}}, Nd}
         ns = size(u)[1:Nd]
-        zc = rs_valid_distance(ns..., ds..., minimum(u.lambdas.collection))
-        if abs(z) < zc
-            @warn """RSProp: propagation distance z=$z is below critical distance zc=$zc.
-             Numerical artifacts expected. Consider using ASProp or finer sampling (dx < λ/2)."""
-        end
         cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
         kernel = ConvolutionKernel(u.electric, ns, ds, cache_size)
         Tp = double_precision_kernel ? Float64 : T
@@ -109,9 +104,15 @@ struct RSProp{M, C} <: AbstractSequence{M}
                     track_tilts::Bool = false,
                     double_precision_kernel::Bool
                     = use_cache) where {T, U <: AbstractArray{Complex{T}}, Nd}
+        ns = size(u)[1:Nd]
+        zc = rs_valid_distance(ns..., ds..., minimum(u.lambdas.collection))
+        if abs(z) < zc
+            @warn """RSProp: propagation distance z=$z is below critical distance zc=$zc.
+             Numerical artifacts expected. Consider using ASProp or finer sampling (dx < λ/2)."""
+        end
         rs = RSKernelProp(u, ds, z; use_cache, track_tilts, double_precision_kernel)
         wrapper = FourierWrapper(rs.kernel.p_f, rs)
-        pad_op = PadCropOperator(u, rs.kernel.u_plan, true)
+        pad_op = PadCropOperator(u, rs.kernel.u_plan)
         crop_op = adjoint(pad_op)
         optical_components = (pad_op, get_sequence(wrapper)..., crop_op)
         M = get_trainability(wrapper)
