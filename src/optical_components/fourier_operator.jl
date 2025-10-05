@@ -42,6 +42,6 @@ function propagate!(u::ScalarField, p::FourierOperator, ::Type{Backward})
     end
 end
 
-function propagate(u::ScalarField, p::FourierOperator, ::Type{<:Direction})
+function propagate(u::ScalarField, p::FourierOperator, direction::Type{<:Direction})
     propagate!(copy(u), p, direction)
 end

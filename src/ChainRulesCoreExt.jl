@@ -6,6 +6,7 @@ using ..Fields
 using ..OpticalComponents
 using ..OpticalComponents: get_preallocated_gradient, get_saved_buffer
 using ..OpticalComponents: alloc_gradient, alloc_saved_buffer
+using ..OpticalComponents: propagate_and_save, backpropagate_with_gradient
 using ..OpticalComponents: propagate_and_save!, backpropagate_with_gradient!
 
 using ChainRulesCore
@@ -143,11 +144,17 @@ function ChainRulesCore.rrule(::typeof(propagate), p::P) where {P <: ASTU}
     return v, pullback
 end
 
-function ChainRulesCore.rrule(::Type{<:ScalarField},
-                              data,
-                              ds,
-                              lambdas::NamedTuple,
-                              tilts::NamedTuple)
+function ChainRulesCore.rrule(::Type{<:ScalarField}, data::AbstractArray, ds, lambdas;
+                              tilts)
+    y = ScalarField(data, ds, lambdas; tilts)
+    function pullback(∂y)
+        (NoTangent(), ∂y.electric, NoTangent(), NoTangent())
+    end
+    return y, pullback
+end
+
+function ChainRulesCore.rrule(::Type{<:ScalarField}, data::AbstractArray, ds,
+                              lambdas::NamedTuple, tilts::NamedTuple)
     y = ScalarField(data, ds, lambdas, tilts)
     function pullback(∂y)
         (NoTangent(), ∂y.electric, NoTangent(), NoTangent(), NoTangent())

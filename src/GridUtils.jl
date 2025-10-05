@@ -98,7 +98,7 @@ julia> combined([1.0, 0.0])  # Rotate then translate
  0.7071067811865475
 ```
 
-See also: [`Rot2D`](@ref), [`Id2D`](@ref), [`∘`](@ref)
+See also: [`Rot2D`](@ref), [`Id2D`](@ref)
 """
 function Shift2D(x::T1, y::T2) where {T1 <: Real, T2 <: Real}
     Translation{SVector{2, promote_type(T1, T2)}}(@SVector [x, y])
@@ -134,12 +134,42 @@ julia> transform([0.0, 0.0])
  1.414213562373095
 ```
 
-See also: [`Shift2D`](@ref), [`Id2D`](@ref), [`∘`](@ref)
+See also: [`Shift2D`](@ref), [`Id2D`](@ref)
 """
 function Rot2D(θ::T) where {T <: Real}
     LinearMap(RotMatrix2{T}(θ))
 end
 
+"""
+    Id2D()
+
+Create a 2D identity transformation.
+
+Represents the identity transformation that leaves coordinates unchanged.
+Useful as a default value in functions that accept coordinate transformations,
+or for composing transformation chains where no transformation is needed.
+
+# Examples
+```jldoctest
+julia> t = Id2D();
+
+julia> t([1.0, 2.0])  # Apply identity transformation
+2-element StaticArraysCore.SVector{2, Float64} with indices SOneTo(2):
+ 1.0
+ 2.0
+
+julia> # Composition with other transformations
+
+julia> combined = Shift2D(1.0, 0.0) ∘ Id2D();
+
+julia> combined([0.0, 0.0])  # Behaves like Shift2D(1.0, 0.0)
+2-element StaticArraysCore.SVector{2, Float64} with indices SOneTo(2):
+ 1.0
+ 0.0
+```
+
+See also: [`Shift2D`](@ref), [`Rot2D`](@ref)
+"""
 struct Id2D <: AbstractAffineMap end
 
 function CoordinateTransformations.compose(id::Id2D, t::AbstractAffineMap)
@@ -152,6 +182,10 @@ end
 
 function (t::AbstractAffineMap)(x, y)
     t(@SVector [x, y])
+end
+
+function (t::Id2D)(v::AbstractVector{T}) where {T}
+    SVector{2}(v)
 end
 
 function (t::Id2D)(x, y)

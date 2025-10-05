@@ -602,7 +602,7 @@ end
 
 function propagate_and_save(u, p::AbstractCustomComponent{Trainable{Buffered}},
                             direction::Type{<:Direction})
-    propagate_and_save!(copy(u), p, direction; saved_buffer)
+    propagate_and_save!(copy(u), p, direction)
 end
 
 function propagate_and_save(u, u_saved, p::AbstractCustomComponent{Trainable{Unbuffered}},

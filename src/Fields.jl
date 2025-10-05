@@ -214,18 +214,69 @@ function set_field_data(u::ScalarField{U, Nd}, data::V) where {U, V, Nd}
     ScalarField(data, Tuple(u.ds), u.lambdas.collection; tilts = u.tilts.collection)
 end
 
-function set_field_data(u::ScalarField{U, Nd}, data::U) where {U, Nd}
-    ScalarField(data, copy(u.ds), u.lambdas, u.tilts)
-end
+# function set_field_data(u::ScalarField{U, Nd}, data::U) where {U, Nd}
+#     ScalarField(data, copy(u.ds), u.lambdas, u.tilts)
+# end
 
+"""
+    set_field_tilts(u::ScalarField, tilts) -> ScalarField
+
+Create a new ScalarField with updated tilts, preserving all other parameters.
+
+This function creates a copy with new tilt values while keeping the same field data,
+spatial grid, and wavelengths.
+
+# Arguments
+- `u::ScalarField`: Original field.
+- `tilts`: New tilt values as `(θx, θy)` tuple, where each component can be scalar or array.
+
+# Returns
+New `ScalarField` with updated tilts.
+
+# Examples
+```jldoctest
+julia> u = ScalarField(ones(ComplexF64, 4, 4), (1.0, 1.0), 1.064; tilts=(0.01, 0.0));
+
+julia> u_tilted = set_field_tilts(u, (0.02, 0.01));
+```
+"""
 function set_field_tilts(u::ScalarField{U, Nd}, tilts) where {U, Nd}
     ScalarField(u.electric, Tuple(u.ds), u.lambdas.collection; tilts)
 end
 
+"""
+    is_on_axis(u::ScalarField) -> Bool
+
+Check if the field has zero tilts (on-axis propagation).
+
+Returns `true` if all tilt components are zero, `false` otherwise.
+"""
 function is_on_axis(u::ScalarField)
     all(iszero, u.tilts.collection)
 end
 
+"""
+    offset_tilts!(u::ScalarField, tilts)
+
+Add offset to existing tilts and apply corresponding linear phase to the field in-place.
+
+This function modifies both the tilt metadata and the electric field by:
+1. Adding the offset to the stored tilt values
+2. Multiplying the field by `exp(i 2π/λ (Δθx⋅x + Δθy⋅y))` to maintain consistency
+
+This shifts the reference frame without rotating the angular spectrum.
+
+# Arguments
+- `u::ScalarField`: Field to modify.
+- `tilts`: Tilt offsets as `(Δθx, Δθy)` tuple in radians.
+
+# Examples
+```jldoctest
+julia> u = ScalarField(ones(ComplexF64, 4, 4), (1.0, 1.0), 1.064; tilts=(0.01, 0.0));
+
+julia> offset_tilts!(u, (0.005, 0.005));
+```
+"""
 function offset_tilts!(u::ScalarField{U, Nd},
                        tilts::NTuple{Nd, Union{<:Real, <:AbstractArray}}) where {U, Nd}
     if tilts == u.tilts.collection
@@ -245,7 +296,12 @@ end
 #     return Ref(sf)
 # end
 
-function Base.broadcasted(f, u::ScalarField)
+"""
+    broadcasted(f::Function, u::ScalarField) -> ScalarField
+
+Apply function `f` element-wise to the electric field. Returns a new ScalarField with transformed data.
+"""
+function Base.broadcasted(f::Function, u::ScalarField)
     ScalarField(complex(broadcast(f, u.electric)),
                 Tuple(u.ds),
                 u.lambdas.collection;
@@ -276,17 +332,60 @@ function /(u::ScalarField, a::Number)
     set_field_data(u, u.electric ./ a)
 end
 
+"""
+    getindex(u::ScalarField, i...)
+
+Access elements of the electric field. Returns a view into the field data.
+"""
 Base.getindex(u::ScalarField, i...) = view(u.electric, i...)
+
+"""
+    size(u::ScalarField) -> Tuple
+    size(u::ScalarField, k::Integer) -> Int
+
+Return the size of the electric field array.
+"""
 Base.size(u::ScalarField) = size(u.electric)
 Base.size(u::ScalarField, k::Integer) = size(u.electric, k)
 
+"""
+    ndims(u::ScalarField, spatial::Bool=false) -> Int
+
+Return number of dimensions. If `spatial=true`, returns only spatial dimensions (Nd), otherwise returns total dimensions of the electric field array.
+"""
 function Base.ndims(u::ScalarField{U, Nd}, spatial::Bool = false) where {U, Nd}
     spatial ? Nd : ndims(u.electric)
 end
 
+"""
+    eltype(u::ScalarField) -> Type
+
+Return the element type of the electric field.
+"""
 Base.eltype(u::ScalarField) = eltype(u.electric)
 
-function Base.fill!(u::ScalarField, v)
+"""
+    fill!(u::ScalarField, v) -> ScalarField
+
+Fill the electric field with value `v` in-place.
+
+# Arguments
+- `u::ScalarField`: Field to modify.
+- `v`: Fill value, either a scalar (fills entire field) or array (copied into field).
+
+# Returns
+Modified `ScalarField` (same as input).
+
+# Examples
+```jldoctest
+julia> u = ScalarField((4, 4), (1.0, 1.0), 1.064);
+
+julia> fill!(u, 1.0 + 0.0im);  # Fill with constant
+
+julia> fill!(u, rand(ComplexF64, 4, 4));  # Fill with array
+```
+"""
+function Base.fill!(u::ScalarField, v::Number)
     u.electric .= v
     u
 end
@@ -316,12 +415,17 @@ julia> # Modifying u_copy.electric will not affect u, but the internal arrays re
 julia> # the wavelengths or tilts must never be modified.
 ```
 
-See also: [`similar`](@ref)
+See also: [`similar`](@ref similar(::ScalarField))
 """
 function Base.copy(u::ScalarField)
     ScalarField(copy(u.electric), copy(u.ds), deepcopy(u.lambdas), deepcopy(u.tilts))
 end
 
+"""
+    copyto!(u::ScalarField, v::ScalarField) -> ScalarField
+
+Copy data from `v` into `u`. Modifies `u` in-place and returns it.
+"""
 function Base.copyto!(u::ScalarField, v::ScalarField)
     copyto!(u.electric, v.electric)
     u
@@ -344,14 +448,37 @@ julia> u = ScalarField(zeros(ComplexF64, 4, 4), (1.0, 1.0), 1.064);
 julia> u_tmp = similar(u);  # Same grid/wavelengths/tilts, but data is uninitialized
 ```
 
-See also: [`copy`](@ref), [`set_field_data`](@ref)
+See also: [`copy`](@ref copy(::ScalarField)), [`set_field_data`](@ref)
 """
 function Base.similar(u::ScalarField)
     ScalarField(similar(u.electric), copy(u.ds), deepcopy(u.lambdas), deepcopy(u.tilts))
 end
 
+"""
+    collect(u::ScalarField) -> Array
+
+Convert field data to a regular CPU array. Returns an `Array` (not a `ScalarField`).
+
+Useful for converting GPU arrays (e.g., `CuArray`) to CPU for analysis, plotting, or saving.
+
+# Examples
+```jldoctest
+julia> u = ScalarField(ones(ComplexF64, 4, 4), (1.0, 1.0), 1.064);
+
+julia> data = collect(u);  # Returns Array, not ScalarField
+
+julia> typeof(data)
+Matrix{ComplexF64} (alias for Array{Complex{Float64}, 2})
+```
+"""
 function Base.collect(u::ScalarField)
     collect(u.electric)
+end
+
+function Base.vec(u::AbstractArray, nd::Integer)
+    @assert nd in (1, 2)
+    @assert ndims(u) >= nd
+    reshape(eachslice(u; dims = Tuple((nd + 1):ndims(u))), :)
 end
 
 """
@@ -408,14 +535,8 @@ julia> (u_vec[1].lambdas.val, u_vec[2].lambdas.val, u_vec[3].lambdas.val)
 (0.8, 1.064, 1.55)
 ```
 
-See also: [`ScalarField`](@ref), [`eachslice`](@ref)
+See also: [`ScalarField`](@ref)
 """
-function Base.vec(u::AbstractArray, nd::Integer)
-    @assert nd in (1, 2)
-    @assert ndims(u) >= nd
-    reshape(eachslice(u; dims = Tuple((nd + 1):ndims(u))), :)
-end
-
 function Base.vec(u::ScalarField{U, Nd}) where {U, Nd}
     u_slices = eachslice(u.electric; dims = Tuple((Nd + 1):ndims(u)))
     [ScalarField(data, Tuple(u.ds), lambda; tilts)
@@ -478,7 +599,7 @@ julia> I[1,1]
 3.0
 ```
 
-See also: [`power`](@ref), [`phase`](@ref), [`abs2`](@ref)
+See also: [`power`](@ref), [`phase`](@ref)
 """
 function intensity(u::AbstractArray, nd::Integer = 2)
     @assert nd in (1, 2)
@@ -537,7 +658,7 @@ julia> phase(u)
  3.14159  -1.5708
 ```
 
-See also: [`intensity`](@ref), [`angle`](@ref)
+See also: [`intensity`](@ref), [`phase`](@ref)
 """
 function phase(u::AbstractArray)
     angle.(u)
@@ -618,7 +739,7 @@ julia> coupling_efficiency(u, v)
  1.0
 ```
 
-See also: [`dot`](@ref), [`power`](@ref), [`PowerCoupling`](@ref)
+See also: [`power`](@ref)
 """
 function coupling_efficiency(u::AbstractArray, v::AbstractArray)
     abs2(dot(u, v)/(norm(u)*norm(v)))
@@ -680,7 +801,7 @@ julia> v = ScalarField(field2_data, (1.0, 1.0), 1.064);
 julia> overlaps = dot(u, v);  # 3-element Vector of complex overlaps
 ```
 
-See also: [`correlation`](@ref), [`power`](@ref)
+See also: [`coupling_efficiency`](@ref), [`dot`](@ref dot(::ScalarField)), [`power`](@ref)
 """
 function LinearAlgebra.dot(u::ScalarField{U, Nd}, v::ScalarField{V, Nd}) where {U, V, Nd}
     u_vec = vec(u)
@@ -766,6 +887,11 @@ function normalize_power!(u::ScalarField, target_power = 1)
     u
 end
 
+"""
+    conj(u::ScalarField) -> ScalarField
+
+Return complex conjugate of the field. Creates a new field with conjugated electric field values.
+"""
 function Base.conj(u::ScalarField)
     set_field_data(u, conj(u.electric))
 end

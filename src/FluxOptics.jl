@@ -37,11 +37,12 @@ end
 include("Fields.jl")
 using .Fields
 export ScalarField
-export set_field_data, offset_tilts!
+export set_field_data, set_field_tilts, offset_tilts!, is_on_axis
 export dot, power, normalize_power!, coupling_efficiency, intensity, phase
 
 include("metrics/Metrics.jl")
 using .Metrics
+export AbstractMetric
 export DotProduct, PowerCoupling, SquaredFieldDifference, SquaredIntensityDifference
 
 include("GridUtils.jl")
