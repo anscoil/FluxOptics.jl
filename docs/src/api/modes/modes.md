@@ -84,10 +84,10 @@ lg_odd = LaguerreGaussian(20.0, 0, 2; kind=:odd)
 ### Layout Types
 
 ```@docs
-PointLayout
-GridLayout
-TriangleLayout
-CustomLayout
+Modes.PointLayout
+Modes.GridLayout
+Modes.TriangleLayout
+Modes.CustomLayout
 ```
 
 ### Mode Stack Generation
@@ -101,14 +101,14 @@ generate_mode_stack
 ```julia
 # Replicate same mode at each position
 gaussian = Gaussian(10.0)
-layout = GridLayout(2, 3, 80.0, 80.0)
+layout = Modes.GridLayout(2, 3, 80.0, 80.0)
 modes = generate_mode_stack(layout, 256, 256, 1.0, 1.0, gaussian)
 # Returns 256×256×6 array
 
 # Different mode at each position
 hg_modes = [HermiteGaussian(12.0, m, n) 
             for m in 0:2 for n in 0:2]
-layout = GridLayout(3, 3, 60.0, 60.0)
+layout = Modes.GridLayout(3, 3, 60.0, 60.0)
 modes = generate_mode_stack(layout, 128, 128, 1.5, 1.5, hg_modes)
 # Returns 128×128×9 array
 
@@ -119,7 +119,7 @@ modes = generate_mode_stack(128, 128, 2.0, 2.0, lg_modes)
 
 # With coordinate transformations
 transform = Shift2D(20.0, -10.0) ∘ Rot2D(π/4)
-layout_transformed = GridLayout(3, 3, 50.0, 50.0, transform)
+layout_transformed = Modes.GridLayout(3, 3, 50.0, 50.0, transform)
 ```
 
 ## Speckle Generation

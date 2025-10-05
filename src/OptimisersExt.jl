@@ -6,7 +6,7 @@ using Optimisers: mapvalue, _trainable, isnumeric, subtract!, Leaf
 using Functors
 
 export make_rules, setup, update!
-export ProxRule, Descent, Momentum, Nesterov, Fista, NoDescent
+export Descent, Momentum, Nesterov, Fista, NoDescent
 export ProximalOperators
 
 """
@@ -69,18 +69,13 @@ rules = make_rules(
        );
 ```
 
-See also: [`make_rules`](@ref), [`setup`](@ref), [`ProxRule`](@ref)
+See also: [`make_rules`](@ref), [`setup`](@ref Optimisers.setup(::IdDict)), [`ProxRule`](@ref)
 """
 struct NoDescent <: AbstractRule end
 
 Optimisers.init(o::NoDescent, x) = ()
 
 Optimisers.apply!(o::NoDescent, _, x, dx) = ((), 0)
-
-include("proximal_operators/ProximalOperators.jl")
-using .ProximalOperators
-export PointwiseProx, IstaProx, ClampProx, PositiveProx, TVProx
-export TV_denoise!
 
 Optimisers.trainable(p::OpticalSystem) = (; source = p.source, components = p.components)
 
@@ -124,8 +119,12 @@ julia> source = ScalarSource(u; trainable=true);
 julia> opt_state = setup(rules, NoDescent(), source |> phase_mask |> mask);
 ```
 
-See also: [`make_rules`](@ref), [`update!`](@ref), [`ProxRule`](@ref), [`NoDescent`](@ref)
+See also: [`make_rules`](@ref), `Optimisers.update!`, [`ProxRule`](@ref), [`NoDescent`](@ref)
 """
+function Optimisers.setup(rules::IdDict{K, <:AbstractRule}, model) where {K}
+    Optimisers.setup(rules, NoDescent(), model)
+end
+
 function Optimisers.setup(rules::IdDict{K, <:AbstractRule},
                           default_rule::AbstractRule,
                           model) where {K}
@@ -133,10 +132,6 @@ function Optimisers.setup(rules::IdDict{K, <:AbstractRule},
     tree = Optimisers._setup(rules, default_rule, model; cache)
     isempty(cache) && @warn "setup found no trainable parameters in this model"
     tree
-end
-
-function Optimisers.setup(rules::IdDict{K, <:AbstractRule}, model) where {K}
-    Optimisers.setup(rules, NoDescent(), model)
 end
 
 function Optimisers._setup(rules, default_rule, x; cache)
@@ -195,7 +190,7 @@ julia> length(rules)
 julia> opt_state = setup(rules, source |> phase_mask);
 ```
 
-See also: [`setup`](@ref), [`ProxRule`](@ref), [`Phase`](@ref), [`ScalarSource`](@ref)
+See also: [`setup`](@ref Optimisers.setup(::IdDict)), [`ProxRule`](@ref), [`Phase`](@ref), [`ScalarSource`](@ref)
 """
 function make_rules(pairs::Pair{<:K, <:AbstractRule}...) where {K <: Union{AbstractArray,
                                                                       AbstractOpticalComponent}}
@@ -218,37 +213,11 @@ function make_rules(pairs::Pair{<:K, <:AbstractRule}...) where {K <: Union{Abstr
     IdDict{AbstractArray, AbstractRule}(new_pairs)
 end
 
-"""
-    ProxRule(rule::AbstractRule, prox::AbstractProximalOperator)
-
-Combine an optimization rule with a proximal operator.
-
-This creates a composite optimization rule that first applies the standard optimization
-step, then applies a proximal operator for regularization or constraints. This is
-useful for constrained optimization in inverse optics design.
-
-# Arguments
-- `rule`: Base optimization rule (e.g., `Descent`, `Momentum`)
-- `prox`: Proximal operator to apply after the optimization step
-
-# Returns
-`ProxRule` that applies both the optimizer and proximal operator.
-
-# Examples
-```jldoctest
-julia> prox_descent = ProxRule(Descent(0.01), PositiveProx());  # Positive constraint
-
-julia> tv_regularized = ProxRule(Momentum(0.1, 0.9), TVProx(0.001));  # TV regularization
-
-julia> clamped = ProxRule(Descent(0.05), ClampProx(0.0, 1.0));  # Clamp to [0,1]
-```
-
-See also: [`IstaProx`](@ref), [`TVProx`](@ref), [`ClampProx`](@ref), [`Fista`](@ref)
-"""
-struct ProxRule{R <: AbstractRule, F <: AbstractProximalOperator} <: AbstractRule
-    rule::R
-    prox::F
-end
+include("proximal_operators/ProximalOperators.jl")
+using .ProximalOperators
+export AbstractProximalOperator, ProxRule
+export PointwiseProx, IstaProx, ClampProx, PositiveProx, TVProx
+export TV_denoise!
 
 function Optimisers.init(o::ProxRule, x::AbstractArray)
     Optimisers.init(o.rule, x), ProximalOperators.init(o.prox, x)

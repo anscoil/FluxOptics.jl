@@ -74,6 +74,80 @@ end
 Plottable = Union{ScalarField, AbstractOpticalComponent,
                   AbstractArray{T, 2} where {T <: Number}}
 
+"""
+    visualize(u, fs; colormap=:viridis, height=200, show_colorbars=false)
+    visualize(u_vec, fs; colormap=:viridis, height=200, show_colorbars=false)
+
+Display optical fields or components with specified visualization functions.
+
+Creates a static heatmap figure showing one or more fields with one or more
+visualization functions (intensity, phase, etc.). All views are displayed
+simultaneously in a grid layout. Works with CairoMakie or GLMakie.
+
+# Arguments
+- `u`: Single plottable object (ScalarField, AbstractOpticalComponent, or 2D array)
+- `u_vec`: Vector or tuple of plottable objects (displayed as rows)
+- `fs`: Visualization function or tuple of functions (displayed as columns)
+- `colormap`: Colormap name(s) - single symbol or tuple matching `fs`
+- `height`: Height in pixels per heatmap (default: 200)
+- `show_colorbars`: Display colorbars for real-valued plots (default: false)
+
+# Plottable Types
+- `ScalarField`: Optical fields
+- `AbstractOpticalComponent`: Phase masks, DOEs, etc. with 2D data
+- `AbstractArray{<:Number, 2}`: Raw 2D arrays
+
+# Visualization Functions
+Common functions:
+- `intensity`: Total intensity |u|²
+- `phase`: Phase angle in radians
+- `real`, `imag`: Real/imaginary parts
+- `abs`: Magnitude
+- `identity`: Complex field with HSV colormap
+
+# Examples
+
+**Single field, single view:**
+```julia
+u = ScalarField(gaussian_data, (2.0, 2.0), 1.064)
+fig = visualize(u, intensity)
+```
+
+**Multiple representations:**
+```julia
+fig = visualize(u, (intensity, phase, real, imag))
+```
+
+**Multiple fields (comparison):**
+```julia
+fig = visualize([target, optimized], intensity)
+```
+
+**Custom colormaps:**
+```julia
+fig = visualize(u, (intensity, phase); 
+                colormap=(:viridis, :twilight))
+```
+
+**With colorbars:**
+```julia
+fig = visualize(u, intensity; show_colorbars=true, height=300)
+```
+
+**Visualize component:**
+```julia
+phase_mask = Phase(u, (x, y) -> x^2; trainable=true)
+fig = visualize(phase_mask, identity)
+```
+
+# Notes
+- For large field stacks, prefer `visualize_slider` to avoid displaying all at once
+- Complex-valued results automatically use HSV colormap (`:dark` or `:light`)
+- Width computed automatically to maintain aspect ratio
+- Compatible with CairoMakie (static) and GLMakie (interactive)
+
+See also: [`visualize_slider`](@ref), [`intensity`](@ref), [`phase`](@ref)
+"""
 function visualize(u_vec,
                    fs::Union{Function, Tuple};
                    colormap = :viridis,
@@ -138,6 +212,87 @@ function visualize(u::Plottable,
     visualize(((collect(u),),), fs; colormap, height, show_colorbars)
 end
 
+"""
+    visualize_slider(u_vec, fs; colormap=:viridis, height=400)
+
+Display field sequence with interactive slider for navigation.
+
+Creates an interactive figure with a horizontal slider to navigate through a
+sequence of fields. All visualization functions update in real-time when
+moving the slider. **Requires GLMakie** (interactive backend).
+
+This is preferred over `visualize` for large field sequences (propagation steps,
+optimization iterations, etc.) as it avoids displaying all fields simultaneously.
+
+# Arguments
+- `u_vec`: Vector or tuple of plottable objects (sequence to navigate)
+- `fs`: Visualization function or tuple of functions
+- `colormap`: Colormap name(s) - single symbol or tuple matching `fs`
+- `height`: Height in pixels per heatmap (default: 400)
+
+# Requirements
+- **Must use GLMakie** (interactive backend with slider support)
+- CairoMakie and WGLMakie do not support interactive sliders
+
+# Examples
+
+**Propagation sequence:**
+```julia
+using GLMakie
+
+# Create propagation sequence
+distances = range(0, 2000, length=50)
+u0 = ScalarField(gaussian_data, (2.0, 2.0), 1.064)
+sequence = [propagate(u0, ASProp(u0, z), Forward) for z in distances]
+
+# Interactive slider
+fig = visualize_slider(sequence, intensity)
+display(fig)
+```
+
+**Multiple representations:**
+```julia
+fig = visualize_slider(sequence, (intensity, phase))
+```
+
+**Optimization iterations:**
+```julia
+# Save field at each iteration
+history = ScalarField[]
+for iter in 1:100
+    # ... optimization step ...
+    push!(history, copy(system()))
+end
+
+fig = visualize_slider(history, (intensity, phase))
+```
+
+**Custom colormaps:**
+```julia
+fig = visualize_slider(sequence, (intensity, phase);
+                       colormap=(:inferno, :twilight),
+                       height=500)
+```
+
+# Use Cases
+- Propagation through optical system
+- Optimization convergence visualization
+- Wavelength sweeps
+- Parameter scans
+- Time evolution
+
+# Performance
+- Only current frame is rendered (efficient for large sequences)
+- Slider provides smooth navigation
+- Consider downsampling very large fields if interactive response is slow
+
+# Notes
+- Slider range: 1 to length(u_vec)
+- All views update synchronously
+- **GLMakie required** - will error with CairoMakie
+
+See also: [`visualize`](@ref), [`intensity`](@ref), [`phase`](@ref)
+"""
 function visualize_slider(u_vec,
                           fs::Union{Function, Tuple};
                           colormap = :viridis,

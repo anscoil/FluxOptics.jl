@@ -1,5 +1,6 @@
 using FluxOptics
 using Documenter
+using Makie
 
 DocMeta.setdocmeta!(FluxOptics, :DocTestSetup, :(using FluxOptics);
                     recursive = true)
@@ -64,7 +65,12 @@ makedocs(;
                  "Metrics" => [
                      "api/metrics/index.md",
                      "API" => "api/metrics/metrics.md"
+                 ],
+                 "Plotting" => [
+                     "api/plotting/index.md",
+                     "API" => "api/plotting/plotting.md"
                  ]
-             ]])
+             ]
+         ])
 
 deploydocs(; repo = "github.com/anscoil/FluxOptics.jl", devbranch = "main")

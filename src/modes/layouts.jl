@@ -15,7 +15,7 @@ Create a layout of n identical points.
 
 # Examples
 ```jldoctest
-julia> layout = PointLayout(3, (100.0, 50.0));
+julia> layout = Modes.PointLayout(3, (100.0, 50.0));
 
 julia> positions = collect(layout);
 
@@ -63,7 +63,7 @@ Create a regular rectangular grid layout.
 
 # Examples
 ```jldoctest
-julia> layout = GridLayout(2, 3, 100.0, 50.0);
+julia> layout = Modes.GridLayout(2, 3, 100.0, 50.0);
 
 julia> positions = collect(layout);
 
@@ -122,12 +122,12 @@ Create a triangular arrangement of points.
 
 # Examples
 ```jldoctest
-julia> layout = TriangleLayout(3, 100.0, 100.0);
+julia> layout = Modes.TriangleLayout(3, 100.0, 100.0);
 
 julia> length(layout)  # 3×4/2 = 6 points
 6
 
-julia> layout = TriangleLayout(4, 50.0, 50.0);
+julia> layout = Modes.TriangleLayout(4, 50.0, 50.0);
 
 julia> length(layout)  # 4×5/2 = 10 points
 10
@@ -179,12 +179,12 @@ Create a layout from custom list of positions.
 ```jldoctest
 julia> positions = [(0.0, 0.0), (100.0, 0.0), (50.0, 86.6)];
 
-julia> layout = CustomLayout(positions);
+julia> layout = Modes.CustomLayout(positions);
 
 julia> collect(layout) == positions
 true
 
-julia> layout_rot = CustomLayout(positions, Rot2D(π/2));
+julia> layout_rot = Modes.CustomLayout(positions, Rot2D(π/2));
 
 julia> rotated = collect(layout_rot);
 
@@ -239,7 +239,7 @@ modes at the origin (single position each).
 
 # Examples
 ```jldoctest
-julia> layout = GridLayout(2, 2, 50.0, 50.0);
+julia> layout = Modes.GridLayout(2, 2, 50.0, 50.0);
 
 julia> gaussian = Gaussian(10.0);
 

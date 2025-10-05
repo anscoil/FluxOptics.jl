@@ -51,10 +51,10 @@ export spatial_vectors
 export Shift2D, Rot2D, Id2D
 
 include("modes/Modes.jl")
+export Modes
 using .Modes
 export Gaussian1D, Gaussian, HermiteGaussian1D, HermiteGaussian, LaguerreGaussian
 export hermite_gaussian_groups
-export PointLayout, GridLayout, TriangleLayout, CustomLayout
 export generate_speckle, generate_mode_stack
 
 include("FFTutils.jl")
@@ -88,6 +88,7 @@ include("OptimisersExt.jl")
 using .OptimisersExt
 import Optimisers: setup, update!, Descent, Momentum, Nesterov
 export make_rules, setup, update!
+export AbstractProximalOperator
 export ProxRule, Descent, Momentum, Nesterov, Fista, NoDescent
 export PointwiseProx, IstaProx, ClampProx, PositiveProx, TVProx
 export TV_denoise!

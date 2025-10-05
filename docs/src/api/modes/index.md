@@ -24,15 +24,15 @@ field = gaussian(xv, yv)
 modes = hermite_gaussian_groups(15.0, 4)  # All HG modes up to order 3
 
 # Spatial layout with replicated modes
-layout = GridLayout(3, 3, 50.0, 50.0)  # 3×3 grid
+layout = Modes.GridLayout(3, 3, 50.0, 50.0)  # 3×3 grid
 mode_stack = generate_mode_stack(layout, 128, 128, 2.0, 2.0, gaussian)
 ```
 
 ## Key Types
 
 - [`Gaussian`](@ref), [`HermiteGaussian`](@ref), [`LaguerreGaussian`](@ref): Beam modes
-- [`PointLayout`](@ref), [`GridLayout`](@ref), [`TriangleLayout`](@ref): Spatial arrangements
-- [`CustomLayout`](@ref): User-defined layouts
+- [`PointLayout`](@ref Modes.PointLayout), [`GridLayout`](@ref Modes.GridLayout), [`TriangleLayout`](@ref Modes.TriangleLayout): Spatial arrangements
+- [`CustomLayout`](@ref Modes.CustomLayout): User-defined layouts
 
 ## Key Functions
 
