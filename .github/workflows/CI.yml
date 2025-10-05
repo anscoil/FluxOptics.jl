@@ -61,5 +61,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
-       - name: Run doctests
-         run: julia --project=. --color=yes docs/jldoctest.jl
+      - name: Run doctests
+        run: julia --project=. --color=yes docs/jldoctest.jl
