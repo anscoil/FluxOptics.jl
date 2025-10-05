@@ -44,7 +44,7 @@ Full documentation is available at [anscoil.github.io/FluxOptics.jl](https://ans
 - **[Modes](https://anscoil.github.io/FluxOptics.jl/stable/api/modes/)**: Gaussian, Hermite-Gaussian, Laguerre-Gaussian modes
 - **[Fields](https://anscoil.github.io/FluxOptics.jl/stable/api/fields/)**: ScalarField type and operations
 - **[OpticalComponents](https://anscoil.github.io/FluxOptics.jl/stable/api/optical_components/)**: Propagators, masks, sources, systems
-- **[Optimisers](https://anscoil.github.io/FluxOptics.jl/stable/api/optimisers/)**: Optimization rules and proximal operators
+- **[OptimisersExt](https://anscoil.github.io/FluxOptics.jl/stable/api/optimisers/)**: Optimization rules and proximal operators
 - **[Metrics](https://anscoil.github.io/FluxOptics.jl/stable/api/metrics/)**: Loss functions for inverse design
 
 ## 🎯 Use Cases
