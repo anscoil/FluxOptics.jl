@@ -57,11 +57,10 @@ makedocs(;
                  #         "api/optical_components/active/gain.md"
                  #     ]
                  # ],
-                 # "Optimizers" => [
-                 #     "api/optimizers/index.md",
-                 #     "api/optimizers/rules.md",
-                 #     "api/optimizers/proximal_operators.md"
-                 # ],
+                 "OptimisersExt" => [
+                     "api/optimisers/index.md",
+                     "API" => "api/optimisers/optimisers.md"
+                 ],
                  "Metrics" => [
                      "api/metrics/index.md",
                      "API" => "api/metrics/metrics.md"
