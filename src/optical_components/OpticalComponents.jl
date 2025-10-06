@@ -22,8 +22,15 @@ export propagate!, propagate
 export backpropagate!, backpropagate
 export alloc_saved_buffer, get_saved_buffer
 export get_data
-export istrainable, isbuffered
+export trainable, istrainable, isbuffered
 
+"""
+    Direction
+
+Abstract type for specifying propagation direction (Forward or Backward)
+
+See also: [`Forward`](@ref), [`Backward`](@ref)
+"""
 abstract type Direction end
 
 """
@@ -103,7 +110,7 @@ allowing trade-offs between performance and memory usage.
 - [`Buffered`](@ref): Pre-allocated buffers for maximum performance
 - [`Unbuffered`](@ref): Dynamic allocation for memory efficiency
 
-See also: [`Trainable`](@ref), [`trainability`](@ref)
+See also: [`Trainable`](@ref), [`Trainability`](@ref)
 """
 abstract type Buffering end
 
@@ -131,7 +138,7 @@ julia> typeof(mask) <: AbstractPipeComponent{Trainable{Buffered}}
 true
 ```
 
-See also: [`Unbuffered`](@ref), [`trainability`](@ref)
+See also: [`Unbuffered`](@ref), [`Trainability`](@ref)
 """
 struct Buffered <: Buffering end
 
@@ -159,7 +166,7 @@ julia> typeof(phase_mask) <: AbstractPipeComponent{Trainable{Unbuffered}}
 true
 ```
 
-See also: [`Buffered`](@ref), [`trainability`](@ref)
+See also: [`Buffered`](@ref), [`Trainability`](@ref)
 """
 struct Unbuffered <: Buffering end
 
@@ -175,7 +182,7 @@ are managed during automatic differentiation.
 - [`Static`](@ref): Non-trainable component
 - [`Trainable{Buffering}`](@ref): Trainable component with buffer management
 
-See also: [`Buffering`](@ref), [`trainability`](@ref)
+See also: [`Buffering`](@ref), [`Trainability`](@ref)
 """
 abstract type Trainability end
 
@@ -198,7 +205,7 @@ julia> typeof(lens) <: AbstractPipeComponent{Static}
 true
 ```
 
-See also: [`Trainable`](@ref), [`trainability`](@ref)
+See also: [`Trainable`](@ref), [`Trainability`](@ref)
 """
 struct Static <: Trainability end
 
@@ -224,7 +231,7 @@ julia> typeof(phase_mask) <: AbstractPipeComponent{<:Trainable}
 true
 ```
 
-See also: [`Static`](@ref), [`Buffering`](@ref), [`trainable`](@ref)
+See also: [`Static`](@ref), [`Buffering`](@ref), [`Trainable`](@ref)
 """
 struct Trainable{A <: Buffering} <: Trainability end
 
@@ -282,7 +289,7 @@ phase_train = Phase(u, (x, y) -> 0.0; trainable=true)
 istrainable(phase_train)  # true
 ```
 
-See also: [`isbuffered`](@ref), [`trainable`](@ref)
+See also: [`isbuffered`](@ref)
 """
 istrainable(p::AbstractOpticalComponent{Static}) = false
 istrainable(p::AbstractOpticalComponent{<:Trainable}) = true
@@ -486,7 +493,7 @@ All subtypes must implement:
 - `propagate!(u, component, direction)` or `propagate(u, component, direction)`
 - `get_data(component)`: Access to component parameters
 
-See also: [`AbstractOpticalSource`](@ref), [`propagate!`](@ref), [`|>`](@ref)
+See also: [`AbstractOpticalSource`](@ref), [`propagate!`](@ref)
 """
 abstract type AbstractPipeComponent{M} <: AbstractOpticalComponent{M} end
 
@@ -962,14 +969,14 @@ export as_rotation!, as_rotation, field_rotation_matrix
 include("bulk_propagators/bulk_propagators.jl")
 export BPM, AS_BPM, TiltedAS_BPM, Shift_BPM
 
-include("utilities/field_probe.jl")
-export FieldProbe
-
 include("utilities/basis_projection_wrapper.jl")
 export BasisProjectionWrapper, set_basis_projection!, make_spatial_basis, make_fourier_basis
 
 include("active_media/active_media.jl")
 export GainSheet
+
+include("system/field_probe.jl")
+export FieldProbe
 
 include("system/merge_rules.jl")
 

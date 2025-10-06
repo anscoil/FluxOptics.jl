@@ -94,6 +94,23 @@ function Base.length(p::OpticalSystem)
     length(p.components)
 end
 
+"""
+    get_source(system::OpticalSystem)
+
+Extract the source component from an optical system.
+
+Returns the source component (e.g., `ScalarSource`) used to generate
+the initial field in the system.
+
+# Examples
+```julia
+system = source |> phase |> lens |> propagator
+
+src = get_source(system)
+```
+
+See also: [`OpticalSystem`](@ref), [`get_components`](@ref)
+"""
 function get_source(p::OpticalSystem)
     p.source
 end

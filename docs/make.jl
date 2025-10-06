@@ -33,25 +33,45 @@ makedocs(;
                      "api/fields/index.md",
                      "API" => "api/fields/fields.md"
                  ],
-                 # "Optical Components" => [
-                 #     "api/optical_components/index.md",
-                 #     "Core" => [
-                 #         "api/optical_components/core/index.md",
-                 #         "api/optical_components/core/core.md"
-                 #     ],
-                 #     "Free-Space Propagators" => [
-                 #         "api/optical_components/freespace/index.md",
-                 #         "api/optical_components/freespace/freespace.md"
-                 #     ],
-                 #     "Bulk Propagators" => [
-                 #         "api/optical_components/bulk/index.md",
-                 #         "api/optical_components/bulk/bulk.md"
-                 #     ],
-                 #     "Active Media" => [
-                 #         "api/optical_components/active/index.md",
-                 #         "api/optical_components/active/active_media.md"
-                 #     ]
-                 # ],
+                 "Optical Components" => [
+                     "api/optical_components/index.md",
+                     "Core" => [
+                         "api/optical_components/core/index.md",
+                         "API" => "api/optical_components/core/core.md"
+                     ],
+                     "Sources" => [
+                         "api/optical_components/sources/index.md",
+                         "API" => "api/optical_components/sources/sources.md"
+                     ],
+                     "Modulators" => [
+                         "api/optical_components/modulators/index.md",
+                         "API" => "api/optical_components/modulators/modulators.md"
+                     ],
+                     "Fourier" => [
+                         "api/optical_components/fourier/index.md",
+                         "API" => "api/optical_components/fourier/fourier.md"
+                     ],
+                     "Utilities" => [
+                         "api/optical_components/utilities/index.md",
+                         "API" => "api/optical_components/utilities/utilities.md"
+                     ],
+                     "Free-Space Propagators" => [
+                         "api/optical_components/freespace/index.md",
+                         "API" => "api/optical_components/freespace/freespace.md"
+                     ],
+                     "Bulk Propagators" => [
+                         "api/optical_components/bulk/index.md",
+                         "API" => "api/optical_components/bulk/bulk.md"
+                     ],
+                     "Active Media" => [
+                         "api/optical_components/active/index.md",
+                         "API" => "api/optical_components/active/active_media.md"
+                     ],
+                     "System" => [
+                         "api/optical_components/system/index.md",
+                         "API" => "api/optical_components/system/system.md"
+                     ]
+                 ],
                  "OptimisersExt" => [
                      "api/optimisers/index.md",
                      "API" => "api/optimisers/optimisers.md"

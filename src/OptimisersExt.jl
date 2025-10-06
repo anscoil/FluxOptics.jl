@@ -5,7 +5,7 @@ using Optimisers
 using Optimisers: mapvalue, _trainable, isnumeric, subtract!, Leaf
 using Functors
 
-export make_rules, setup, update!
+export make_rules, setup, update!, trainable
 export Descent, Momentum, Nesterov, Fista, NoDescent
 export ProximalOperators
 

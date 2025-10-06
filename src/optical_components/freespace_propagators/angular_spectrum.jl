@@ -275,7 +275,7 @@ julia> OpticalComponents.trainable(prop_z).z isa AbstractArray
 true
 ```
 
-See also: [`ASProp`](@ref), [`trainable`](@ref)
+See also: [`ASProp`](@ref)
 """
 struct ASPropZ{M, T, A, V, H} <: AbstractPureComponent{M}
     n0::T

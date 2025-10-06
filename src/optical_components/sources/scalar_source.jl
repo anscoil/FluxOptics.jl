@@ -14,8 +14,6 @@ when propagated.
 
 # Examples
 ```jldoctest
-julia> 
-
 julia> xv, yv = spatial_vectors(64, 64, 2.0, 2.0);
 
 julia> w0 = 10.0;

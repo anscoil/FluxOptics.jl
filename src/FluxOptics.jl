@@ -63,24 +63,25 @@ using .FFTutils
 include("optical_components/OpticalComponents.jl")
 using .OpticalComponents
 export OpticalComponents
-export Forward, Backward
-export Trainable, Static, Buffered, Unbuffered
+export Direction, Forward, Backward
+export Trainability, Trainable, Static, Buffered, Unbuffered
+export trainable, istrainable, isbuffered
 export propagate!, propagate
 export backpropagate!, backpropagate
-export AbstractPipeComponent, AbstractOpticalSource
+export AbstractOpticalComponent, AbstractPipeComponent, AbstractOpticalSource
 export AbstractCustomComponent, AbstractCustomSource
 export AbstractPureComponent, AbstractPureSource
 export pad, crop, PadCropOperator
 export TiltAnchor, ASProp, ASPropZ, ShiftProp
 export RSProp, CollinsProp, FourierLens, ParaxialProp
 export as_rotation!, as_rotation, field_rotation_matrix
-export AS_BPM, TiltedAS_BPM, Shift_BPM
+export AS_BPM, Shift_BPM
 export ScalarSource, get_source, Phase, Mask, FourierMask, FourierPhase
 export TeaDOE, TeaReflector
 export FieldProbe
 export BasisProjectionWrapper, make_spatial_basis, make_fourier_basis
 export GainSheet
-export OpticalSequence, FourierWrapper, get_sequence
+export AbstractSequence, OpticalSequence, FourierOperator, FourierWrapper, get_sequence
 export OpticalSystem, get_source, get_components
 export get_data
 

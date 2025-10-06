@@ -10,6 +10,10 @@ the combined trainability of all components in the sequence.
 # Subtypes
 - [`OpticalSequence`](@ref): Concrete sequence implementation
 
+# Required Interface
+All subtypes must implement:
+- [`get_sequence(seq::AbstractSequence)`](@ref)
+
 See also: [`OpticalSequence`](@ref), [`get_sequence`](@ref)
 """
 abstract type AbstractSequence{M} <: AbstractPureComponent{M} end
