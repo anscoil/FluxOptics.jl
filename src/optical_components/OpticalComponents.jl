@@ -927,31 +927,31 @@ function function_to_array(f::Function, ns::NTuple{Nd, Integer}, ds::NTuple{Nd, 
     Nd == 2 ? f.(xs[1], xs[2]') : f.(xs[1])
 end
 
-include("scalar_source.jl")
+include("sources/scalar_source.jl")
 export ScalarSource, get_source
 
-include("phasemask.jl")
+include("modulators/phasemask.jl")
 export Phase
 
-include("mask.jl")
+include("modulators/mask.jl")
 export Mask
 
-include("tea_doe.jl")
+include("modulators/tea_doe.jl")
 export TeaDOE, TeaReflector
 
-include("optical_sequence.jl")
+include("system/optical_sequence.jl")
 export AbstractSequence, OpticalSequence, get_sequence
 
-include("fourier_operator.jl")
+include("fourier/fourier_operator.jl")
 export FourierOperator
 
-include("fourier_wrapper.jl")
+include("fourier/fourier_wrapper.jl")
 export FourierWrapper, FourierPhase, FourierMask
 
-include("pad_crop_operators.jl")
+include("utilities/pad_crop_operators.jl")
 export pad, crop, PadCropOperator
 
-include("tilt_anchor.jl")
+include("utilities/tilt_anchor.jl")
 export TiltAnchor
 
 include("freespace_propagators/freespace.jl")
@@ -962,18 +962,18 @@ export as_rotation!, as_rotation, field_rotation_matrix
 include("bulk_propagators/bulk_propagators.jl")
 export BPM, AS_BPM, TiltedAS_BPM, Shift_BPM
 
-include("field_probe.jl")
+include("utilities/field_probe.jl")
 export FieldProbe
 
-include("basis_projection_wrapper.jl")
+include("utilities/basis_projection_wrapper.jl")
 export BasisProjectionWrapper, set_basis_projection!, make_spatial_basis, make_fourier_basis
 
 include("active_media/active_media.jl")
 export GainSheet
 
-include("merge_rules.jl")
+include("system/merge_rules.jl")
 
-include("optical_system.jl")
+include("system/optical_system.jl")
 export OpticalSystem, get_source, get_components
 
 end
