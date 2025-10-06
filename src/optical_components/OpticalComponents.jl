@@ -50,8 +50,44 @@ See also: [`Forward`](@ref), [`propagate!`](@ref)
 """
 struct Backward <: Direction end
 
+"""
+    Base.reverse(::Type{Forward}) -> Type{Backward}
+    Base.reverse(::Type{Backward}) -> Type{Forward}
+
+Return the opposite propagation direction.
+
+# Examples
+```julia
+reverse(Forward)   # Backward
+reverse(Backward)  # Forward
+```
+
+See also: [`Forward`](@ref), [`Backward`](@ref)
+"""
 Base.reverse(::Type{Forward}) = Backward
 Base.reverse(::Type{Backward}) = Forward
+
+"""
+    Base.sign(::Type{Forward}) -> Int
+    Base.sign(::Type{Backward}) -> Int
+
+Return the sign associated with the propagation direction.
+
+Returns `+1` for `Forward` and `-1` for `Backward`. Useful for computing
+direction-dependent phase factors.
+
+# Examples
+```julia
+sign(Forward)   # 1
+sign(Backward)  # -1
+
+# Use in phase calculation
+s = sign(direction)
+phase_factor = exp(im * s * φ)
+```
+
+See also: [`Forward`](@ref), [`Backward`](@ref)
+"""
 Base.sign(::Type{Forward}) = 1
 Base.sign(::Type{Backward}) = -1
 
@@ -230,15 +266,90 @@ abstract type AbstractOpticalComponent{M <: Trainability} end
 
 get_trainability(p::AbstractOpticalComponent{M}) where {M} = M
 
+"""
+    istrainable(component::AbstractOpticalComponent) -> Bool
+
+Check if a component is trainable (has optimizable parameters).
+
+Returns `true` for components created with `trainable=true`, `false` otherwise.
+
+# Examples
+```julia
+phase_static = Phase(u, (x, y) -> x^2)
+istrainable(phase_static)  # false
+
+phase_train = Phase(u, (x, y) -> 0.0; trainable=true)
+istrainable(phase_train)  # true
+```
+
+See also: [`isbuffered`](@ref), [`trainable`](@ref)
+"""
 istrainable(p::AbstractOpticalComponent{Static}) = false
 istrainable(p::AbstractOpticalComponent{<:Trainable}) = true
+
+"""
+    isbuffered(component::AbstractOpticalComponent) -> Bool
+
+Check if a trainable component uses pre-allocated gradient buffers.
+
+Returns `true` for components created with `trainable=true, buffered=true`,
+`false` otherwise.
+
+# Examples
+```julia
+phase_unbuf = Phase(u, (x, y) -> 0.0; trainable=true, buffered=false)
+isbuffered(phase_unbuf)  # false
+
+phase_buf = Phase(u, (x, y) -> 0.0; trainable=true, buffered=true)
+isbuffered(phase_buf)  # true
+```
+
+See also: [`istrainable`](@ref), [`Buffered`](@ref), [`Unbuffered`](@ref)
+"""
 isbuffered(p::AbstractOpticalComponent) = false
 isbuffered(p::AbstractOpticalComponent{Trainable{Buffered}}) = false
 
+"""
+    get_data(component::AbstractOpticalComponent)
+
+Access the internal data array(s) of an optical component.
+
+Returns the underlying parameter array (phase, mask, etc.) or tuple of arrays
+for components with multiple parameters. Used for inspection and direct manipulation.
+
+# Returns
+- Single `AbstractArray` for simple components (Phase, Mask)
+- `Tuple` of arrays for components with multiple parameters
+- May be on GPU if component was constructed with GPU arrays
+
+# Examples
+```julia
+phase = Phase(u, (x, y) -> x^2; trainable=true)
+φ = get_data(phase)  # Returns phase array
+```
+"""
 function get_data(p::AbstractOpticalComponent)
     error("Not implemented")
 end
 
+"""
+    Base.collect(component::AbstractOpticalComponent)
+
+Convert component data to CPU arrays.
+
+Useful for transferring data from GPU to CPU for analysis or visualization.
+
+# Examples
+```julia
+# GPU component
+phase_gpu = Phase(u_gpu, (x, y) -> x^2)
+
+# Transfer to CPU
+φ_cpu = collect(phase_gpu)
+```
+
+See also: [`get_data`](@ref)
+"""
 function Base.collect(p::AbstractOpticalComponent)
     data = get_data(p)
     if isa(data, Tuple)
@@ -248,11 +359,57 @@ function Base.collect(p::AbstractOpticalComponent)
     end
 end
 
+"""
+    Base.length(::AbstractOpticalComponent) -> Int
+
+Return the number of components. Always returns 1 for atomic components.
+
+Used for compatibility with iteration protocols.
+"""
 Base.length(p::AbstractOpticalComponent) = 1
 
+"""
+    Base.size(component::AbstractOpticalComponent)
+
+Return the size of the component's data array.
+
+# Examples
+```julia
+phase = Phase(u, (x, y) -> x^2)
+size(phase)  # (128, 128) if u is 128×128×...
+```
+"""
 Base.size(p::AbstractOpticalComponent) = size(get_data(p))
 
-function Base.fill!(p::AbstractOpticalComponent, v::Real)
+"""
+    Base.fill!(component::AbstractOpticalComponent, value::Number)
+    Base.fill!(component::AbstractOpticalComponent, value::AbstractArray)
+
+Fill component data with a constant value or array.
+
+Modifies the component in-place by setting all elements of its data array(s)
+to the specified value (scalar broadcast) or by copying the array.
+
+# Arguments
+- `component`: Optical component to modify
+- `value`: Scalar to broadcast or array to copy
+
+# Returns
+The modified data array(s).
+
+# Examples
+```julia
+phase = Phase(u, (x, y) -> randn(); trainable=true)
+
+# Reset to zero (scalar)
+fill!(phase, 0.0)
+
+# Fill with array
+new_phase = 0.01 .* (xv.^2 .+ yv'.^2)
+fill!(phase, new_phase)
+```
+"""
+function Base.fill!(p::AbstractOpticalComponent, v::Number)
     data = get_data(p)
     if isa(data, Tuple)
         foreach(data -> isa(data, AbstractArray) ? data .= v : nothing, get_data(p))
@@ -272,6 +429,36 @@ function Base.fill!(p::AbstractOpticalComponent, v::AbstractArray)
     data
 end
 
+"""
+    trainable(component::AbstractOpticalComponent)
+
+Return trainable parameters of a component as a NamedTuple.
+
+For `Static` components, returns an empty `NamedTuple{}()`.
+For `Trainable` components, returns a `NamedTuple` with parameter names as keys
+and parameter arrays as values.
+
+# Returns
+- `NamedTuple{}()` for static components
+- `NamedTuple` with parameter arrays for trainable components
+
+# Examples
+```julia
+# Static component
+phase_static = Phase(u, (x, y) -> x^2)
+trainable(phase_static)  # NamedTuple{}()
+
+# Trainable component
+phase_train = Phase(u, (x, y) -> 0.0; trainable=true)
+params = trainable(phase_train)  # (; ϕ = ...)
+
+# Use with optimization
+using Functors
+all_params = Functors.fmap(trainable, system)
+```
+
+See also: [`istrainable`](@ref)
+"""
 trainable(p::AbstractOpticalComponent{Static}) = NamedTuple{}()
 
 function trainable(p::AbstractOpticalComponent{<:Trainable})
@@ -341,10 +528,80 @@ See also: [`AbstractCustomComponent`](@ref), [`ASPropZ`](@ref), [`OpticalSequenc
 """
 abstract type AbstractPureComponent{M} <: AbstractPipeComponent{M} end
 
+"""
+    propagate(u::ScalarField, component::AbstractPipeComponent, direction::Type{<:Direction})
+    propagate(source::AbstractOpticalSource)
+
+Propagate an optical field through a component or generate a field from a source.
+
+The first form creates a copy of the input field and applies the optical transformation 
+defined by `component` in the specified `direction`. The second form generates a new
+optical field from a source component.
+
+# Arguments
+- `u::ScalarField`: Input optical field (unchanged)
+- `component`: Optical component to propagate through  
+- `direction::Type{<:Direction}`: `Forward` or `Backward` propagation
+- `source::AbstractOpticalSource`: Source component to generate field from
+
+# Returns
+New `ScalarField` with the transformation applied or generated.
+
+# Examples
+```jldoctest
+julia> u = ScalarField(ones(ComplexF64, 64, 64), (2.0, 2.0), 1.064);
+
+julia> phase_mask = Phase(u, (x, y) -> 0.1*(x^2 + y^2));
+
+julia> u_prop = propagate(u, phase_mask, Forward);
+
+julia> source = ScalarSource(u; trainable=true);
+
+julia> u_generated = propagate(source);
+
+julia> size(u_generated) == size(u)
+true
+```
+
+See also: [`propagate!`](@ref), [`Forward`](@ref), [`Backward`](@ref)
+"""
 function propagate(u, p::AbstractPureComponent, direction::Type{<:Direction})
     error("Not implemented")
 end
 
+"""
+    propagate!(u::ScalarField, component::AbstractPipeComponent, direction::Type{<:Direction})
+
+Propagate field through component in-place, modifying the input field.
+
+This is the core in-place propagation method that modifies the field as it passes
+through the optical component. The field is transformed according to the component's
+optical properties in the specified direction.
+
+# Arguments
+- `u::ScalarField`: Field to propagate (modified in-place)
+- `component`: Optical component to propagate through
+- `direction`: `Forward` or `Backward` propagation direction
+
+# Returns
+Modified `ScalarField` (same object as input).
+
+# Examples
+```julia
+u = ScalarField(ones(ComplexF64, 128, 128), (2.0, 2.0), 1.064)
+phase = Phase(u, (x, y) -> 0.1*x^2)
+
+# In-place propagation
+propagate!(u, phase, Forward)  # u is modified
+
+# For sequence of components
+propagate!(u, phase1, Forward)
+propagate!(u, lens, Forward)
+propagate!(u, phase2, Forward)
+```
+
+See also: [`propagate`](@ref), [`Forward`](@ref), [`Backward`](@ref)
+"""
 function propagate!(u, p::AbstractPureComponent, direction::Type{<:Direction})
     propagate(u, p, direction)
 end
@@ -502,34 +759,6 @@ function get_saved_buffer(p::AbstractCustomComponent{Trainable{Buffered}})
     error("Not implemented")
 end
 
-"""
-    propagate!(u::ScalarField, component, direction::Type{<:Direction})
-
-Propagate an optical field through a component in-place.
-
-Modifies the input field `u` by applying the optical transformation defined by
-`component` in the specified `direction`. This is the core function for optical
-propagation in FluxOptics.
-
-# Arguments
-- `u::ScalarField`: Input optical field (modified in-place)
-- `component`: Optical component to propagate through
-- `direction::Type{<:Direction}`: `Forward` or `Backward` propagation
-
-# Returns
-The modified field `u`.
-
-# Examples
-```jldoctest
-julia> u = ScalarField(ones(ComplexF64, 64, 64), (2.0, 2.0), 1.064);
-
-julia> lens = FourierLens(u, (2.0, 2.0), 1000.0);
-
-julia> propagate!(u, lens, Forward);
-```
-
-See also: [`propagate`](@ref), [`Forward`](@ref), [`Backward`](@ref)
-"""
 function propagate!(u, p::AbstractCustomComponent, direction::Type{<:Direction})
     error("Not implemented")
 end
@@ -554,43 +783,6 @@ function backpropagate_with_gradient!(∂v, u_saved, ∂p::NamedTuple,
     error("Not implemented")
 end
 
-"""
-    propagate(u::ScalarField, component, direction::Type{<:Direction})
-    propagate(source::AbstractOpticalSource)
-
-Propagate an optical field through a component or generate a field from a source.
-
-The first form creates a copy of the input field and applies the optical transformation 
-defined by `component` in the specified `direction`. The second form generates a new
-optical field from a source component.
-
-# Arguments
-- `u::ScalarField`: Input optical field (unchanged)
-- `component`: Optical component to propagate through  
-- `direction::Type{<:Direction}`: `Forward` or `Backward` propagation
-- `source::AbstractOpticalSource`: Source component to generate field from
-
-# Returns
-New `ScalarField` with the transformation applied or generated.
-
-# Examples
-```jldoctest
-julia> u = ScalarField(ones(ComplexF64, 64, 64), (2.0, 2.0), 1.064);
-
-julia> phase_mask = Phase(u, (x, y) -> 0.1*(x^2 + y^2));
-
-julia> u_prop = propagate(u, phase_mask, Forward);
-
-julia> source = ScalarSource(u; trainable=true);
-
-julia> u_generated = propagate(source);
-
-julia> size(u_generated) == size(u)
-true
-```
-
-See also: [`propagate!`](@ref), [`Forward`](@ref), [`Backward`](@ref)
-"""
 function propagate(u, p::AbstractCustomComponent, direction::Type{<:Direction})
     propagate!(copy(u), p, direction)
 end
@@ -748,7 +940,7 @@ include("tea_doe.jl")
 export TeaDOE, TeaReflector
 
 include("optical_sequence.jl")
-export AbstractSequence, OpticalSequence
+export AbstractSequence, OpticalSequence, get_sequence
 
 include("fourier_operator.jl")
 export FourierOperator

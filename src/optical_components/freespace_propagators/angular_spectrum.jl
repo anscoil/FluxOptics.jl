@@ -191,7 +191,8 @@ See also: [`ASPropZ`](@ref), [`TiltedASProp`](@ref), [`ParaxialProp`](@ref)
 struct ASProp{M, C} <: AbstractSequence{M}
     optical_components::C
 
-    function ASProp(optical_components::C) where {C}
+    function ASProp(optical_components::C) where {N,
+                                                  C <: NTuple{N, AbstractPipeComponent}}
         new{Trainable, C}(optical_components)
     end
 

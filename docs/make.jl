@@ -37,25 +37,19 @@ makedocs(;
                  #     "api/optical_components/index.md",
                  #     "Core" => [
                  #         "api/optical_components/core/index.md",
-                 #         "api/optical_components/core/types.md",
-                 #         "api/optical_components/core/sources.md",
-                 #         "api/optical_components/core/static.md",
-                 #         "api/optical_components/core/systems.md"
+                 #         "api/optical_components/core/core.md"
                  #     ],
                  #     "Free-Space Propagators" => [
                  #         "api/optical_components/freespace/index.md",
-                 #         "api/optical_components/freespace/angular_spectrum.md",
-                 #         "api/optical_components/freespace/rayleigh_sommerfeld.md",
-                 #         "api/optical_components/freespace/fourier.md",
-                 #         "api/optical_components/freespace/rotation.md"
+                 #         "api/optical_components/freespace/freespace.md"
                  #     ],
                  #     "Bulk Propagators" => [
                  #         "api/optical_components/bulk/index.md",
-                 #         "api/optical_components/bulk/bpm.md"
+                 #         "api/optical_components/bulk/bulk.md"
                  #     ],
                  #     "Active Media" => [
                  #         "api/optical_components/active/index.md",
-                 #         "api/optical_components/active/gain.md"
+                 #         "api/optical_components/active/active_media.md"
                  #     ]
                  # ],
                  "OptimisersExt" => [

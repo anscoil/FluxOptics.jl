@@ -1,3 +1,29 @@
+"""
+    TiltAnchor(u::ScalarField; trainable=false)
+
+Anchor point for tilt reference in optical systems.
+
+Maintains a reference for beam tilt through a sequence of components. Useful
+in off-axis systems where tilt changes need to be tracked or reset.
+
+# Arguments
+- `u::ScalarField`: Field template
+- `trainable::Bool`: Typically false (default: false)
+
+# Examples
+```julia
+# Anchor tilt at specific points
+anchor1 = TiltAnchor(u)
+anchor2 = TiltAnchor(u)
+
+# System with tilt anchors
+system = source |> anchor1 |> components... |> anchor2
+
+# Maintains tilt reference through propagation
+```
+
+See also: [`offset_tilts!`](@ref), [`set_field_tilts`](@ref)
+"""
 struct TiltAnchor{M, A} <: AbstractCustomComponent{M}
     tilts::A
     tilts_saved::Union{Nothing, A}

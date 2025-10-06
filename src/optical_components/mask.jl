@@ -1,3 +1,41 @@
+"""
+    Mask(u::ScalarField, f; trainable=false, buffered=false)
+    Mask(u::ScalarField, ds::NTuple, f; trainable=false, buffered=false)
+
+Create an amplitude or complex mask component.
+
+Applies a spatially-varying complex transmission: `u → u × m(x,y)`.
+The mask can represent amplitude attenuation, complex transmission, apertures,
+or fabrication errors.
+
+# Arguments
+- `u::ScalarField`: Field template (defines grid size and type)
+- `ds::NTuple`: Spatial sampling (defaults to `u.ds`)
+- `f`: Mask function `(x, y) -> m` (complex) or mask array
+- `trainable::Bool`: Enable gradient-based optimization (default: false)
+- `buffered::Bool`: Pre-allocate gradient buffers (default: false)
+
+# Examples
+```julia
+u = ScalarField(ones(ComplexF64, 128, 128), (2.0, 2.0), 1.064)
+
+# Circular aperture
+radius = 50.0
+aperture = Mask(u, (x, y) -> sqrt(x^2 + y^2) < radius ? 1.0 : 0.0)
+
+# Gaussian apodization
+apodization = Mask(u, (x, y) -> exp(-(x^2 + y^2)/(2*40^2)))
+
+# Trainable complex mask
+mask_opt = Mask(u, (x, y) -> 1.0 + 0.0im; trainable=true)
+
+# From measurement (fabrication errors)
+measured_transmission = load_measurement(...)
+mask_real = Mask(u, measured_transmission)
+```
+
+See also: [`Phase`](@ref), [`TeaDOE`](@ref), [`FourierMask`](@ref)
+"""
 struct Mask{M, A, U} <: AbstractCustomComponent{M}
     m::A
     ∂p::Union{Nothing, @NamedTuple{m::A}}

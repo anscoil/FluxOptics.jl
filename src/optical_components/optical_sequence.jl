@@ -1,5 +1,34 @@
+"""
+    AbstractSequence{M} <: AbstractPipeComponent{M}
+
+Abstract type for sequences of optical components.
+
+Sequences combine multiple components into a single composite component that
+can be used like any other pipe component. The type parameter `M` reflects
+the combined trainability of all components in the sequence.
+
+# Subtypes
+- [`OpticalSequence`](@ref): Concrete sequence implementation
+
+See also: [`OpticalSequence`](@ref), [`get_sequence`](@ref)
+"""
 abstract type AbstractSequence{M} <: AbstractPureComponent{M} end
 
+"""
+    get_sequence(seq::AbstractSequence)
+
+Extract the tuple of components from a sequence.
+
+Returns the ordered tuple of components that make up the sequence.
+
+# Examples
+```julia
+seq = OpticalSequence(phase1, lens, phase2)
+components = get_sequence(seq)  # (phase1, lens, phase2)
+```
+
+See also: [`AbstractSequence`](@ref), [`OpticalSequence`](@ref)
+"""
 function get_sequence(p::AbstractSequence)
     error("Not Implemented")
 end
@@ -36,6 +65,40 @@ function propagate(u::ScalarField, p::AbstractSequence, direction::Type{<:Direct
     propagate!(copy(u), p, direction)
 end
 
+"""
+    OpticalSequence(components...)
+
+Create a sequence of optical components without a source.
+
+Stores multiple pipe components as a single composite component. Unlike `OpticalSystem`,
+this does not include a source and cannot use the pipe operator syntax.
+
+**Note:** The pipe operator (`|>`) only works for `OpticalSystem`, not `OpticalSequence`.
+To create sequences, pass components directly to the constructor.
+
+# Arguments
+- `components...`: Sequence of `AbstractPipeComponent` instances
+
+# Examples
+```julia
+# Create sequence explicitly
+u = ScalarField(ones(ComplexF64, 256, 256), (2.0, 2.0), 1.064)
+
+phase = Phase(u, (x, y) -> x^2)
+lens = FourierLens(u, (2.0, 2.0), 1000.0)
+prop = ASProp(u, 500.0)
+
+sequence = OpticalSequence(phase, lens, prop)
+
+# Apply to field
+result = propagate(u, sequence, Forward)
+
+# Extract components
+components = get_sequence(sequence)
+```
+
+See also: [`OpticalSystem`](@ref), [`AbstractSequence`](@ref), [`get_sequence`](@ref)
+"""
 struct OpticalSequence{M, C} <: AbstractSequence{M}
     optical_components::C
 

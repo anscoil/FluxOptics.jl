@@ -112,7 +112,7 @@ struct RSProp{M, C} <: AbstractSequence{M}
         end
         rs = RSKernelProp(u, ds, z; use_cache, track_tilts, double_precision_kernel)
         wrapper = FourierWrapper(rs.kernel.p_f, rs)
-        pad_op = PadCropOperator(u, rs.kernel.u_plan)
+        pad_op = PadCropOperator(u, rs.kernel.u_plan; store_ref = true)
         crop_op = adjoint(pad_op)
         optical_components = (pad_op, get_sequence(wrapper)..., crop_op)
         M = get_trainability(wrapper)

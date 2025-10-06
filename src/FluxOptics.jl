@@ -80,7 +80,7 @@ export TeaDOE, TeaReflector
 export FieldProbe
 export BasisProjectionWrapper, make_spatial_basis, make_fourier_basis
 export GainSheet
-export OpticalSequence, FourierWrapper
+export OpticalSequence, FourierWrapper, get_sequence
 export OpticalSystem, get_source, get_components
 export get_data
 

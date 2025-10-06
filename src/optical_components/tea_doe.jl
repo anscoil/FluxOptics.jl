@@ -1,3 +1,36 @@
+"""
+    TeaDOE(u::ScalarField, Δn, f; trainable=false, buffered=false)
+
+Create a diffractive optical element using thin element approximation.
+
+Models a phase element with refractive index difference Δn and surface height h(x,y).
+The transmission is: `t = exp(i 2π Δn h(x,y) / λ)`, wavelength-dependent.
+
+# Arguments
+- `u::ScalarField`: Field template
+- `Δn`: Refractive index difference (n_element - n_surround)
+- `f`: Height function `(x, y) -> h` or height array
+- `trainable::Bool`: Optimize surface profile (default: false)
+- `buffered::Bool`: Pre-allocate gradients (default: false)
+
+# Examples
+```julia
+u = ScalarField(ones(ComplexF64, 256, 256), (1.0, 1.0), 1.064)
+
+# Sinusoidal grating
+Δn = 0.5
+grating = TeaDOE(u, Δn, (x, y) -> 0.5 * sin(2π * x / 50))
+
+# Trainable DOE for beam shaping
+doe_opt = TeaDOE(u, 0.5, (x, y) -> 0.0; trainable=true)
+
+# Multi-level DOE
+levels = compute_multilevel_profile(...)
+doe_ml = TeaDOE(u, 0.5, levels)
+```
+
+See also: [`TeaReflector`](@ref), [`Phase`](@ref)
+"""
 struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
     dn::Fn
     r::Fr
@@ -48,6 +81,38 @@ struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
     end
 end
 
+"""
+    TeaReflector(u::ScalarField, f; r=(λ)->1.0, trainable=false, buffered=false)
+
+Create a reflective diffractive element with variable surface height.
+
+Models a mirror with surface profile h(x,y) and optional wavelength-dependent
+reflectivity r(λ). Phase shift: `φ = 4π h(x,y) / λ` (factor 2 from reflection).
+
+# Arguments
+- `u::ScalarField`: Field template
+- `f`: Height function `(x, y) -> h` or height array
+- `r`: Reflectivity function `(λ) -> r` (complex, default: 1.0)
+- `trainable::Bool`: Optimize surface (default: false)
+- `buffered::Bool`: Pre-allocate gradients (default: false)
+
+# Examples
+```julia
+u = ScalarField(ones(ComplexF64, 256, 256), (1.0, 1.0), 1.064)
+
+# Simple mirror with surface
+mirror = TeaReflector(u, (x, y) -> 0.01 * (x^2 + y^2))
+
+# Mirror with wavelength-dependent coating
+r_coating = λ -> 0.95 * exp(im * π/4)  # 95% reflective + phase
+mirror_coated = TeaReflector(u, (x, y) -> 0.0; r=r_coating)
+
+# Deformable mirror (trainable)
+dm = TeaReflector(u, (x, y) -> 0.0; trainable=true)
+```
+
+See also: [`TeaDOE`](@ref), [`Phase`](@ref)
+"""
 function TeaReflector(u::ScalarField{U, Nd},
                       ds::NTuple{Nd, Real},
                       f::Function = (_...) -> 0;
