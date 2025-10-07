@@ -146,25 +146,23 @@ function _propagate_core!(apply_kernel_fns::F,
 end
 
 """
-    ASProp(u::ScalarField, z::Real; use_cache=true, n0=1, filter=nothing, paraxial=false, double_precision_kernel=use_cache)
-    ASProp(u::ScalarField, ds::NTuple, z::Real; kwargs...)
+    ASProp(u::ScalarField, ds::NTuple, z::Real; use_cache=true, n0=1, filter=nothing, paraxial=false, double_precision_kernel=use_cache)
+    ASProp(u::ScalarField, z::Real; kwargs...)
 
-Angular Spectrum propagation method for scalar field propagation in uniform media.
+Angular Spectrum propagation in homogeneous media.
 
-Implements the angular spectrum method using FFT-based convolution for scalar optical
-fields in homogeneous media with refractive index `n0`. This method provides a good 
-balance between accuracy and computational efficiency, handling both paraxial and 
-non-paraxial regimes with excellent performance for most practical optical propagation problems.
+Propagates scalar fields through uniform medium with refractive index `n0` using FFT-based Angular Spectrum method.
+Automatically handles both on-axis and tilted beams (unified implementation).
 
 # Arguments
-- `u::ScalarField`: Reference field for grid definition
+- `u::ScalarField`: Field template
+- `ds::NTuple`: Custom spatial sampling (defaults to `u.ds`)
 - `z::Real`: Propagation distance (positive or negative)
-- `ds::NTuple`: Optional custom spatial sampling intervals (defaults to `u.ds`)
-- `use_cache=true`: Cache kernels for repeated propagations
-- `n0=1`: Refractive index of medium  
-- `filter=nothing`: Optional spatial frequency filter function
-- `paraxial=false`: Use paraxial approximation
-- `double_precision_kernel=use_cache`: Use Float64 for kernel computation (when caching, costs nothing and improves precision; only relevant for ComplexF32 fields)
+- `use_cache::Bool`: Cache kernels (default: true)
+- `n0::Real`: Refractive index (default: 1)
+- `filter`: Optional frequency filter function `(fx, fy) -> transmission`
+- `paraxial::Bool`: Use paraxial approximation (default: false)
+- `double_precision_kernel::Bool`: Compute kernels in Float64 (default: use_cache)
 
 # Returns
 Static propagator component (not trainable).
@@ -176,17 +174,21 @@ For ComplexF64 fields, kernels are always computed in Float64 regardless of this
 The option primarily affects ComplexF32 fields (e.g., CUDA applications).
 
 # Examples
-```jldoctest
-julia> u = ScalarField(ones(ComplexF64, 64, 64), (1.0, 1.0), 1.064);
+```julia
+u = ScalarField(ones(ComplexF64, 256, 256), (2.0, 2.0), 1.064)
 
-julia> prop = ASProp(u, 1000.0);  # 1 mm propagation in air
+# Simple propagation in air
+prop = ASProp(u, 1000.0)
 
-julia> prop_glass = ASProp(u, 1000.0; n0=1.5);  # 1 mm in glass
+# In glass
+prop_glass = ASProp(u, 1000.0; n0=1.5)
 
-julia> u_prop = propagate(u, prop, Forward);
+# With low-pass filter
+filter_lp = (fx, fy) -> sqrt(fx^2 + fy^2) < 0.3 ? 1.0 : 0.0
+prop_filtered = ASProp(u, 1000.0; filter=filter_lp)
 ```
 
-See also: [`ASPropZ`](@ref), [`TiltedASProp`](@ref), [`ParaxialProp`](@ref)
+See also: [`ASPropZ`](@ref), [`ParaxialProp`](@ref), [`RSProp`](@ref)
 """
 struct ASProp{M, C} <: AbstractSequence{M}
     optical_components::C
@@ -233,49 +235,41 @@ get_sequence(p::ASProp) = p.optical_components
 
 """
     ASPropZ(u::ScalarField, ds::NTuple, z::Real; n0=1, trainable=false, paraxial=false, filter=nothing, double_precision_kernel=false)
-    ASPropZ(u::ScalarField, z::Real; n0=1, trainable=false, paraxial=false, filter=nothing, double_precision_kernel=false)
+    ASPropZ(u::ScalarField, z::Real; kwargs...)
 
-Angular Spectrum propagation with trainable distance parameter.
+Angular Spectrum propagation with trainable distance.
 
-Similar to `ASProp` but with a trainable propagation distance `z`. This is useful
-for optimization problems where the exact propagation distance is uncertain or
-needs to be optimized. Compatible with any Julia automatic differentiation library.
+Similar to `ASProp` but with trainable propagation distance `z` for optimization.
+Uses automatic differentiation (Zygote, Enzyme) for gradients.
 
 # Arguments
-- `u::ScalarField`: Reference field for grid definition
-- `ds::NTuple`: Custom spatial sampling intervals (first form only, defaults to `u.ds` in second form)
+- `u::ScalarField`: Field template
+- `ds::NTuple`: Custom spatial sampling (defaults to `u.ds`)
 - `z::Real`: Initial propagation distance
-- `n0=1`: Refractive index of medium
-- `trainable=false`: Make the distance parameter trainable
-- `paraxial=false`: Use paraxial approximation  
-- `filter=nothing`: Optional spatial frequency filter
-- `double_precision_kernel=false`: Use Float64 for kernel computation
+- `n0::Real`: Refractive index (default: 1)
+- `trainable::Bool`: Enable distance optimization (default: false)
+- `paraxial::Bool`: Use paraxial approximation (default: false)
+- `filter`: Optional frequency filter
+- `double_precision_kernel::Bool`: Use Float64 kernels (default: false)
 
-# Returns
-Pure component with trainable distance (if `trainable=true`).
-
-# Performance Note
-This implementation relies on automatic differentiation libraries (Zygote, Enzyme, etc.)
-for gradient computation, which may be slower than the static `ASProp` for non-trainable 
-cases. Use `ASProp` when `z` is fixed.
+# Notes
+Unlike ASProp kernels are never cached, so using Float64 precision
+(`double_precision_kernel=true`) adds computational cost in case of ComplexF32 fields (e.g., CUDA applications).
 
 # Examples
-```jldoctest
-julia> u = ScalarField(ones(ComplexF64, 64, 64), (2.0, 2.0), 1.064);
+```julia
+u = ScalarField(ones(ComplexF64, 256, 256), (2.0, 2.0), 1.064)
 
-julia> prop_z = ASPropZ(u, 500.0; trainable=true);
+# Trainable distance
+prop_z = ASPropZ(u, 500.0; trainable=true)
 
-julia> prop_z_custom = ASPropZ(u, (1.5, 1.5), 500.0; trainable=true);
-
-julia> u_prop = propagate(u, prop_z, Forward);
-
-julia> # Distance can be optimized via gradients
-
-julia> OpticalComponents.trainable(prop_z).z isa AbstractArray
-true
+system = source |> phase |> prop_z
+# ... optimize distance via gradients ...
 ```
 
-See also: [`ASProp`](@ref)
+**Note:** Slower than `ASProp` for fixed distances due to data allocation and AD overhead.
+
+See also: [`ASProp`](@ref), [`Trainability`](@ref)
 """
 struct ASPropZ{M, T, A, V, H} <: AbstractPureComponent{M}
     n0::T

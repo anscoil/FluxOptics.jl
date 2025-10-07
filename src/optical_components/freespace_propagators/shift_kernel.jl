@@ -47,6 +47,47 @@ function _propagate_core!(apply_kernel_fns::F,
     u
 end
 
+"""
+    ShiftProp(u::ScalarField, ds::NTuple, z::Real; use_cache=true, double_precision_kernel=use_cache)
+    ShiftProp(u::ScalarField, z::Real; kwargs...)
+
+Geometric shift based on field tilts (no diffraction).
+
+Translates field geometrically based on tilt metadata. Ignores diffraction entirely,
+approximating ray optics. Useful for comparison with diffraction-based methods.
+
+# Arguments
+- `u::ScalarField`: Field template (must have tilts defined)
+- `ds::NTuple`: Custom sampling (defaults to `u.ds`)
+- `z::Real`: Propagation distance
+- `use_cache::Bool`: Cache kernels (default: true)
+- `double_precision_kernel::Bool`: Use Float64 kernels (default: use_cache)
+
+# Physics
+
+Shift: `Δx = z tan(θx)`, `Δy = z tan(θy)`
+
+Applied in Fourier domain as linear phase: `exp(-i 2π z tan(θ) fx)`
+
+**Limitation:** Only uses tilt metadata, cannot detect phase gradients in the
+complex field itself.
+
+# Examples
+```julia
+# Requires tilted field
+xv, yv = spatial_vectors(256, 256, 0.25, 0.25)
+
+u = ScalarField(Gaussian(50.0)(xv, yv), (2.0, 2.0), 1.064; tilts=(0.01, 0.0))
+
+# Pure geometric shift
+shift = ShiftProp(u, 1000.0)
+
+# Compare with diffraction
+as_prop = ASProp(u, 1000.0)
+```
+
+See also: [`ASProp`](@ref), [`Shift_BPM`](@ref)
+"""
 struct ShiftProp{M, C} <: AbstractSequence{M}
     optical_components::C
 

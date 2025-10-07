@@ -90,6 +90,42 @@ function _propagate_core!(apply_kernel_fns::F,
     u
 end
 
+"""
+    RSProp(u::ScalarField, z::Real; use_cache=true, track_tilts=false, double_precision_kernel=use_cache)
+    RSProp(u::ScalarField, ds::NTuple, z::Real; kwargs...)
+
+Rayleigh-Sommerfeld diffraction propagation.
+
+Uses Rayleigh-Sommerfeld diffraction integral for field propagation.
+Prevents aliasing for large propagation distances but requires finer sampling for short distances.
+
+# Arguments
+- `u::ScalarField`: Field template
+- `z::Real`: Propagation distance
+- `ds::NTuple`: Custom spatial sampling (defaults to `u.ds`)
+- `use_cache::Bool`: Cache kernels (default: true)
+- `track_tilts::Bool`: Track tilt evolution (default: false)
+- `double_precision_kernel::Bool`: Use Float64 kernels (default: use_cache)
+
+# Validity
+
+Critical distance:
+- `z_c = (N dx / 2) √(4dx²/λ² - 1)`
+
+If `z < z_c`, a warning is issued. Use `ASProp` or finer sampling instead.
+
+# Examples
+```julia
+u = ScalarField(ones(ComplexF64, 256, 256), (0.5, 0.5), 1.064)  # dx < λ/2
+
+# Short distance propagation
+prop = RSProp(u, 100.0)
+
+u_out = propagate(u, prop, Forward)
+```
+
+See also: [`ASProp`](@ref)
+"""
 struct RSProp{M, C} <: AbstractSequence{M}
     optical_components::C
 

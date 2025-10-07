@@ -56,7 +56,7 @@ Common functions for field visualization:
 - `real`: Real part
 - `imag`: Imaginary part
 - `abs`: Magnitude
-- `identity`: Complex field with HSV colormap
+- `identity` / `complex`: Complex field with HSV colormap
 
 ## See Also
 

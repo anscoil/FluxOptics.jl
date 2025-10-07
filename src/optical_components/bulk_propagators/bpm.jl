@@ -73,6 +73,60 @@ struct BPM{M, A, U, D, P, K} <: AbstractCustomComponent{M}
     end
 end
 
+"""
+    AS_BPM(u::ScalarField, thickness, n0, dn0; use_cache=true, paraxial=false, trainable=false, buffered=false, aperture=(x,y)->1, double_precision_kernel=use_cache)
+
+Beam Propagation Method using Angular Spectrum for inhomogeneous media.
+
+Propagates through a volume with spatially-varying refractive index using split-step
+method with Angular Spectrum propagation. Handles both on-axis and tilted beams.
+
+# Arguments
+- `u::ScalarField`: Field template
+- `thickness::Real`: Total propagation distance
+- `n0::Real`: Background refractive index
+- `dn0::AbstractArray{<:Real}`: Refractive index variation (3D: nx × ny × n_slices)
+- `use_cache::Bool`: Cache propagation kernels (default: true)
+- `paraxial::Bool`: Use paraxial approximation (default: false)
+- `trainable::Bool`: Optimize refractive index profile (default: false)
+- `buffered::Bool`: Pre-allocate gradient buffers (default: false)
+- `aperture::Function`: Aperture function (x, y) -> transmission (default: unity)
+- `double_precision_kernel::Bool`: Use Float64 for kernels (default: use_cache)
+
+# Physics
+
+Split-step method:
+1. Half-step propagation in background (n₀)
+2. Apply phase shift: exp(i k₀ Δn(x,y,z) Δz)
+3. Full-step propagation in background
+4. Repeat for all slices
+
+Phase correction includes cosine factor for tilted beams to account for oblique
+propagation geometry.
+
+# Examples
+```julia
+u = ScalarField(ones(ComplexF64, 256, 256), (2.0, 2.0), 1.064)
+
+# Uniform refractive index variation
+thickness = 1000.0  # μm
+n_slices = 100
+dn = 0.01 * ones(256, 256, n_slices)  # Constant Δn
+bpm = AS_BPM(u, thickness, 1.0, dn)
+
+# Graded-index fiber
+r = sqrt.(xv.^2 .+ yv'.^2)
+dn_fiber = -0.01 * (r/50).^2  # Parabolic index
+dn_3d = repeat(dn_fiber, 1, 1, n_slices)
+bpm_fiber = AS_BPM(u, thickness, 1.5, dn_3d)
+
+# Trainable refractive index (e.g., waveguide design)
+dn_init = zeros(256, 256, n_slices)
+bpm_opt = AS_BPM(u, thickness, 1.0, dn_init; trainable=true, buffered=true)
+```
+
+See also: [`Shift_BPM`](@ref), [`ASProp`](@ref)
+"""
 function AS_BPM(u::ScalarField,
                 thickness::Real,
                 n0::Real,
@@ -87,6 +141,69 @@ function AS_BPM(u::ScalarField,
         double_precision_kernel, kwargs = (; n0, paraxial))
 end
 
+"""
+    Shift_BPM(u::ScalarField, thickness, dn0; use_cache=true, trainable=false, buffered=false, aperture=(x,y)->1, double_precision_kernel=use_cache)
+
+Beam Propagation Method using geometric shift (no diffraction).
+
+Propagates through inhomogeneous media using pure geometric shifts based on field tilts.
+Equivalent to backprojection in tomography. Useful for comparison with diffraction-based
+methods or for high-NA/short-wavelength regimes where ray optics dominates.
+
+# Arguments
+- `u::ScalarField`: Field template (must have tilts defined)
+- `thickness::Real`: Total propagation distance
+- `dn0::AbstractArray{<:Real}`: Refractive index variation (3D: nx × ny × n_slices)
+- `use_cache::Bool`: Cache shift operators (default: true)
+- `trainable::Bool`: Optimize refractive index profile (default: false)
+- `buffered::Bool`: Pre-allocate gradient buffers (default: false)
+- `aperture::Function`: Aperture function (x, y) -> transmission (default: unity)
+- `double_precision_kernel::Bool`: Use Float64 precision (default: use_cache)
+
+# Physics
+
+Geometric propagation:
+1. Half-step shift based on tilt
+2. Apply phase shift: exp(i k₀ Δn(x,y,z) Δz)
+3. Full-step shift
+4. Repeat for all slices
+
+**Note:** This method ignores diffraction entirely, using only the tilt information
+stored in `ScalarField`. It cannot detect phase gradients in the complex field itself.
+
+# Use Cases
+
+- Comparison with diffraction-based BPM to quantify diffraction effects
+- Ray-tracing approximation for validation
+- Tomographic reconstruction (backprojection algorithm)
+- High-frequency limit where λ → 0
+
+**Limitation:** Pure backprojection is generally inferior to diffraction-based methods
+in optical regimes. Diffraction matters, especially in fiber optics and waveguide
+tomography.
+
+# Examples
+```julia
+# Tilted beam required
+u = ScalarField(gaussian(xv, yv), (2.0, 2.0), 1.064; tilts=(0.01, 0.0))
+
+thickness = 1000.0
+n_slices = 100
+dn = 0.01 * ones(256, 256, n_slices)
+
+# Geometric shift (no diffraction)
+shift_bpm = Shift_BPM(u, thickness, dn)
+
+# Compare with diffraction
+as_bpm = AS_BPM(u, thickness, 1.0, dn)
+
+u_shift = propagate(u, shift_bpm, Forward)
+u_diffraction = propagate(u, as_bpm, Forward)
+# Difference shows diffraction contribution
+```
+
+See also: [`AS_BPM`](@ref), [`ShiftProp`](@ref)
+"""
 function Shift_BPM(u::ScalarField,
                    thickness::Real,
                    dn0::AbstractArray{<:Real};

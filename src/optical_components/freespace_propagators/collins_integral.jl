@@ -211,6 +211,54 @@ function _propagate_core!(apply_kernel_fns::F,
     u
 end
 
+"""
+    CollinsProp(u::ScalarField, ds::NTuple, ds′::NTuple, abd::Tuple; use_cache=true, track_tilts=false, double_precision_kernel=use_cache)
+    CollinsProp(u::ScalarField, ds′::NTuple, abd::Tuple; kwargs...)
+
+Collins integral (ABCD matrix) propagation with grid resampling.
+
+Implements paraxial propagation through ABCD optical systems with user-defined grid
+resampling. The ABCD matrix is `[[A, B], [C, D]]` where `C` is determined by
+`AD - BC = 1`.
+
+# Arguments
+- `u::ScalarField`: Field template
+- `ds::NTuple`: Input sampling (defaults to `u.ds`)
+- `ds′::NTuple`: Output grid sampling
+- `abd::Tuple{Real, Real, Real}`: ABCD parameters (A, B, D)
+- `use_cache::Bool`: Cache kernels (default: true)
+- `track_tilts::Bool`: Track tilt evolution (default: false)
+- `double_precision_kernel::Bool`: Use Float64 kernels (default: use_cache)
+
+# Validity
+
+Cannot be used with B ≃ 0.
+
+# ABCD Examples
+
+- Free space: `(1, z, 1)`
+- Thin lens (f): `(1, 0, 1)` : cannot be used separately, must be combined with an ABCD system where B ≠ 0
+- Fourier transform: `(0, f, 0)`
+
+# Examples
+```julia
+xv, yv = spatial_vectors(256, 256, 0.25, 0.25)
+
+u = ScalarField(Gaussian(5.0)(xv, yv), (0.5, 0.5), 1.064)
+
+# Free-space with magnification
+prop = CollinsProp(u, (2.0, 2.0), (1, 1500.0, 1))
+
+# Lens system (f = 1000 μm)
+lens_system = CollinsProp(u, (4.0, 4.0), (5.0, 2000.0, -0.5))
+
+u_prop = propagate(u, prop, Forward)
+
+u_sys = propagate(u, lens_system, Forward)
+```
+
+See also: [`FourierLens`](@ref), [`ParaxialProp`](@ref)
+"""
 struct CollinsProp{M, C} <: AbstractSequence{M}
     optical_components::C
 
