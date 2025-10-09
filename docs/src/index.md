@@ -1,3 +1,9 @@
+```@raw html
+<p align="center">
+  <img src="assets/logo_large.svg" alt="FluxOptics.jl" width="600"/>
+</p>
+```
+
 # FluxOptics.jl
 
 *Differentiable optical propagation and inverse design in Julia*
@@ -35,6 +41,9 @@ result = system()
 
 ## Documentation Structure
 
+### Tutorials *(coming soon)*
+Step-by-step guides for common use cases
+
 ### [API Reference](api/index.md)
 Complete documentation of all modules, types, and functions:
 - **[GridUtils](api/gridutils/index.md)**: Coordinate systems and transformations
@@ -43,9 +52,6 @@ Complete documentation of all modules, types, and functions:
 - **[Optical Components](api/optical_components/index.md)**: Propagators, masks, sources, systems
 - **[OptimisersExt](api/optimisers/index.md)**: Optimization rules and proximal operators
 - **[Metrics](api/metrics/index.md)**: Loss functions for inverse design
-
-### Tutorials *(coming soon)*
-Step-by-step guides for common use cases
 
 ## Getting Help
 

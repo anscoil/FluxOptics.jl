@@ -1,0 +1,161 @@
+<svg viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Gradients pour chaque couleur Julia -->
+    <radialGradient id="beamRed" cx="50%" cy="50%">
+      <stop offset="0%" style="stop-color:#CB3C33;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#CB3C33;stop-opacity:0.6" />
+      <stop offset="100%" style="stop-color:#CB3C33;stop-opacity:0" />
+    </radialGradient>
+    
+    <radialGradient id="beamGreen" cx="50%" cy="50%">
+      <stop offset="0%" style="stop-color:#389826;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#389826;stop-opacity:0.6" />
+      <stop offset="100%" style="stop-color:#389826;stop-opacity:0" />
+    </radialGradient>
+    
+    <radialGradient id="beamBlue" cx="50%" cy="50%">
+      <stop offset="0%" style="stop-color:#4063D8;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#4063D8;stop-opacity:0.6" />
+      <stop offset="100%" style="stop-color:#4063D8;stop-opacity:0" />
+    </radialGradient>
+    
+    <radialGradient id="beamPurple" cx="50%" cy="50%">
+      <stop offset="0%" style="stop-color:#9558B2;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#9558B2;stop-opacity:0.6" />
+      <stop offset="100%" style="stop-color:#9558B2;stop-opacity:0" />
+    </radialGradient>
+    
+    <!-- Filtre glow léger pour les spots -->
+    <filter id="glowLight">
+      <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <!-- Filtre pour nabla -->
+    <filter id="glowNabla">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Fond transparent -->
+  <rect width="800" height="300" fill="white" fill-opacity="0"/>
+  
+  <!-- Nabla en filigrane bleu clair avec flèche vectorielle -->
+  <g opacity="0.28" filter="url(#glowNabla)">
+    <!-- Triangle nabla -->
+    <line x1="110" y1="90" x2="190" y2="90" 
+          stroke="#4063D8" 
+          stroke-width="8"
+          stroke-linecap="round"/>
+    <line x1="110" y1="90" x2="150" y2="180" 
+          stroke="#4063D8" 
+          stroke-width="8"
+          stroke-linecap="round"/>
+    <line x1="190" y1="90" x2="150" y2="180" 
+          stroke="#4063D8" 
+          stroke-width="8"
+          stroke-linecap="round"/>
+    
+    <!-- Flèche vectorielle au-dessus du nabla -->
+    <line x1="125" y1="70" x2="175" y2="70" 
+          stroke="#4063D8" 
+          stroke-width="5"
+          stroke-linecap="round"/>
+    <!-- Pointe de flèche droite -->
+    <line x1="175" y1="70" x2="168" y2="63" 
+          stroke="#4063D8" 
+          stroke-width="5"
+          stroke-linecap="round"/>
+    <line x1="175" y1="70" x2="168" y2="77" 
+          stroke="#4063D8" 
+          stroke-width="5"
+          stroke-linecap="round"/>
+  </g>
+  
+  <!-- Spot central - Rouge Julia -->
+  <circle cx="150" cy="150" r="28" fill="url(#beamRed)" filter="url(#glowLight)" opacity="0.9"/>
+  <circle cx="150" cy="150" r="20" fill="#CB3C33" opacity="0.8"/>
+  
+  <!-- Lobes cardinaux avec les 4 couleurs Julia -->
+  <!-- Haut - Vert -->
+  <circle cx="150" cy="110" r="16" fill="url(#beamGreen)" filter="url(#glowLight)" opacity="0.85"/>
+  <circle cx="150" cy="110" r="11" fill="#389826" opacity="0.7"/>
+  
+  <!-- Bas - Bleu -->
+  <circle cx="150" cy="190" r="16" fill="url(#beamBlue)" filter="url(#glowLight)" opacity="0.85"/>
+  <circle cx="150" cy="190" r="11" fill="#4063D8" opacity="0.7"/>
+  
+  <!-- Gauche - Violet -->
+  <circle cx="110" cy="150" r="16" fill="url(#beamPurple)" filter="url(#glowLight)" opacity="0.85"/>
+  <circle cx="110" cy="150" r="11" fill="#9558B2" opacity="0.7"/>
+  
+  <!-- Droite - Rouge -->
+  <circle cx="190" cy="150" r="16" fill="url(#beamRed)" filter="url(#glowLight)" opacity="0.85"/>
+  <circle cx="190" cy="150" r="11" fill="#CB3C33" opacity="0.7"/>
+  
+  <!-- Lobes diagonaux - rotation des couleurs -->
+  <circle cx="120" cy="120" r="10" fill="url(#beamBlue)" opacity="0.7"/>
+  <circle cx="120" cy="120" r="6" fill="#4063D8" opacity="0.6"/>
+  
+  <circle cx="180" cy="120" r="10" fill="url(#beamPurple)" opacity="0.7"/>
+  <circle cx="180" cy="120" r="6" fill="#9558B2" opacity="0.6"/>
+  
+  <circle cx="120" cy="180" r="10" fill="url(#beamGreen)" opacity="0.7"/>
+  <circle cx="120" cy="180" r="6" fill="#389826" opacity="0.6"/>
+  
+  <circle cx="180" cy="180" r="10" fill="url(#beamRed)" opacity="0.7"/>
+  <circle cx="180" cy="180" r="6" fill="#CB3C33" opacity="0.6"/>
+  
+  <!-- Anneaux de diffraction multicolores -->
+  <g opacity="0.6">
+    <circle cx="150" cy="150" r="70" fill="none" stroke="#9558B2" stroke-width="2" opacity="0.6"/>
+    <circle cx="150" cy="150" r="95" fill="none" stroke="#4063D8" stroke-width="1.5" opacity="0.5"/>
+    <circle cx="150" cy="150" r="115" fill="none" stroke="#389826" stroke-width="1.2" opacity="0.4"/>
+  </g>
+  
+  <!-- Propagation vers la droite - lignes nettes multicolores -->
+  <g opacity="0.5" stroke-width="1.5">
+    <path d="M 150 115 Q 280 100 350 90" fill="none" stroke="#9558B2"/>
+    <path d="M 150 185 Q 280 200 350 210" fill="none" stroke="#4063D8"/>
+    <path d="M 150 130 Q 280 120 350 115" fill="none" stroke="#CB3C33"/>
+    <path d="M 150 170 Q 280 180 350 185" fill="none" stroke="#389826"/>
+  </g>
+  
+  <!-- Spots de diffraction distants - couleurs Julia -->
+  <circle cx="350" cy="102" r="9" fill="#9558B2" opacity="0.7" filter="url(#glowLight)"/>
+  <circle cx="350" cy="102" r="5" fill="#9558B2" opacity="0.9"/>
+  
+  <circle cx="350" cy="198" r="9" fill="#4063D8" opacity="0.7" filter="url(#glowLight)"/>
+  <circle cx="350" cy="198" r="5" fill="#4063D8" opacity="0.9"/>
+  
+  <circle cx="350" cy="150" r="14" fill="#CB3C33" opacity="0.7" filter="url(#glowLight)"/>
+  <circle cx="350" cy="150" r="9" fill="#CB3C33" opacity="0.9"/>
+  
+  <!-- Texte FluxOptics -->
+  <text x="420" y="165" 
+        font-family="Arial, Helvetica, sans-serif" 
+        font-size="64" 
+        font-weight="300" 
+        fill="#2c3e50"
+        letter-spacing="2">
+    Flux<tspan font-weight="500" fill="#9558B2">Optics</tspan>
+  </text>
+  
+  <!-- Sous-titre avec violet Julia -->
+  <text x="422" y="190" 
+        font-family="Arial, Helvetica, sans-serif" 
+        font-size="14" 
+        font-weight="300" 
+        fill="#9558B2"
+        letter-spacing="3"
+        opacity="0.8">
+    DIFFERENTIABLE OPTICS
+  </text>
+</svg>

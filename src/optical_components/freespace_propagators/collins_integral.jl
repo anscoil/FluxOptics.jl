@@ -231,11 +231,9 @@ resampling. The ABCD matrix is `[[A, B], [C, D]]` where `C` is determined by
 - `double_precision_kernel::Bool`: Use Float64 kernels (default: use_cache)
 
 # Validity
-
 Cannot be used with B ≃ 0.
 
 # ABCD Examples
-
 - Free space: `(1, z, 1)`
 - Thin lens (f): `(1, 0, 1)` : cannot be used separately, must be combined with an ABCD system where B ≠ 0
 - Fourier transform: `(0, f, 0)`

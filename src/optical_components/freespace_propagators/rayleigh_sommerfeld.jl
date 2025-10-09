@@ -108,7 +108,6 @@ Prevents aliasing for large propagation distances but requires finer sampling fo
 - `double_precision_kernel::Bool`: Use Float64 kernels (default: use_cache)
 
 # Validity
-
 Critical distance:
 - `z_c = (N dx / 2) √(4dx²/λ² - 1)`
 
