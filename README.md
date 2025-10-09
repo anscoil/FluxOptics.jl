@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo_large.svg" alt="FluxOptics.jl" width="600"/>
+</p>
+
 # FluxOptics.jl
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://anscoil.github.io/FluxOptics.jl/stable/)
