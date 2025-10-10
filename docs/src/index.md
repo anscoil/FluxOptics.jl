@@ -21,22 +21,30 @@ FluxOptics.jl is a Julia package for simulating scalar optical field propagation
 
 ## Quick Example
 
-```julia
-using FluxOptics
+```@example vortex
+using FluxOptics, CairoMakie
 
-# Create a Gaussian beam
-u = ScalarField(ones(ComplexF64, 128, 128), (2.0, 2.0), 1.064)
+# 1. Create Gaussian source
 gaussian = Gaussian(20.0)
-xv, yv = spatial_vectors(128, 128, 2.0, 2.0)
-u.electric .= gaussian(xv, yv)
-
-# Propagate through an optical system
+xv, yv = spatial_vectors(256, 256, 1.0, 1.0)
+u = ScalarField(gaussian(xv, yv), (1.0, 1.0), 1.064)
 source = ScalarSource(u)
-phase_mask = Phase(u, (x, y) -> 0.01*(x^2 + y^2))
-propagator = ASProp(u, 1000.0)  # 1 mm propagation
 
-system = source |> phase_mask |> propagator
+# 2. Optical system with vortex phase mask
+probe = FieldProbe()
+vortex_phase = Phase(u, (x, y) -> atan(y, x))  # topological charge l=1
+propagator = ASProp(u, 1000.0)  # 1mm far-field propagation
+
+system = source |> vortex_phase |> probe |> propagator
+
+# 3. Execute system
 result = system()
+output_mode = result.out
+probe_mode = result.probes[probe]
+
+# 4. Visualize evolution
+visualize((probe_mode, output_mode), (intensity, phase);
+	colormap=(:inferno, :viridis), show_colorbars=true, height=120)
 ```
 
 ## Documentation Structure

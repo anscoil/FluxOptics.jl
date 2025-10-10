@@ -11,7 +11,7 @@ The `GridUtils` module provides:
 
 ## Quick Example
 
-```julia
+```@example
 using FluxOptics
 
 # Generate 2D coordinate grid

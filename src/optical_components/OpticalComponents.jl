@@ -806,7 +806,7 @@ end
 
 function propagate_and_save(u, u_saved, p::AbstractCustomComponent{Trainable{Unbuffered}},
                             direction::Type{<:Direction})
-    propagate_and_save!(copy(u), u_saved, p, direction; saved_buffer)
+    propagate_and_save!(copy(u), u_saved, p, direction)
 end
 
 function backpropagate_with_gradient(∂v, u_saved, ∂p::NamedTuple,

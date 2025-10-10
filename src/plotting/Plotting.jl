@@ -7,7 +7,7 @@ using LaTeXStrings
 using ..Fields
 using ..OpticalComponents
 
-export visualize, visualize_slider
+export visualize, visualize_slider, twilight_shifted
 
 function complex_to_rgb(A::AbstractArray{Complex{T}};
                         colormap = :dark,
@@ -35,6 +35,14 @@ function valid_colormap(name::Symbol)
     name in keys(ColorSchemes.colorschemes) || error("Invalid colormap: $name")
     name
 end
+
+valid_colormap(name::ColorScheme) = name
+
+twilight = ColorSchemes.twilight
+n = length(twilight.colors)
+shift = n ÷ 2
+shifted_colors = circshift(twilight.colors, shift)
+twilight_shifted = ColorScheme(shifted_colors)
 
 function fill_heatmap!(ax, f, u, cmap)
     img = f(u)
@@ -178,7 +186,7 @@ function visualize(u_vec,
                 if show_colorbars && !is_complex
                     Colorbar(cell[1, 2],
                              hm;
-                             width = 10,
+                             width = width * 0.05,
                              height = height,
                              tickformat = "{:.1f}")
                     if !iszero(factor)
