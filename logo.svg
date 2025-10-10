@@ -107,11 +107,19 @@
   <circle cx="180" cy="180" r="10" fill="url(#beamRed)" opacity="0.7"/>
   <circle cx="180" cy="180" r="6" fill="#CB3C33" opacity="0.6"/>
   
-  <!-- Anneaux de diffraction multicolores -->
-  <g opacity="0.6">
-    <circle cx="150" cy="150" r="70" fill="none" stroke="#9558B2" stroke-width="2" opacity="0.6"/>
-    <circle cx="150" cy="150" r="95" fill="none" stroke="#4063D8" stroke-width="1.5" opacity="0.5"/>
-    <circle cx="150" cy="150" r="115" fill="none" stroke="#389826" stroke-width="1.2" opacity="0.4"/>
+  <!-- Anneaux de diffraction multicolores - ondes sphériques avec halo subtil -->
+  <g opacity="0.65">
+    <!-- Anneau violet avec halo subtil -->
+    <circle cx="150" cy="150" r="70" fill="none" stroke="#9558B2" stroke-width="5" opacity="0.15" filter="url(#glowLight)"/>
+    <circle cx="150" cy="150" r="70" fill="none" stroke="#9558B2" stroke-width="2" opacity="0.7"/>
+    
+    <!-- Anneau bleu avec halo subtil -->
+    <circle cx="150" cy="150" r="95" fill="none" stroke="#4063D8" stroke-width="4" opacity="0.12" filter="url(#glowLight)"/>
+    <circle cx="150" cy="150" r="95" fill="none" stroke="#4063D8" stroke-width="1.8" opacity="0.6"/>
+    
+    <!-- Anneau vert avec halo subtil -->
+    <circle cx="150" cy="150" r="115" fill="none" stroke="#389826" stroke-width="3.5" opacity="0.1" filter="url(#glowLight)"/>
+    <circle cx="150" cy="150" r="115" fill="none" stroke="#389826" stroke-width="1.5" opacity="0.5"/>
   </g>
   
   <!-- Propagation vers la droite - lignes nettes multicolores -->
