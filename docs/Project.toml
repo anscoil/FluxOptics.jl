@@ -1,4 +1,5 @@
 [deps]
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 FluxOptics = "5d1b044d-dcff-404c-be27-e1944ce84415"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
