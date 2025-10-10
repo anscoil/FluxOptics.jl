@@ -129,12 +129,13 @@ opt = FluxOptics.setup(Optimisers.Adam(0.1), system)
 losses = Float64[]
 
 # Optimization loop
-for iter in 1:200
+mem = @allocated for iter in 1:200
     val, grads = withgradient(loss, system)
     FluxOptics.update!(opt, system, grads[1])
     push!(losses, val)
 end
-nothing # hide
+
+println("Memory: ", Base.format_bytes(mem))
 ```
 
 ### 4. Results
