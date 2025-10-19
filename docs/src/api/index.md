@@ -2,58 +2,58 @@
 
 Complete documentation for all FluxOptics.jl modules and functions.
 
-## Quick Navigation
+## Module Overview
 
-FluxOptics is organized into focused modules for different aspects of optical simulation and inverse design:
+FluxOptics is organized into focused modules for different aspects of optical simulation and inverse design.
 
 ### Foundation
 
-**[GridUtils](gridutils/index.md)** - Coordinate systems and transformations
-- Spatial coordinate generation for optical field grids
-- 2D transformations (translations, rotations)
-- Coordinate composition for complex geometries
+**[GridUtils](gridutils/index.md)** - Coordinate systems and transformations  
+Creates coordinate systems for evaluating optical modes and components on spatial grids. Provides 2D transformations (translations, rotations) and coordinate composition.
 
-**[Modes](modes/index.md)** - Optical mode generation
-- Gaussian beam families (Gaussian, Hermite-Gaussian, Laguerre-Gaussian)
-- Spatial layouts for multi-mode configurations
-- Speckle generation with controlled statistics
+**[Modes](modes/index.md)** - Optical mode generation  
+Generates common optical beam profiles (Gaussian, Hermite-Gaussian, Laguerre-Gaussian) and spatial layouts for multi-mode configurations. Includes speckle generation with controlled statistics.
 
-**[Fields](fields/index.md)** - Field representation and operations
-- `ScalarField` type for optical fields
-- Multi-wavelength and tilt support
-- Power, intensity, and field comparison operations
+**[Fields](fields/index.md)** - Field representation and operations  
+Provides the `ScalarField` type, the central data structure representing optical fields with associated grid information, wavelength, and propagation direction. Supports multi-wavelength, tilt tracking, and field operations.
 
 ### Optical Components
 
 **[Optical Components](optical_components/index.md)** - Building blocks for optical systems
 
-Core architecture:
-- **[Core](optical_components/core/index.md)** - Abstract types, trainability system, propagation interface
-- **[Sources](optical_components/sources/index.md)** - Field generation (ScalarSource)
-- **[Modulators](optical_components/modulators/index.md)** - Phase and amplitude modulation (Phase, Mask, TeaDOE)
-- **[Fourier](optical_components/fourier/index.md)** - Frequency-domain operations (FourierWrapper, FourierPhase, FourierMask)
-- **[System](optical_components/system/index.md)** - System composition (OpticalSystem, OpticalSequence, FieldProbe)
-- **[Utilities](optical_components/utilities/index.md)** - Helper components (PadCropOperator, TiltAnchor, BasisProjectionWrapper)
+The heart of FluxOptics, providing all optical elements and system composition tools.
 
-Propagation methods:
-- **[Free-Space Propagators](optical_components/freespace/index.md)** - Angular Spectrum, Rayleigh-Sommerfeld, Collins integral
-- **[Bulk Propagators](optical_components/bulk/index.md)** - Beam Propagation Method for inhomogeneous media
+**Core infrastructure:**
+- **[Core](optical_components/core/index.md)** - Abstract component hierarchy, trainability system (Static/Trainable/Buffered), and bidirectional propagation interface
 
-Active components:
-- **[Active Media](optical_components/active/index.md)** - Gain sheets and amplifiers
+**Creating and modifying fields:**
+- **[Sources](optical_components/sources/index.md)** - Generate initial optical fields (e.g., `ScalarSource`). Sources are trainable, allowing optimization of input beam profiles
+- **[Modulators](optical_components/modulators/index.md)** - Modify field amplitude and phase: `Phase` for pure phase modulation, `Mask` for amplitude/complex transmission, `TeaDOE` for diffractive elements
+- **[Fourier](optical_components/fourier/index.md)** - Frequency-domain operations. `FourierWrapper` applies components in Fourier space, while `FourierPhase` and `FourierMask` provide convenient filtering
+
+**Propagating fields:**
+- **[Free-Space Propagators](optical_components/freespace/index.md)** - Field propagation through homogeneous media: Angular Spectrum (ASProp), Rayleigh-Sommerfeld (RSProp), Collins integral for ABCD systems, Fourier lenses
+- **[Bulk Propagators](optical_components/bulk/index.md)** - Beam Propagation Method (BPM) for inhomogeneous media with spatially-varying refractive index. Supports paraxial and non-paraxial tilted propagation
+- **[Active Media](optical_components/active/index.md)** - Stationary gain and amplification with saturable gain sheets
+
+**Building systems:**
+- **[System](optical_components/system/index.md)** - System construction using pipe operator `|>` to chain components. Fully differentiable and callable. `FieldProbe` captures intermediate fields for custom objectives, visualization, and debugging
+
+**Advanced utilities:**
+- **[Utilities](optical_components/utilities/index.md)** - Helper components: `PadCropOperator` for aliasing-free Fourier-based convolution, `TiltAnchor` for off-axis beam tracking, `BasisProjectionWrapper` for reduced-parameter optimization
 
 ### Optimization
 
-**[OptimisersExt](optimisers/index.md)** - Optimization algorithms and rules
-- Custom optimization rules (Descent, Momentum, FISTA)
-- Proximal operators for constrained optimization
-- Per-component rule assignment
-- Integration with Optimisers.jl ecosystem
+**[OptimisersExt](optimisers/index.md)** - Optimization algorithms and proximal operators  
+Custom optimization rules (Descent, Momentum, FISTA) and proximal operators for constrained optimization. Use `make_rules` for per-component learning rates, `ProxRule` for regularization (TV, sparsity, constraints). Integration with Optimisers.jl ecosystem.
 
-**[Metrics](metrics/index.md)** - Loss functions for inverse design
-- Field overlap metrics (DotProduct, PowerCoupling)
-- Field and intensity matching objectives
-- Custom gradient implementations for efficiency
+**[Metrics](metrics/index.md)** - Loss functions for inverse design  
+Field overlap metrics (DotProduct, PowerCoupling) for mode matching, field and intensity matching objectives (SquaredFieldDifference, SquaredIntensityDifference). Custom gradient implementations for efficiency.
+
+### Visualization
+
+**[Plotting](plotting/index.md)** - Visualization tools  
+Field visualization with multiple representations (intensity, phase, real/imaginary, complex). Stack visualization with animated sliders. Component visualization for phase masks and DOEs. Requires Makie.jl backend (CairoMakie, GLMakie, or WGLMakie).
 
 ## Design Philosophy
 
@@ -118,14 +118,16 @@ We maximize power coupling to the target pattern using the Adam optimizer:
 metric = PowerCoupling(vf)
 loss(m) = sum(1 .- metric(m().out))
 
-# Warm up for accurate timing
-withgradient(loss, system);
+opt = FluxOptics.setup(Optimisers.Adam(0.1), system)
+
+# Warm up for accurate allocation estimation
+_, g = withgradient(loss, system);
+FluxOptics.update!(opt, system, g[1])
 
 # Reset phase masks (allows re-running optimization)
 foreach(d -> fill!(d, 0), (doe1, doe2, doe3))
 
 # Setup optimizer
-opt = FluxOptics.setup(Optimisers.Adam(0.1), system)
 losses = Float64[]
 
 # Optimization loop

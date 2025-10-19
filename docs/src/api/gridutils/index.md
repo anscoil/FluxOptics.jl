@@ -11,12 +11,17 @@ The `GridUtils` module provides:
 
 ## Quick Example
 
-```@example
+```@example gridutils
 using FluxOptics
+using Statistics
 
 # Generate 2D coordinate grid
-xv, yv = spatial_vectors(128, 128, 2.0, 2.0)
+xv, yv = spatial_vectors((128, 128), (2.0, 2.0); offset=(-5.0, 30.5))
 
+(mean(xv), mean(yv))  # Grid center = -offset
+```
+
+```@example gridutils
 # Create transformation: shift then rotate
 transform = Rot2D(π/4) ∘ Shift2D(10.0, 5.0)
 
