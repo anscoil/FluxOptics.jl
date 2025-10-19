@@ -12,22 +12,94 @@ The `Fields` module provides:
 
 ## Quick Example
 
-```julia
+### Creating Fields
+
+```@example fields
 using FluxOptics
 
-# Create a field
-data = ones(ComplexF64, 128, 128, 3)  # 3 modes
-u = ScalarField(data, (2.0, 2.0), [0.8, 1.064, 1.55])
+# Create field from mode
+gaussian = Gaussian(20.0)
+xv, yv = spatial_vectors(128, 128, 2.0, 2.0)
+field_data = gaussian(xv, yv)
+u = ScalarField(field_data, (2.0, 2.0), 1.064)
 
-# Field operations
-P = power(u)              # Power per mode
-I = intensity(u)          # Total intensity
-normalize_power!(u)       # Normalize to unit power
-φ = phase(u)              # Phase distribution
+size(u)  # Grid dimensions
+```
 
-# Access and modify
-u[:, :, 1] .= 0.0        # Clear first mode
-u_copy = copy(u)         # Independent copy
+### Field Operations
+
+```@example fields
+# Power calculation and normalization
+P_initial = power(u)[]  # Extract scalar from 0-dimensional array
+
+normalize_power!(u, 2.5)  # Normalize to 2.5 W
+P_normalized = power(u)[]
+
+(P_initial, P_normalized)  # Before: ~1.0, After: 2.5
+```
+
+```@example fields
+# Intensity and phase distributions
+I = intensity(u)  # 2D array: total intensity
+φ = phase(u)      # Same size as u: phase at each point
+
+(size(I), size(φ))
+```
+
+### Field Manipulation
+
+```@example fields
+# Copy and fill operations
+u_copy = copy(u)          # Independent copy
+u_tmp = similar(u)        # Allocate uninitialized
+
+fill!(u_tmp, 1.0 + 0.0im) # Fill with constant value
+
+# Update field data
+new_data = 0.5 .* u.electric
+u_new = set_field_data(u, new_data)
+
+power(u_new)[]  # Power scaled by 0.5² = 0.25
+```
+
+### Multi-Wavelength Fields
+
+```@example fields
+# Multiple wavelengths simultaneously
+λs = [0.8, 1.064, 1.55]
+data_multi = zeros(ComplexF64, 128, 128, 3)
+for (i, λ) in enumerate(λs)
+    g = Gaussian(20.0)
+    data_multi[:, :, i] .= g(xv, yv)
+end
+
+u_multi = ScalarField(data_multi, (2.0, 2.0), λs)
+
+# Power per wavelength
+power(u_multi)  # Returns 1×1×3 array
+```
+
+### Field Comparison
+
+```@example fields
+# Compare with another mode
+hg10 = HermiteGaussian(20.0, 1, 0)
+u2 = ScalarField(hg10(xv, yv), (2.0, 2.0), 1.064)
+normalize_power!(u2)
+
+# Coupling efficiency (mode overlap)
+η = coupling_efficiency(u, u2)
+
+η[]  # Overlap between Gaussian and HG10
+```
+
+### Field with Tilts
+
+```@example fields
+# Off-axis propagation
+u_tilted = ScalarField(field_data, (2.0, 2.0), 1.064; tilts=(0.01, 0.005))
+
+is_on_axis(u_tilted)  # false
 ```
 
 ## Key Types
