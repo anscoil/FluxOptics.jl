@@ -314,7 +314,7 @@ isbuffered(phase_buf)  # true
 See also: [`istrainable`](@ref), [`Buffered`](@ref), [`Unbuffered`](@ref)
 """
 isbuffered(p::AbstractOpticalComponent) = false
-isbuffered(p::AbstractOpticalComponent{Trainable{Buffered}}) = false
+isbuffered(p::AbstractOpticalComponent{Trainable{Buffered}}) = true
 
 """
     get_data(component::AbstractOpticalComponent)

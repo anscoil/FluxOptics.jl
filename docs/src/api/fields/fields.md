@@ -59,11 +59,6 @@ dot(::ScalarField)
 vec(::ScalarField)
 ```
 
-# Collect results
-powers = [power(mode)[] for mode in u_vec]
-peak_intensities = [maximum(intensity(mode)) for mode in u_vec]
-```
-
 ## Broadcasting and Indexing
 
 ```@docs

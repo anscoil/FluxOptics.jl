@@ -89,7 +89,7 @@ end
 
 Access the current field stored in a scalar source.
 
-Returns a copy of the source's internal field. Useful for inspection or
+Returns a reference to the source's internal field. Useful for inspection or
 extracting the optimized beam profile after training.
 
 # Examples
