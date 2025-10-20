@@ -5,7 +5,7 @@
 Create a saturable gain sheet component.
 
 Models thin gain medium with spatially-varying gain coefficient and saturation.
-Gain follows: `g(I) = g₀ / (1 + I/Isat)` where I is local intensity.
+Gain follows: `g(u) = g₀ / (1 + I/Isat)` where I = |u|² is local intensity.
 
 # Arguments
 - `u::ScalarField`: Field template
@@ -20,7 +20,7 @@ Gain follows: `g(I) = g₀ / (1 + I/Isat)` where I is local intensity.
 Transmission: `u_out = u_in × exp(g(I) × dz)`
 
 where:
-- `g(I) = g₀ / (1 + I/Isat)`: Gain coefficient with saturation
+- `g(u) = g₀ / (1 + I/Isat)`: Gain coefficient with saturation
 - `I = |u|²`: Local intensity
 - High intensity → gain saturation (g → 0)
 - Low intensity → linear gain (g ≈ g₀)

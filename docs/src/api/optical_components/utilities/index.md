@@ -9,28 +9,78 @@ The `Utilities` module provides:
 - **Tilt anchors** for off-axis beam tracking
 - **Basis projection** for reduced-parameter optimization
 
-## Quick Example
+## Examples
 
-```julia
+### Pad and Crop
+
+```@example utilities
 using FluxOptics
 
 u = ScalarField(ones(ComplexF64, 128, 128), (2.0, 2.0), 1.064)
 
-# Pad for propagation, then crop back
+# Basic padding
+u_pad = pad(u.electric, (256, 256))
+size(u_pad)
+```
+
+```@example utilities
+# Centered padding
+offset = ((256-128)÷2, (256-128)÷2)
+u_centered = pad(u.electric, (256, 256); offset=offset)
+
+# Cropping back
+u_crop = crop(u_centered, (128, 128); offset=offset)
+size(u_crop)
+```
+
+### PadCropOperator
+
+```@example utilities
+# Efficient pad/crop in systems
+u = ScalarField(ones(ComplexF64, 128, 128), (2.0, 2.0), 1.064)
 u_tmp = zeros(ComplexF64, 256, 256)
+
 pad_op = PadCropOperator(u, u_tmp; store_ref=true)
 crop_op = adjoint(pad_op)
 
-system = source |> pad_op |> propagator |> crop_op
+# Create source
+source = ScalarSource(u)
 
-# Tilt anchor for off-axis systems
-anchor = TiltAnchor(u)
-system = source |> anchor |> components...
+# Avoid aliasing during propagation
+prop = ASProp(set_field_data(u, u_tmp), 1000.0)
+system = source |> pad_op |> prop |> crop_op
 
-# Basis projection for regularization
-basis = make_spatial_basis((x, y, n) -> x^n * y^n, (128, 128), (2.0, 2.0), 0:5)
+# Execute system
+result = system()
+size(result.out)
+```
+
+### Basis Projection
+
+```@example utilities
+using FluxOptics
+
+u = ScalarField(ones(ComplexF64, 128, 128), (2.0, 2.0), 1.064)
+source = ScalarSource(u)
+
+# Polynomial basis
+n_basis = 10
+basis = make_spatial_basis((x, y, n) -> (x^2 + y^2)^n, 
+                          (128, 128), (2.0, 2.0), 0:n_basis-1)
+
+# Wrap trainable phase
 phase = Phase(u, (x, y) -> 0.0; trainable=true)
-wrapper = BasisProjectionWrapper(phase, basis, zeros(6))
+wrapper = BasisProjectionWrapper(phase, basis, zeros(n_basis))
+
+propagator = ASProp(u, 500.0)
+
+# Optimize n_basis coefficients instead of 128×128 pixels
+system = source |> wrapper |> propagator
+result = system()
+
+# Show we're optimizing only n_basis parameters
+params = trainable(wrapper)
+length(params.proj_coeffs)
 ```
 
 ## Key Types

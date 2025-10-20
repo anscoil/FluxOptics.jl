@@ -6,7 +6,7 @@ Phase and amplitude modulation components.
 
 The `Modulators` module provides components that modify the amplitude and phase of optical fields through masks, diffractive elements, and reflective surfaces.
 
-## Quick Example
+## Examples
 
 ### Phase Modulation
 

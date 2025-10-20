@@ -6,7 +6,7 @@ Optical field sources for system initialization.
 
 The `Sources` module provides components that generate optical fields to initialize optical systems. Sources can be static (fixed beam profile) or trainable (optimizable during inverse design).
 
-## Quick Example
+## Examples
 
 ### Creating Sources
 

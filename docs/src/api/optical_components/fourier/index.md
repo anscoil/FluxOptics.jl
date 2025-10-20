@@ -6,7 +6,7 @@ Fourier-domain operations and filtering.
 
 The `Fourier` module provides tools for applying operations in the frequency domain, including spatial filtering, frequency-domain masks, and wrapping spatial components to operate on Fourier transforms.
 
-## Quick Example
+## Examples
 
 ### Frequency-Domain Filtering
 

@@ -13,35 +13,6 @@ Optimisers.setup(::IdDict)
 
 **Note:** `update!(opt_state, params, grads)` is re-exported from [Optimisers.jl](https://fluxml.ai/Optimisers.jl/stable/api/#Optimisers.update!). It applies the optimization step to update parameters. See their documentation for details.
 
-### Examples
-
-```julia
-using FluxOptics, Optimisers
-
-# Create components
-u = ScalarField(ones(ComplexF64, 128, 128), (2.0, 2.0), 1.064)
-phase = Phase(u, (x, y) -> 0.0; trainable=true)
-mask = Mask(u, (x, y) -> 1.0; trainable=true)
-source = ScalarSource(u; trainable=true)
-
-# Per-component rules
-rules = make_rules(
-    phase => Descent(0.01),
-    mask => Momentum(0.05, 0.9),
-    source => NoDescent()  # Keep source fixed
-)
-
-# Setup with default rule for other parameters
-system = source |> phase |> mask
-opt_state = setup(rules, Descent(0.001), system)
-
-# Optimization loop
-for iter in 1:1000
-    grads = gradient(loss, params)[1]
-    update!(opt_state, params, grads)
-end
-```
-
 ## Optimization Rules
 
 ### Custom Rules
@@ -60,21 +31,6 @@ FluxOptics also exports standard rules from Optimisers.jl:
 - `Nesterov(η, ρ)`: Nesterov accelerated gradient
 
 See [Optimisers.jl documentation](https://fluxml.ai/Optimisers.jl/stable/) for more rules (Adam, AdaGrad, etc.).
-
-### Examples
-
-```julia
-# FISTA for sparse optimization
-fista_opt = Fista(0.1)
-sparse_rule = ProxRule(fista_opt, IstaProx(0.001, 0.0))
-
-# Standard optimizers
-adam_opt = Optimisers.Adam(0.001)
-momentum_opt = Momentum(0.01, 0.9)
-
-# No optimization
-fixed_opt = NoDescent()
-```
 
 ## Proximal Operators
 
@@ -100,57 +56,7 @@ TVProx
 TV_denoise!
 ```
 
-### Examples
-
-```julia
-# Box constraints
-clamp_prox = ClampProx(0.0, 1.0)  # Clamp to [0,1]
-rule = ProxRule(Descent(0.01), clamp_prox)
-
-# Non-negativity
-pos_prox = PositiveProx()
-rule = ProxRule(Momentum(0.1, 0.9), pos_prox)
-
-# Soft thresholding (L1 regularization)
-ista_prox = IstaProx(0.001, 0.0)  # λ=0.001
-rule = ProxRule(Fista(0.05), ista_prox)
-
-# Total variation denoising
-tv_prox = TVProx(0.01)  # λ=0.01
-rule = ProxRule(Descent(0.1), tv_prox)
-
-# Custom pointwise constraint
-custom_prox = PointwiseProx(x -> clamp(x, -π, π))
-rule = ProxRule(Descent(0.01), custom_prox)
-
-# Compose multiple constraints
-combined = ClampProx(-1.0, 1.0) ∘ PositiveProx()
-rule = ProxRule(Descent(0.01), combined)
-```
-
 ## Optimization Patterns
-
-### Per-Component Learning Rates
-
-```julia
-# Fast learning for source, slow for phase
-rules = make_rules(
-    source => Descent(0.1),    # Fast
-    phase => Descent(0.001)    # Slow
-)
-
-opt_state = setup(rules, system)
-```
-
-### Constrained Phase Optimization
-
-```julia
-# Keep phase in [-π, π]
-phase_rule = ProxRule(Fista(0.05), ClampProx(-π, π))
-
-rules = make_rules(phase => phase_rule)
-opt_state = setup(rules, Descent(0.01), system)
-```
 
 ### Sparse Phase Mask Design
 
@@ -183,7 +89,6 @@ opt_state = setup(rules, system)
 ```julia
 # Different strategies for different components
 rules = make_rules(
-    source => NoDescent(),                                    # Fixed
     phase => ProxRule(Fista(0.05), ClampProx(-π, π)),       # Constrained
     mask => ProxRule(Momentum(0.1, 0.9), PositiveProx())    # Positive only
 )
@@ -207,19 +112,7 @@ opt_state = setup(rules, Descent(0.01), system)
 
 ## Technical Notes
 
-### Proximal Operators
-
-Proximal operators implement the proximal map:
-```
-prox_λf(x) = argmin_z { f(z) + (1/2λ)||z - x||² }
-```
-
-Common uses:
-- **Constraints**: Project onto feasible set (e.g., ClampProx)
-- **Regularization**: Encourage desirable properties (e.g., TVProx for smoothness)
-- **Sparsity**: Soft thresholding (IstaProx)
-
-### ProxRule Composition
+### ProxRule
 
 `ProxRule` combines optimization with proximal operators:
 1. Apply gradient step: `x_temp = x - η∇f(x)`
@@ -240,21 +133,13 @@ This enables constrained optimization while maintaining differentiability.
 - Other parameters use default rule (or NoDescent if no default)
 - Warning if no trainable parameters found
 
-### FISTA Acceleration
-
-FISTA provides:
-- Faster convergence than gradient descent
-- Optimal O(1/k²) convergence rate
-- Particularly effective with proximal operators
-- Momentum-like behavior without explicit velocity
-
 ### Operator Composition
 
 Proximal operators can be composed with `∘`:
 ```julia
 combined = ClampProx(0.0, 1.0) ∘ PositiveProx()
 ```
-Operators applied right-to-left (like function composition).
+Operators applied right-to-left (like function composition). The resulting operator may not be a rigorous proximal operator but can still be used as a Plug and Play prior.
 
 ### Performance
 
@@ -262,48 +147,6 @@ Operators applied right-to-left (like function composition).
 - Pre-allocated buffers avoid allocations
 - TV denoising uses efficient iterative algorithm
 - GPU-compatible (works with CuArrays)
-
-## Advanced Usage
-
-### Custom Proximal Operator
-
-```julia
-using FluxOptics.OptimisersExt.ProximalOperators
-
-struct MyProx <: AbstractProximalOperator
-    param::Float64
-end
-
-function ProximalOperators.init(prox::MyProx, x::AbstractArray)
-    # Return state (can be empty tuple if stateless)
-    ()
-end
-
-function ProximalOperators.apply!(prox::MyProx, state, x::AbstractArray)
-    # Modify x in-place
-    @. x = my_projection(x, prox.param)
-    x
-end
-
-# Use in optimization
-rule = ProxRule(Descent(0.01), MyProx(1.0))
-```
-
-### Adaptive Learning Rates
-
-```julia
-# Start with high learning rate, decrease over time
-for epoch in 1:10
-    η = 0.1 * 0.9^epoch
-    rules = make_rules(phase => Descent(η))
-    opt_state = setup(rules, system)
-    
-    for iter in 1:100
-        grads = gradient(loss, params)[1]
-        update!(opt_state, params, grads)
-    end
-end
-```
 
 ## See Also
 

@@ -11,29 +11,86 @@ The `System` module provides:
 - **Component merging** for performance optimization
 - **Field probes** for intermediate field capture
 
-## Quick Example
+## Examples
 
-```julia
+### Basic System Construction
+
+```@example system1
 using FluxOptics
 
-u = ScalarField(ones(ComplexF64, 256, 256), (2.0, 2.0), 1.064)
+# Create field and components
+xv, yv = spatial_vectors(256, 256, 2.0, 2.0)
+u = ScalarField(Gaussian(20.0)(xv, yv), (2.0, 2.0), 1.064)
 
-# Build system with pipe operator
-source = ScalarSource(u; trainable=true)
-phase = Phase(u, (x, y) -> 0.0; trainable=true)
-lens = FourierLens(u, (2.0, 2.0), 1000.0)
+source = ScalarSource(u)
+phasemask = Phase(u, (x, y) -> 0.01*(x^2 + y^2))
 prop = ASProp(u, 500.0)
 
-system = source |> phase |> lens |> prop
+# Build system with pipe operator
+system = source |> phasemask |> prop
 
 # Execute system
 result = system()
-output_field = result.out
+power(result.out)[]
+```
 
-# With component merging (more efficient)
-phase1 = Phase(u, (x, y) -> x^2)
-phase2 = Phase(u, (x, y) -> y^2)
-system = source |> phase1 |> phase2 |> (; merge_components=true)
+### Component Merging
+
+```@example system2
+using FluxOptics
+
+xv, yv = spatial_vectors(128, 128, 2.0, 2.0)
+u = ScalarField(Gaussian(15.0)(xv, yv), (2.0, 2.0), 1.064)
+
+source = ScalarSource(u)
+
+# Create multiple phase masks
+phase1 = Phase(u, (x, y) -> 0.01*x^2)
+phase2 = Phase(u, (x, y) -> 0.01*y^2)
+phase3 = Phase(u, (x, y) -> 0.01*x*y)
+
+# Without merging: 3 separate phase operations
+system_no_merge = source |> phase1 |> phase2 |> phase3
+components_no_merge = get_components(system_no_merge)
+
+# With merging: phases combined into single operation
+system_merged = source |> phase1 |> phase2 |> phase3 |> (; merge_components=true)
+components_merged = get_components(system_merged)
+
+# Compare number of operations
+(length(components_no_merge), length(components_merged))
+```
+
+### Field Probes
+
+```@example system3
+using FluxOptics, CairoMakie
+
+xv, yv = spatial_vectors(256, 256, 1.0, 1.0)
+u = ScalarField(Gaussian(30.0)(xv, yv), (1.0, 1.0), 1.064)
+
+source = ScalarSource(u)
+phasemask = Phase(u, (x, y) -> 0.01*(x^2 + y^2))
+lens = FourierLens(u, (2.0, 2.0), 1000.0)
+prop = ASProp(u, (2.0, 2.0), 4000.0)
+
+# Insert probes to capture intermediate fields
+probe1 = FieldProbe()
+probe2 = FieldProbe()
+
+system = source |> phasemask |> probe1 |> lens |> probe2 |> prop
+
+# Execute and access intermediate fields
+result = system()
+
+# Access fields at probe locations
+field_after_phase = result.probes[probe1]
+field_after_lens = result.probes[probe2]
+final_field = result.out
+
+# Show intensity at each stage
+visualize((field_after_phase, field_after_lens, final_field), (intensity, phase);
+    colormap=(:inferno, :viridis), height=120)
 ```
 
 ## Key Types

@@ -6,7 +6,7 @@ Foundational types and interfaces for optical components.
 
 The `Core` module defines the abstract component hierarchy, trainability system, and propagation interface used by all optical components in FluxOptics.
 
-## Quick Example
+## Examples
 
 ### Component Trainability
 

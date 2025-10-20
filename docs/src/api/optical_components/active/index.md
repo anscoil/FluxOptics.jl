@@ -8,19 +8,24 @@ The `Active Media` module provides trainable **saturable gain sheets** for laser
 
 ## Quick Example
 
-```julia
-using FluxOptics
+```@example
+using FluxOptics, CairoMakie
 
-u = ScalarField(ones(ComplexF64, 256, 256), (2.0, 2.0), 1.064)
-
-# Uniform gain sheet
-gain = GainSheet(u, 0.1, 1e6, (x, y) -> 2.0)
+λ = 1.064
+speckle_dist = generate_speckle((256, 256), (1.0, 1.0), λ, 0.05)
+u = ScalarField(speckle_dist, (1.0, 1.0), λ)
 
 # Pumped region (Gaussian)
-gain_pumped = GainSheet(u, 0.1, 1e6, (x, y) -> 2.0 * exp(-(x^2 + y^2)/1000))
+gain_pumped = GainSheet(u, 1.5, 1.0, (x, y) -> exp(-((x-50)^2 + y^2)/50^2))
+
+source = ScalarSource(u)
 
 # Use in system
-system = source |> phase |> gain |> propagator
+system = source |> gain_pumped
+
+u_out = system().out
+
+visualize((u, u_out), (intensity, complex); colormap=(:inferno, :dark), height=120)
 ```
 
 ## Key Types

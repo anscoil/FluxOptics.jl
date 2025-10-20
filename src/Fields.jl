@@ -320,6 +320,10 @@ function -(u::ScalarField, v::ScalarField)
     set_field_data(u, u.electric - v.electric)
 end
 
+function -(u::ScalarField)
+    set_field_data(u, -u.electric)
+end
+
 function *(a::Number, u::ScalarField)
     set_field_data(u, a .* u.electric)
 end

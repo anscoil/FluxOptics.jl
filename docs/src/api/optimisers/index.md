@@ -12,24 +12,29 @@ The `OptimisersExt` module extends `Optimisers.jl` with:
 
 ## Quick Example
 
-```julia
+```@example
 using FluxOptics
 
-# Define trainable system
-phase = Phase(u, (x, y) -> 0.0; trainable=true)
-mask = Mask(u, (x, y) -> 1.0; trainable=true)
-system = source |> phase |> mask
+# Define source
+xv, yv = spatial_vectors(128, 128, 1.0, 1.0)
+u = ScalarField(Gaussian(20.0)(xv, yv), (1.0, 1.0), 1.064)
+source = ScalarSource(u)
+
+# Define optical components
+phasemask = Phase(u, (x, y) -> 0.0; trainable=true)
+mask = FourierMask(u, (fx, fy) -> 1.0; trainable=true)
+
+# Define optical system
+system = source |> phasemask |> mask
 
 # Per-component optimization rules
 rules = make_rules(
-    phase => ProxRule(Descent(0.01), ClampProx(-π, π)),  # Constrained phase
-    mask => Momentum(0.1, 0.9)                            # Momentum for mask
+    phasemask => ProxRule(Descent(0.01), ClampProx(-π, π)),  # Constrained phase
+    mask => Momentum(0.1, 0.9)                               # Momentum for mask
 )
 
-# Setup and optimize
+# Setup
 opt_state = setup(rules, system)
-grads = gradient(loss, params)[1]
-update!(opt_state, params, grads)
 ```
 
 ## Key Types
@@ -54,6 +59,7 @@ update!(opt_state, params, grads)
 
 ## See Also
 
+- [Typical Workflow](../index.md#typical-workflow-beam-splitter) - Complete example of building and optimizing an optical system
 - [Metrics](../metrics/index.md) for loss functions
 - [Optimisers.jl](https://fluxml.ai/Optimisers.jl/stable/) for base optimization algorithms
 

@@ -1,3 +1,5 @@
+const _probe_counter = Ref(0)
+
 """
     FieldProbe()
 
@@ -26,11 +28,13 @@ final = result.out
 
 See also: [`OpticalSystem`](@ref)
 """
-struct FieldProbe{M} <: AbstractPureComponent{M}
-    function FieldProbe()
-        new{Static}()
-    end
+struct FieldProbe{M} <: AbstractPipeComponent{M}
+    id::Int
+
+    FieldProbe() = new{Static}(_probe_counter[] += 1)
 end
+
+reset_probe_counter!() = (_probe_counter[] = 0)
 
 Functors.@functor FieldProbe ()
 

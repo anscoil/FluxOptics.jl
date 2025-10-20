@@ -10,7 +10,7 @@ The `Fields` module provides:
 - **Tilt tracking**: Manage off-axis propagation
 - **Field operations**: Power, intensity, phase, normalization
 
-## Quick Example
+## Examples
 
 ### Creating Fields
 
