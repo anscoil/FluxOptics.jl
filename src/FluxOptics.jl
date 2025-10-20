@@ -42,6 +42,7 @@ export dot, power, normalize_power!, coupling_efficiency, intensity, phase
 
 include("metrics/Metrics.jl")
 using .Metrics
+export Metrics
 export AbstractMetric
 export DotProduct, PowerCoupling, SquaredFieldDifference, SquaredIntensityDifference
 

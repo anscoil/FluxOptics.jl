@@ -1,36 +1,70 @@
 # Metrics
 
-Metric types for inverse design optimization.
+Loss functions for inverse design optimization.
 
 ## Overview
 
 The `Metrics` module provides:
-- **Metric types**: Object-oriented approach to optimization objectives
 - **Field overlap**: `DotProduct` and `PowerCoupling` metrics
 - **Field matching**: `SquaredFieldDifference` for complex field matching
 - **Intensity matching**: `SquaredIntensityDifference` for intensity-based objectives
 - **AD-compatible**: Automatic differentiation support via custom gradients
 
-## Quick Example
+## Examples
 
-```julia
+### Power Coupling
+
+```@example metrics1
 using FluxOptics
 
-# Create target field
-target = ScalarField(target_data, (2.0, 2.0), 1.064)
+# Create fields
+xv, yv = spatial_vectors(128, 128, 2.0, 2.0)
+u_current = ScalarField(Gaussian(15.0)(xv, yv), (2.0, 2.0), 1.064)
+u_target = ScalarField(Gaussian(20.0)(xv, yv), (2.0, 2.0), 1.064)
 
 # Power coupling metric
-metric = PowerCoupling(target)
+metric = PowerCoupling(u_target)
 
-# Evaluate on current field
-u_current = system()
-loss = metric(u_current)  # Returns power coupled to target
+# Evaluate coupling (returns power in Watts)
+power_coupled = metric(u_current)
+power_coupled[]
+```
 
-# Use in optimization
-function objective()
-    u = system()
-    1.0 - metric(u)[]  # Maximize coupling
-end
+### Field Matching
+
+```@example metrics2
+using FluxOptics
+
+# Create fields with different phases
+xv, yv = spatial_vectors(128, 128, 2.0, 2.0)
+gaussian = Gaussian(15.0)(xv, yv)
+u_current = ScalarField(gaussian, (2.0, 2.0), 1.064)
+u_target = ScalarField(gaussian .* cis.(0.01 .* (xv.^2 .+ yv'.^2)), (2.0, 2.0), 1.064)
+
+# Squared field difference
+metric = SquaredFieldDifference(u_target)
+loss = metric(u_current)
+loss[]
+```
+
+### Intensity Matching
+
+```@example metrics3
+using FluxOptics
+
+# Create field and target intensity pattern
+xv, yv = spatial_vectors(128, 128, 2.0, 2.0)
+u_current = ScalarField(Gaussian(35.0)(xv, yv), (2.0, 2.0), 1.064)
+
+# Target: ring pattern
+r = sqrt.(xv.^2 .+ yv'.^2)
+target_intensity = exp.(-(r .- 30).^2 / 100)
+target_intensity ./= sum(target_intensity) * 2.0 * 2.0
+
+# Intensity matching metric
+metric = SquaredIntensityDifference((u_current, target_intensity))
+loss = metric(u_current)
+loss[]
 ```
 
 ## Key Types
@@ -42,13 +76,14 @@ end
 
 ## Key Functions
 
-- [`(AbstractMetric)`](@ref): Callable interface (preferred) - evaluate metric
-- [`FluxOptics.Metrics.compute_metric`](@ref): Explicit evaluation function
-- [`FluxOptics.Metrics.backpropagate_metric`](@ref): Gradient computation (internal)
+- [`compute_metric`](@ref Metrics.compute_metric): Evaluate metric on fields
+- [`backpropagate_metric`](@ref Metrics.backpropagate_metric): Gradient computation (internal)
 
 ## See Also
 
+- [Typical Workflow](../index.md#typical-workflow-beam-splitter) - Complete example of building and optimizing an optical system
 - [OptimisersExt](../optimisers/index.md) for optimization algorithms
+- [System](../optical_components/system/index.md) for building systems to optimize
 
 ## Index
 
