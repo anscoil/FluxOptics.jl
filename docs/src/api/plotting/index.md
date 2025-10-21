@@ -130,7 +130,7 @@ distances = [0, 100, 500, 1000, 2000]
 propagation = [propagate(u0, ASProp(u0, z), Forward) for z in distances]
 
 # Visualize evolution
-visualize(propagation, (intensity, phase); colormap=(:inferno, twilight_shifted), height=120)
+visualize(propagation, (intensity, phase); colormap=(:inferno, :twilight), height=120)
 ```
 
 ## Key Functions

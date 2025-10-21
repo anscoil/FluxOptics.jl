@@ -2,6 +2,7 @@
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 FluxOptics = "5d1b044d-dcff-404c-be27-e1944ce84415"
+Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 Optimisers = "3bd65402-5787-11e9-1adc-39752487f4e2"
 Requires = "ae029012-a4dd-5104-9daa-d747884805df"

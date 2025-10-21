@@ -19,6 +19,9 @@ makedocs(;
          warnonly = true, #[:cross_references],
          pages = [
              "Home" => "index.md",
+             "Tutorials" => [
+                 "FoxLi simulation" => "tutorials/01_FoxLi_simulation.md"
+             ],
              "Reference" => [
                  "api/index.md",
                  "GridUtils" => [
