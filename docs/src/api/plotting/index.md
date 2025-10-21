@@ -31,8 +31,8 @@ visualize(u, intensity; height=120)
 ```@example plotting1
 # Visualize phase (with quadratic phase)
 quadratic_phase =  cis.(0.002 .* (xv.^2 .+ yv'.^2))
-u_phase = ScalarField(Gaussian(30.0)(xv, yv) .* quadratic_phase, (1.0, 1.0), 1.064)
-visualize(u_phase, phase; colormap=:twilight, height=120)
+u_quad_phase = ScalarField(Gaussian(30.0)(xv, yv) .* quadratic_phase, (1.0, 1.0), 1.064)
+visualize(u_quad_phase, phase; colormap=:twilight, height=120)
 ```
 
 ### Multiple Representations
