@@ -159,9 +159,9 @@ end  #src
 # The convergence curve reveals the non-convex nature of the phase retrieval problem,
 # with several plateaus before reaching the global minimum.
 
-fig_loss = Figure()  #src
+fig_loss = Figure(size = (350, 280))  #src
 ax = Makie.Axis(fig_loss[1, 1], yscale = log10, xlabel = "Iteration", ylabel = "Loss")  #src
-lines!(ax, losses; linewidth = 4)  #src
+lines!(ax, losses; linewidth = 2)  #src
 save("docs/src/assets/$(prefix)_convergence.png", fig_loss)  #src
 #nb fig_loss = Figure()
 #nb ax = Makie.Axis(fig_loss[1, 1], yscale = log10, xlabel = "Iteration", ylabel = "Loss")
