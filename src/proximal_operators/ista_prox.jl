@@ -1,5 +1,5 @@
 function ista(p, c)
-    function shrink(x::T) where {T}
+    function _shrink_real(x::T) where {T <: Real}
         s = T(p)
         xc = x - T(c)
         if abs(xc) <= s
@@ -10,6 +10,11 @@ function ista(p, c)
             return x + s
         end
     end
+    function shrink(x::T) where {T <: Complex}
+        _shrink_real(x.re) + im*_shrink_real(x.im)
+    end
+    shrink(x::T) where {T <: Real} = _shrink_real(x)
+
     return shrink
 end
 

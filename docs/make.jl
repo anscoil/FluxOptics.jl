@@ -20,7 +20,8 @@ makedocs(;
          pages = [
              "Home" => "index.md",
              "Tutorials" => [
-                 "FoxLi simulation" => "tutorials/01_FoxLi_simulation.md"
+                 "FoxLi simulation" => "tutorials/01_FoxLi_simulation.md",
+                 "Field retrieval" => "tutorials/02_field_retrieval.md"
              ],
              "Reference" => [
                  "api/index.md",

@@ -107,12 +107,30 @@ struct TVProx <: AbstractProximalOperator
     end
 end
 
-function init(prox::TVProx, x::AbstractArray)
+function init(prox::TVProx, x::AbstractArray{T}) where {T <: Real}
     p = similar(x, (size(x)..., ndims(x)))
     opt = Optimisers.setup(prox.rule, p)
     ∂p = zero(p)
     y = similar(x)
     (opt, p, ∂p, y)
+end
+
+function init(prox::TVProx, x::AbstractArray{Complex{T}}) where {T}
+    x_real_shape = similar(x, T)
+
+    p_re = similar(x_real_shape, (size(x)..., ndims(x)))
+    opt_re = Optimisers.setup(prox.rule, p_re)
+    ∂p_re = zero(p_re)
+    y_re = similar(x_real_shape)
+    state_re = (opt_re, p_re, ∂p_re, y_re)
+
+    p_im = similar(x_real_shape, (size(x)..., ndims(x)))
+    opt_im = Optimisers.setup(prox.rule, p_im)
+    ∂p_im = zero(p_im)
+    y_im = similar(x_real_shape)
+    state_im = (opt_im, p_im, ∂p_im, y_im)
+
+    (state_re, state_im)
 end
 
 function normalize_if_greater_than_one!(p::AbstractArray, isotropic::Bool)
@@ -127,7 +145,8 @@ function normalize_if_greater_than_one!(p::AbstractArray, isotropic::Bool)
     p
 end
 
-function apply!(prox::TVProx, (opt, p, ∂p, y), y0::AbstractArray{T}) where {T <: Real}
+function _apply_tv_real!(prox::TVProx, (opt, p, ∂p, y),
+                         y0::AbstractArray{T}) where {T <: Real}
     λ = prox.isotropic ? T(prox.λ) : T(prox.λ/100)
     p .= 0
     y_tmp = isnothing(prox.tol) ? nothing : zero(y)
@@ -151,6 +170,27 @@ function apply!(prox::TVProx, (opt, p, ∂p, y), y0::AbstractArray{T}) where {T 
     end
     Dᵀ!(y, p)
     @. y0 = y0 - λ*y
+    y0
+end
+
+function apply!(prox::TVProx, state, y0::AbstractArray{<:Real})
+    _apply_tv_real!(prox, state, y0)
+end
+
+function apply!(prox::TVProx, state_tuple::Tuple, y0::AbstractArray{Complex{T}}) where {T}
+    state_re, state_im = state_tuple
+
+    y0_re = similar(y0, T)
+    y0_im = similar(y0, T)
+
+    @. y0_re = real(y0)
+    @. y0_im = imag(y0)
+
+    _apply_tv_real!(prox, state_re, y0_re)
+    _apply_tv_real!(prox, state_im, y0_im)
+
+    @. y0 = complex(y0_re, y0_im)
+
     y0
 end
 
