@@ -45,7 +45,7 @@ fig_ground_truth = visualize(((u0_th, u1_th, u2_th),), intensity;  #src
 save("docs/src/assets/$(prefix)_ground_truth.png", fig_ground_truth)  #src
 #nb visualize(((u0_th, u1_th, u2_th),), intensity; colormap=:inferno, height=200)
 #md visualize(((u0_th, u1_th, u2_th),), intensity; colormap=:inferno, height=120)
-#md # ![Ground truth LG mode at z=0, z₁, and z₂](../assets/02_field_retrieval_ground_truth.png)
+#md # ![Ground truth LG mode at z=0, z₁, and z₂](../assets/$(prefix)_ground_truth.png)
 
 # ## Intensity Measurements
 #
@@ -68,7 +68,7 @@ fig_measurements = visualize(((I1, I2),), real;  #src
 save("docs/src/assets/$(prefix)_measurements.png", fig_measurements)  #src
 #nb visualize(((I1, I2),), real; colormap=:inferno, height=200)
 #md visualize(((I1, I2),), real; colormap=:inferno, height=120)
-#md # ![Intensity measurements at z₁=5mm and z₂=15mm](../assets/02_field_retrieval_measurements.png)
+#md # ![Intensity measurements at z₁=5mm and z₂=15mm](../assets/$(prefix)_measurements.png)
 
 # ## Initial Guess: Random Speckle
 #
@@ -86,7 +86,7 @@ fig_init = visualize(u0, (intensity, complex);  #src
 save("docs/src/assets/$(prefix)_initial.png", fig_init)  #src
 #nb visualize(u0, (intensity, complex); colormap=(:inferno, :dark), height=200)
 #md visualize(u0, (intensity, complex); colormap=(:inferno, :dark), height=120)
-#md # ![Initial random speckle field](../assets/02_field_retrieval_initial.png)
+#md # ![Initial random speckle field](../assets/$(prefix)_initial.png)
 
 # ## Optical System Setup
 #
@@ -100,7 +100,7 @@ s = ScalarSource(u0; trainable = true, buffered = true)
 fp1 = FieldProbe()
 fp2 = FieldProbe()
 
-model = s |> p1 |> fp1 |> p2 |> fp2 |> (; inplace = true);
+system = s |> p1 |> fp1 |> p2 |> fp2 |> (; inplace = true);
 
 # ## Loss Function
 #
@@ -128,30 +128,30 @@ end
 # many iterations, with the optimizer navigating through local minima. Power
 # normalization at each step prevents divergence.
 
-opt = setup(Fista(1), model)
-_, g = Zygote.withgradient(f_opt, model)  # Warm-up  #src
-FluxOptics.update!(opt, model, g[1])  # Warm-up  #src
-#nb _, g = Zygote.withgradient(f_opt, model);  # Warm-up
-#nb FluxOptics.update!(opt, model, g[1]);  # Warm-up
+opt = setup(Fista(1), system)
+_, g = Zygote.withgradient(f_opt, system)  # Warm-up  #src
+FluxOptics.update!(opt, system, g[1])  # Warm-up  #src
+#nb _, g = Zygote.withgradient(f_opt, system);  # Warm-up
+#nb FluxOptics.update!(opt, system, g[1]);  # Warm-up
 
 fill!(s, u0)
-losses = []
+losses = Float64[]
 
 #nb @time for i in 1:1000
 #md for i in 1:1000
 for i in 1:1000  #src
-    val, grads = Zygote.withgradient(f_opt, model)  #src
-    FluxOptics.update!(opt, model, grads[1])  #src
+    val, grads = Zygote.withgradient(f_opt, system)  #src
+    FluxOptics.update!(opt, system, grads[1])  #src
     normalize_power!(get_source(s), 1)  # Power normalization to avoid divergence  #src
     push!(losses, val)  #src
 end  #src
-#nb     val, grads = Zygote.withgradient(f_opt, model)
-#nb     FluxOptics.update!(opt, model, grads[1])
+#nb     val, grads = Zygote.withgradient(f_opt, system)
+#nb     FluxOptics.update!(opt, system, grads[1])
 #nb     normalize_power!(get_source(s), 1)  # Power normalization to avoid divergence
 #nb     push!(losses, val)
 #nb end
-#md     val, grads = Zygote.withgradient(f_opt, model)
-#md     FluxOptics.update!(opt, model, grads[1])
+#md     val, grads = Zygote.withgradient(f_opt, system)
+#md     FluxOptics.update!(opt, system, grads[1])
 #md     normalize_power!(get_source(s), 1)  # Power normalization to avoid divergence
 #md     push!(losses, val)
 #md end
@@ -167,7 +167,7 @@ save("docs/src/assets/$(prefix)_convergence.png", fig_loss)  #src
 #nb ax = Makie.Axis(fig_loss[1, 1], yscale = log10, xlabel = "Iteration", ylabel = "Loss")
 #nb lines!(ax, losses; linewidth = 4)
 #nb fig_loss
-#md # ![Convergence showing non-convex optimization landscape with multiple plateaus](../assets/02_field_retrieval_convergence.png)
+#md # ![Convergence showing non-convex optimization landscape with multiple plateaus](../assets/$(prefix)_convergence.png)
 
 # ## Reconstructed Field
 #
@@ -175,7 +175,7 @@ save("docs/src/assets/$(prefix)_convergence.png", fig_loss)  #src
 # at the measurement planes. The complex field structure (intensity and phase)
 # is successfully recovered from intensity-only measurements.
 
-_, probes = model()
+_, probes = system()
 u1 = probes[fp1]
 u2 = probes[fp2]
 
@@ -186,7 +186,7 @@ save("docs/src/assets/$(prefix)_result.png", fig_result)  #src
 #nb visualize((s, u1, u2), (intensity, phase); colormap=(:inferno, :twilight), show_colorbars=true, height=300)
 #md visualize((s, u1, u2), (intensity, phase);
 #md            colormap=(:inferno, :twilight), show_colorbars=true, height=150)
-#md # ![Reconstructed field at z=0, z₁, and z₂ - intensity (top) and phase (bottom)](../assets/02_field_retrieval_result.png)
+#md # ![Reconstructed field at z=0, z₁, and z₂ - intensity (top) and phase (bottom)](../assets/$(prefix)_result.png)
 
 # ## Reconstruction Quality
 #

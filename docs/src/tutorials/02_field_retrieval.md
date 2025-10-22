@@ -90,7 +90,7 @@ s = ScalarSource(u0; trainable = true, buffered = true)
 fp1 = FieldProbe()
 fp2 = FieldProbe()
 
-model = s |> p1 |> fp1 |> p2 |> fp2 |> (; inplace = true);
+system = s |> p1 |> fp1 |> p2 |> fp2 |> (; inplace = true);
 ````
 
 ## Loss Function
@@ -122,14 +122,14 @@ many iterations, with the optimizer navigating through local minima. Power
 normalization at each step prevents divergence.
 
 ````julia
-opt = setup(Fista(1), model)
+opt = setup(Fista(1), system)
 
 fill!(s, u0)
-losses = []
+losses = Float64[]
 
 for i in 1:1000
-    val, grads = Zygote.withgradient(f_opt, model)
-    FluxOptics.update!(opt, model, grads[1])
+    val, grads = Zygote.withgradient(f_opt, system)
+    FluxOptics.update!(opt, system, grads[1])
     normalize_power!(get_source(s), 1)  # Power normalization to avoid divergence
     push!(losses, val)
 end
@@ -147,7 +147,7 @@ at the measurement planes. The complex field structure (intensity and phase)
 is successfully recovered from intensity-only measurements.
 
 ````julia
-_, probes = model()
+_, probes = system()
 u1 = probes[fp1]
 u2 = probes[fp2]
 
