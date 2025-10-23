@@ -21,7 +21,7 @@ jobs:
           version: '1.11'
 
       - name: Register Julia package
-        uses: julia-actions/RegisterAction@main
+        uses: julia-actions/RegisterAction@latest
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           version: ${{ github.event.inputs.version }}
