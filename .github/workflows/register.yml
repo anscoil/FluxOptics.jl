@@ -1,6 +1,5 @@
 name: Register Julia Package
 
-# Déclenchement manuel
 on:
   workflow_dispatch:
     inputs:
@@ -19,10 +18,10 @@ jobs:
       - name: Setup Julia
         uses: julia-actions/setup-julia@v1
         with:
-          version: '1.9'  # ou la version que tu utilises
+          version: '1.11'
 
       - name: Register Julia package
-        uses: julia-actions/RegisterAction@v1
+        uses: julia-actions/RegisterAction@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           version: ${{ github.event.inputs.version }}
