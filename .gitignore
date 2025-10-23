@@ -1,2 +1,4 @@
+*~
+*.cov
 /docs/Manifest*.toml
 /docs/build/
