@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version v0.1.0
+        description: v0.1.0
         required: true
 jobs:
   register:
