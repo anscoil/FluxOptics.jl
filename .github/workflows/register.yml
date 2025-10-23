@@ -12,15 +12,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
-      - name: Setup Julia
-        uses: julia-actions/setup-julia@v1
+      - run: git checkout v0.1.0
+
+      - uses: julia-actions/setup-julia@v1
         with:
           version: '1.11'
 
-      - name: Register Julia package
-        uses: julia-actions/RegisterAction@latest
+      - uses: julia-actions/RegisterAction@latest
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
