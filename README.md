@@ -10,17 +10,16 @@
 
 **Differentiable optical propagation and inverse design in Julia**
 
-FluxOptics.jl is a high-performance Julia package for simulating scalar optical field propagation with full support for automatic differentiation. Design and optimize complex optical systems using gradient-based methods.
+FluxOptics.jl enables gradient-based optimization of optical systems through fully differentiable wave propagation. Design diffractive optical elements, optimize beam shaping, reconstruct optical fields, and characterize photonic structures—all with automatic differentiation.
 
-## ✨ Features
+## ✨ Key Features
 
-- 🌊 **Multiple propagation methods**: Angular Spectrum, Rayleigh-Sommerfeld, Collins integral, Beam Propagation Method
-- 🎭 **Rich component library**: Phase masks, amplitude masks, diffractive optical elements (DOEs)
-- 🎯 **Optimization-first design**: Fully differentiable with Zygote and Enzyme via ChainRulesCore
-- 🔧 **Advanced regularization**: Proximal operators for constrained optimization
-- 📊 **Built-in metrics**: Power coupling, field overlap, intensity matching
-- 🚀 **GPU acceleration**: Seamless CUDA.jl integration for large-scale simulations
-- 🧩 **Composable systems**: Build complex optical systems with intuitive piping syntax
+- 🌊 **Full wave propagation**: Angular Spectrum, Rayleigh-Sommerfeld, Beam Propagation Method
+- 🎯 **Inverse design**: Optimize phase masks, DOEs, and refractive index profiles end-to-end
+- 🔧 **Proximal optimization**: FISTA, TV regularization, ISTA sparsity, custom constraints
+- 📊 **Multi-wavelength**: Simultaneous chromatic optimization and polychromatic beam shaping
+- 🚀 **GPU accelerated**: Seamless CUDA support for large-scale problems
+- 🧩 **Composable**: Intuitive piping syntax for complex optical systems
 
 ## 📦 Installation
 
@@ -29,95 +28,159 @@ using Pkg
 Pkg.add("FluxOptics")
 ```
 
-Or from the Julia REPL, press `]` to enter package mode:
+## 🚀 Quick Start: Optimize a Beam Splitter
+
+Design diffractive optical elements that split a Gaussian beam into two equal output beams:
+
+```julia
+using FluxOptics, Zygote
+using CUDA  # Comment if you don't have CUDA
+
+# Define target: two separated Gaussians
+ns = (512, 512)
+ds = (1.0, 1.0)
+λ = 1.064
+x, y = spatial_vectors(ns, ds)
+u0 = ScalarField(Gaussian(30.0)(x, y), ds, λ)
+target_mode = ScalarField(Gaussian(30.0)(x, y, Shift2D(-60, 0)), ds, λ) +
+              ScalarField(Gaussian(30.0)(x, y, Shift2D(60, 0)), ds, λ)
+normalize_power!(u0)
+normalize_power!(target_mode)
+
+# Comment if you don't have CUDA
+u0 = cu(u0)
+target_mode = cu(target_mode)
+
+# Optical system: source → trainable DOEs → propagation
+doe1 = Phase(u0, zeros(size(u0)); trainable=true, buffered=true)
+doe2 = Phase(u0, zeros(size(u0)); trainable=true, buffered=true)
+prop1 = RSProp(u0, 1500.0)
+prop2 = RSProp(u0, 2000.0)
+system = ScalarSource(u0) |> prop1 |> doe1 |> prop2 |> doe2 |> prop1
+
+# Optimize DOE phases to match target mode
+loss(sys) = sum(abs2, abs2.(sys().out.electric - target_mode.electric))
+opt = FluxOptics.setup(Fista(4e3), system)
+
+for i in 1:1000
+    l, ∇ = Zygote.withgradient(loss, system)
+    FluxOptics.update!(opt, system, ∇[1])
+end
+
+output_mode = system().out
+# After 1000 iterations: coupling efficiency reaches 99.25%
+coupling_efficiency(output_mode, target_mode)
 ```
-add FluxOptics
-```
 
-## 🚀 Quick Start
+See the [documentation](https://anscoil.github.io/FluxOptics.jl/stable/) for complete examples.
 
-See the [documentation](https://anscoil.github.io/FluxOptics.jl/stable/) for detailed examples and tutorials.
+## 📚 Tutorials
 
-## 📚 Documentation
+Learn through hands-on examples:
 
-Full documentation is available at [anscoil.github.io/FluxOptics.jl](https://anscoil.github.io/FluxOptics.jl/stable/)
+| Tutorial | Description |
+|----------|-------------|
+| [**Fox-Li Cavity Simulation**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/01_FoxLi_simulation/) | Find laser cavity eigenmodes near degeneracy points. Demonstrates gain media, iterative propagation, and quasi-Ince-Gaussian mode formation. |
+| [**Phase Retrieval**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/02_field_retrieval/) | Reconstruct complex fields from intensity-only measurements. Shows multi-plane optimization and handling non-convex inverse problems. |
+| [**RGB Beam Shaping**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/03_RGB_beam_shaping/) | Design cascaded DOEs for independent control of red, green, and blue wavelengths. Demonstrates chromatic optimization. |
+| [**Waveguide Tomography**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/04_waveguide_tomography/) | Reconstruct refractive index profiles from angle-resolved data. Full-wave tomography with joint aberration correction. |
 
-### API Reference
+## 🎯 What Can You Build?
 
-- **[GridUtils](https://anscoil.github.io/FluxOptics.jl/stable/api/gridutils/)**: Coordinate systems and transformations
-- **[Modes](https://anscoil.github.io/FluxOptics.jl/stable/api/modes/)**: Gaussian, Hermite-Gaussian, Laguerre-Gaussian modes
-- **[Fields](https://anscoil.github.io/FluxOptics.jl/stable/api/fields/)**: ScalarField type and operations
-- **[OpticalComponents](https://anscoil.github.io/FluxOptics.jl/stable/api/optical_components/)**: Propagators, masks, sources, systems
-- **[OptimisersExt](https://anscoil.github.io/FluxOptics.jl/stable/api/optimisers/)**: Optimization rules and proximal operators
-- **[Metrics](https://anscoil.github.io/FluxOptics.jl/stable/api/metrics/)**: Loss functions for inverse design
+FluxOptics.jl is designed for researchers and engineers working on:
 
-## 🎯 Use Cases
+### Inverse Design
+- Diffractive optical elements (DOEs) and metasurfaces
+- Computer-generated holograms
+- Beam shaping and intensity control
+- Achromatic and polychromatic focusing elements
 
-FluxOptics.jl is designed for:
+### Optical Characterization
+- Phase retrieval from intensity measurements
+- Tomographic reconstruction of refractive index profiles
+- Aberration estimation and correction
+- Waveguide and fiber characterization
 
-- Diffractive and spatially-varying optical element design
-- Fiber coupling efficiency maximization  
-- Beam shaping and intensity distribution control
-- Wavefront analysis and aberration correction
-- Phase and field retrieval from intensity measurements
-- Multimode beam characterization and decomposition
-- Computer-generated holography
-- Stationary transverse mode analysis and design of laser resonators
-- Optical tomography and waveguide characterization
+### Laser Physics
+- Cavity eigenmode analysis
+- Mode selection and control
+- Gain-guided beam propagation
+- Resonator design near degeneracy points
+
+### Photonics Integration
+- Fiber coupling optimization
+- Multimode beam decomposition
+- Graded-index (GRIN) media simulation
+- Optical propagation through complex media
 
 ## 🛠️ Key Capabilities
 
-### Multi-Wavelength Support
+### Multi-Wavelength Optimization
+
+Design optical elements that work across multiple wavelengths:
 
 ```julia
-# Propagate multiple wavelengths simultaneously
-λs = [0.8, 1.064, 1.55]
-u_multi = ScalarField(data, (2.0, 2.0), λs)
-propagator = ASProp(u_multi, 1000.0)
-result = propagate(u_multi, propagator, Forward)
+# Simultaneous RGB beam shaping
+λs = [0.640, 0.538, 0.455]  # Red, green, blue
+u0 = ScalarField((nx, ny, 3), ds, λs)
+
+# Optimize DOE cascade for chromatic control
+system = source |> doe1 |> prop |> doe2 |> prop |> doe3
 ```
 
-### Off-Axis Propagation
+### Proximal Optimization
+
+Use advanced regularization for better convergence:
 
 ```julia
-# Track tilted beams through optical systems
-u_tilted = ScalarField(data, (2.0, 2.0), 1.064; tilts=(0.05, 0.02))
-propagator = ASProp(u_tilted, 1000.0; track_tilts=true)
-result = propagate(u_tilted, propagator, Forward)
+# ISTA sparsity regularization
+sample_rule = ProxRule(Fista(0.01), IstaProx(3e-5))
+aberration_rule = Fista(0.03)
+
+# Different rules for different components
+opt = setup(make_rules(sample => sample_rule, 
+                       aberrations => aberration_rule), 
+            system)
 ```
 
 ### GPU Acceleration
 
+Seamless GPU support for large-scale problems:
+
 ```julia
 using CUDA
 
-# Move field to GPU
-u_gpu = cu(u)
-
-# All operations work seamlessly on GPU
-propagator = ASProp(u_gpu, 1000.0)
-result_gpu = propagate(u_gpu, propagator, Forward)
+u0 = cu(u0)  # Move to GPU
+system = source |> components...  # Works transparently
+result = system()  # Computed on GPU
 ```
 
-### Constrained Optimization
+### Beam Propagation Method
+
+Simulate propagation through graded-index media:
 
 ```julia
-# Apply constraints during optimization with proximal operators
-prox_rule = ProxRule(Optimisers.Adam(0.01), constraint_function)
-opt_state = setup(prox_rule, params)
-update!(opt_state, params, grads)
+# Define refractive index profile Δn(x,z)
+Δn = ... # 2D array
+
+# AS-BPM through sample
+sample = AS_BPM(u0, L_sample, n_bulk, Δn; trainable=true)
 ```
 
-## 🤝 Feedback and Suggestions
+## 📖 Documentation
 
-Have ideas for new features or use cases? Open an issue on [GitHub](https://github.com/anscoil/FluxOptics.jl/issues) to discuss!
+**[Read the full documentation →](https://anscoil.github.io/FluxOptics.jl/stable/)**
 
-I'm particularly interested in:
-- Real-world application needs and use cases
-- Performance bottlenecks in your workflows
-- Missing features for your research
+- [Installation guide](https://anscoil.github.io/FluxOptics.jl/stable/)
+- [Tutorials](https://anscoil.github.io/FluxOptics.jl/stable/)
+- [API reference](https://anscoil.github.io/FluxOptics.jl/stable/api/)
 
-For bug reports, please include a minimal reproducible example.
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to:
+- Report bugs or request features via [GitHub Issues](https://github.com/anscoil/FluxOptics.jl/issues)
+- Submit pull requests with improvements
+- Share your use cases and examples
 
 ## 📝 Citation
 
@@ -135,19 +198,15 @@ If you use FluxOptics.jl in your research, please cite:
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
-FluxOptics.jl builds upon the excellent Julia ecosystem, particularly:
-- [Zygote.jl](https://github.com/FluxML/Zygote.jl) for automatic differentiation
-- [ChainRulesCore.jl](https://github.com/JuliaDiff/ChainRulesCore.jl) for defining custom backpropagation rules
+Built on the excellent Julia ecosystem:
+- [Zygote.jl](https://github.com/FluxML/Zygote.jl) and [ChainRulesCore.jl](https://github.com/JuliaDiff/ChainRulesCore.jl) for automatic differentiation
 - [Optimisers.jl](https://github.com/FluxML/Optimisers.jl) for optimization algorithms
 - [CUDA.jl](https://github.com/JuliaGPU/CUDA.jl) for GPU acceleration
-- [Documenter.jl](https://github.com/JuliaDocs/Documenter.jl) for documentation
 
 ---
 
 **Maintainer**: Nicolas Barré ([@anscoil](https://github.com/anscoil))
-
-**Status**: Active development

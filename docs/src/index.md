@@ -49,10 +49,20 @@ visualize((probe_mode, output_mode), (intensity, phase);
 
 ## Documentation Structure
 
-### Tutorials *(coming soon)*
-Step-by-step guides for common use cases
+### Tutorials
+
+Learn FluxOptics through practical examples covering inverse design and optical simulation:
+
+- **[Fox-Li Cavity Simulation](tutorials/01_FoxLi_simulation.md)**: Find cavity eigenmodes in a semi-degenerate laser resonator. Demonstrates iterative simulation, gain media, and quasi-Ince-Gaussian mode formation near degeneracy points.
+
+- **[Phase Retrieval from Intensity](tutorials/02_field_retrieval.md)**: Reconstruct complex optical fields from intensity-only measurements. Shows gradient-based optimization, multi-plane propagation, and handling non-convex inverse problems.
+
+- **[Multi-Wavelength Beam Shaping](tutorials/03_RGB_beam_shaping.md)**: Design chromatic diffractive optical elements that independently control red, green, and blue beams. Illustrates wavelength-dependent optimization and cascaded DOE systems.
+
+- **[Waveguide Tomography](tutorials/04_waveguide_tomography.md)**: Reconstruct refractive index profiles of photoinscribed waveguides from angle-resolved intensity data. Demonstrates full-wave tomography with joint aberration estimation.
 
 ### [API Reference](api/index.md)
+
 Complete documentation of all modules, types, and functions:
 - **[GridUtils](api/gridutils/index.md)**: Coordinate systems and transformations
 - **[Modes](api/modes/index.md)**: Gaussian beams, HG/LG modes, spatial layouts
