@@ -1,4 +1,4 @@
-name: FluxOptics
+name: Register Package
 on:
   workflow_dispatch:
     inputs:
