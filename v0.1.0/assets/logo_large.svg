@@ -1,0 +1,136 @@
+<svg viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="ringGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#9558B2;stop-opacity:0.9"/>
+      <stop offset="33%" style="stop-color:#4063D8;stop-opacity:0.85"/>
+      <stop offset="66%" style="stop-color:#389826;stop-opacity:0.8"/>
+      <stop offset="100%" style="stop-color:#CB3C33;stop-opacity:0.75"/>
+    </linearGradient>
+    <linearGradient id="ringGrad2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4063D8;stop-opacity:0.85"/>
+      <stop offset="33%" style="stop-color:#389826;stop-opacity:0.8"/>
+      <stop offset="66%" style="stop-color:#CB3C33;stop-opacity:0.75"/>
+      <stop offset="100%" style="stop-color:#9558B2;stop-opacity:0.7"/>
+    </linearGradient>
+    <linearGradient id="ringGrad3" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#389826;stop-opacity:0.75"/>
+      <stop offset="33%" style="stop-color:#CB3C33;stop-opacity:0.7"/>
+      <stop offset="66%" style="stop-color:#9558B2;stop-opacity:0.65"/>
+      <stop offset="100%" style="stop-color:#4063D8;stop-opacity:0.6"/>
+    </linearGradient>
+    <radialGradient id="beamRed" cx="50%" cy="50%">
+      <stop offset="0%" style="stop-color:#ff4444;stop-opacity:1"/>
+      <stop offset="40%" style="stop-color:#CB3C33;stop-opacity:0.9"/>
+      <stop offset="100%" style="stop-color:#CB3C33;stop-opacity:0"/>
+    </radialGradient>
+    <radialGradient id="beamGreen" cx="50%" cy="50%">
+      <stop offset="0%" style="stop-color:#55bb55;stop-opacity:1"/>
+      <stop offset="40%" style="stop-color:#389826;stop-opacity:0.9"/>
+      <stop offset="100%" style="stop-color:#389826;stop-opacity:0"/>
+    </radialGradient>
+    <radialGradient id="beamBlue" cx="50%" cy="50%">
+      <stop offset="0%" style="stop-color:#5577ff;stop-opacity:1"/>
+      <stop offset="40%" style="stop-color:#4063D8;stop-opacity:0.9"/>
+      <stop offset="100%" style="stop-color:#4063D8;stop-opacity:0"/>
+    </radialGradient>
+    <radialGradient id="beamPurple" cx="50%" cy="50%">
+      <stop offset="0%" style="stop-color:#aa66cc;stop-opacity:1"/>
+      <stop offset="40%" style="stop-color:#9558B2;stop-opacity:0.9"/>
+      <stop offset="100%" style="stop-color:#9558B2;stop-opacity:0"/>
+    </radialGradient>
+    <filter id="glowRing">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glowLight">
+      <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
+      <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glowNabla">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  
+  <rect width="800" height="300" fill="white" fill-opacity="0"/>
+  
+  <g opacity="0.28" filter="url(#glowNabla)">
+    <line x1="110" y1="90" x2="190" y2="90" stroke="#4063D8" stroke-width="8" stroke-linecap="round"/>
+    <line x1="110" y1="90" x2="150" y2="180" stroke="#4063D8" stroke-width="8" stroke-linecap="round"/>
+    <line x1="190" y1="90" x2="150" y2="180" stroke="#4063D8" stroke-width="8" stroke-linecap="round"/>
+    <line x1="125" y1="70" x2="175" y2="70" stroke="#4063D8" stroke-width="5" stroke-linecap="round"/>
+    <line x1="175" y1="70" x2="168" y2="63" stroke="#4063D8" stroke-width="5" stroke-linecap="round"/>
+    <line x1="175" y1="70" x2="168" y2="77" stroke="#4063D8" stroke-width="5" stroke-linecap="round"/>
+  </g>
+  
+  <g opacity="0.75">
+    <path d="M220 150Q224 154 224 157Q224 161 224 165Q223 168 222 172Q219 175 215 177Q210 178 208 181Q206 184 204 186Q202 190 200 193Q200 200 198 204Q195 208 192 212Q187 215 181 215Q177 215 173 214Q169 213 166 213Q163 214 160 214Q156 215 153 218Q146 222 143 224Q135 224 132 223Q126 218 123 215Q119 208 117 206Q109 201 105 200Q92 197 90 195Q84 185 85 181Q88 169 87 166Q85 156 83 153Q76 143 76 139Q79 128 82 126Q92 119 94 117Q100 109 100 105Q103 92 106 90Q115 84 119 85Q131 88 134 87Q144 85 147 83Q157 76 161 76Q172 79 174 82Q181 92 183 94Q191 100 195 100Q208 103 210 106Q216 115 215 119Q213 131 213 134Q215 144 218 147Q220 150 220 150Z" 
+          fill="none" stroke="url(#ringGrad1)" stroke-width="3" opacity="0.4" filter="url(#glowRing)"/>
+    <path d="M220 150Q224 154 224 157Q224 161 224 165Q223 168 222 172Q219 175 215 177Q210 178 208 181Q206 184 204 186Q202 190 200 193Q200 200 198 204Q195 208 192 212Q187 215 181 215Q177 215 173 214Q169 213 166 213Q163 214 160 214Q156 215 153 218Q146 222 143 224Q135 224 132 223Q126 218 123 215Q119 208 117 206Q109 201 105 200Q92 197 90 195Q84 185 85 181Q88 169 87 166Q85 156 83 153Q76 143 76 139Q79 128 82 126Q92 119 94 117Q100 109 100 105Q103 92 106 90Q115 84 119 85Q131 88 134 87Q144 85 147 83Q157 76 161 76Q172 79 174 82Q181 92 183 94Q191 100 195 100Q208 103 210 106Q216 115 215 119Q213 131 213 134Q215 144 218 147Q220 150 220 150Z"
+          fill="none" stroke="url(#ringGrad1)" stroke-width="2" opacity="0.9"/>
+    
+    <path d="M245 150Q249 155 250 160Q250 165 249 170Q248 174 246 179Q244 183 238 186Q231 189 229 192Q226 196 224 200Q219 207 218 212Q216 223 214 228Q206 234 202 236Q192 238 186 238Q176 236 172 236Q159 239 154 242Q140 250 135 250Q121 246 117 242Q108 229 104 226Q93 219 88 218Q72 214 69 210Q61 198 62 192Q65 176 64 172Q61 159 58 154Q50 140 50 135Q54 121 58 117Q71 108 74 104Q81 93 82 88Q86 72 90 69Q103 61 108 62Q124 65 128 64Q141 61 146 58Q160 50 165 50Q179 54 183 58Q192 71 196 74Q207 81 212 82Q228 86 231 90Q239 103 238 108Q236 124 236 128Q239 141 242 146Q245 150 245 150Z"
+          fill="none" stroke="url(#ringGrad2)" stroke-width="2.5" opacity="0.35" filter="url(#glowRing)"/>
+    <path d="M245 150Q249 155 250 160Q250 165 249 170Q248 174 246 179Q244 183 238 186Q231 189 229 192Q226 196 224 200Q219 207 218 212Q216 223 214 228Q206 234 202 236Q192 238 186 238Q176 236 172 236Q159 239 154 242Q140 250 135 250Q121 246 117 242Q108 229 104 226Q93 219 88 218Q72 214 69 210Q61 198 62 192Q65 176 64 172Q61 159 58 154Q50 140 50 135Q54 121 58 117Q71 108 74 104Q81 93 82 88Q86 72 90 69Q103 61 108 62Q124 65 128 64Q141 61 146 58Q160 50 165 50Q179 54 183 58Q192 71 196 74Q207 81 212 82Q228 86 231 90Q239 103 238 108Q236 124 236 128Q239 141 242 146Q245 150 245 150Z"
+          fill="none" stroke="url(#ringGrad2)" stroke-width="1.8" opacity="0.8"/>
+    
+    <path d="M265 150Q270 156 271 162Q271 168 270 174Q268 180 266 185Q263 191 256 194Q248 198 246 201Q243 206 240 210Q234 219 233 225Q229 238 227 244Q211 256 201 257Q182 254 176 255Q161 258 155 261Q138 271 132 270Q115 266 110 261Q99 246 94 243Q81 234 75 233Q56 227 52 222Q43 207 43 201Q46 182 45 176Q42 161 39 155Q29 138 30 132Q34 115 39 110Q54 99 57 94Q66 81 68 75Q73 56 78 52Q93 43 99 43Q119 46 124 45Q139 42 145 39Q162 29 168 30Q185 34 190 39Q201 54 206 57Q219 66 225 68Q244 73 248 78Q257 93 257 99Q254 119 255 124Q258 139 261 145Q265 150 265 150Z"
+          fill="none" stroke="url(#ringGrad3)" stroke-width="2" opacity="0.3" filter="url(#glowRing)"/>
+    <path d="M265 150Q270 156 271 162Q271 168 270 174Q268 180 266 185Q263 191 256 194Q248 198 246 201Q243 206 240 210Q234 219 233 225Q229 238 227 244Q211 256 201 257Q182 254 176 255Q161 258 155 261Q138 271 132 270Q115 266 110 261Q99 246 94 243Q81 234 75 233Q56 227 52 222Q43 207 43 201Q46 182 45 176Q42 161 39 155Q29 138 30 132Q34 115 39 110Q54 99 57 94Q66 81 68 75Q73 56 78 52Q93 43 99 43Q119 46 124 45Q139 42 145 39Q162 29 168 30Q185 34 190 39Q201 54 206 57Q219 66 225 68Q244 73 248 78Q257 93 257 99Q254 119 255 124Q258 139 261 145Q265 150 265 150Z"
+          fill="none" stroke="url(#ringGrad3)" stroke-width="1.6" opacity="0.7"/>
+  </g>
+  
+  <circle cx="150" cy="150" r="28" fill="url(#beamRed)" filter="url(#glowLight)" opacity="0.9"/>
+  <circle cx="150" cy="150" r="20" fill="#CB3C33" opacity="0.8"/>
+  <circle cx="150" cy="110" r="16" fill="url(#beamGreen)" filter="url(#glowLight)" opacity="0.85"/>
+  <circle cx="150" cy="110" r="11" fill="#389826" opacity="0.7"/>
+  <circle cx="150" cy="190" r="16" fill="url(#beamBlue)" filter="url(#glowLight)" opacity="0.85"/>
+  <circle cx="150" cy="190" r="11" fill="#4063D8" opacity="0.7"/>
+  <circle cx="110" cy="150" r="16" fill="url(#beamPurple)" filter="url(#glowLight)" opacity="0.85"/>
+  <circle cx="110" cy="150" r="11" fill="#9558B2" opacity="0.7"/>
+  <circle cx="190" cy="150" r="16" fill="url(#beamRed)" filter="url(#glowLight)" opacity="0.85"/>
+  <circle cx="190" cy="150" r="11" fill="#CB3C33" opacity="0.7"/>
+  <circle cx="120" cy="120" r="10" fill="url(#beamBlue)" opacity="0.7"/>
+  <circle cx="120" cy="120" r="6" fill="#4063D8" opacity="0.6"/>
+  <circle cx="180" cy="120" r="10" fill="url(#beamPurple)" opacity="0.7"/>
+  <circle cx="180" cy="120" r="6" fill="#9558B2" opacity="0.6"/>
+  <circle cx="120" cy="180" r="10" fill="url(#beamGreen)" opacity="0.7"/>
+  <circle cx="120" cy="180" r="6" fill="#389826" opacity="0.6"/>
+  <circle cx="180" cy="180" r="10" fill="url(#beamRed)" opacity="0.7"/>
+  <circle cx="180" cy="180" r="6" fill="#CB3C33" opacity="0.6"/>
+  
+  <g opacity="0.5" stroke-width="1.5">
+    <path d="M150 115Q280 100 380 90" fill="none" stroke="#9558B2"/>
+    <path d="M150 185Q280 200 380 210" fill="none" stroke="#4063D8"/>
+    <path d="M150 130Q280 120 380 115" fill="none" stroke="#CB3C33"/>
+    <path d="M150 170Q280 180 380 185" fill="none" stroke="#389826"/>
+  </g>
+  
+  <circle cx="380" cy="102" r="9" fill="#9558B2" opacity="0.7"/>
+  <circle cx="380" cy="102" r="5" fill="#9558B2" opacity="0.9"/>
+  <circle cx="380" cy="198" r="9" fill="#4063D8" opacity="0.7"/>
+  <circle cx="380" cy="198" r="5" fill="#4063D8" opacity="0.9"/>
+  <circle cx="380" cy="150" r="14" fill="#CB3C33" opacity="0.7"/>
+  <circle cx="380" cy="150" r="9" fill="#CB3C33" opacity="0.9"/>
+  
+  <!-- Texte FluxOptics -->
+  <text x="440" y="165" 
+        font-family="Arial, Helvetica, sans-serif" 
+        font-size="64" 
+        font-weight="300" 
+        fill="#333333"
+        letter-spacing="2">
+    Flux<tspan font-weight="500" fill="#9558B2">Optics</tspan>
+  </text>
+  
+  <!-- Sous-titre DIFFERENTIABLE OPTICS -->
+  <text x="442" y="190" 
+        font-family="Arial, Helvetica, sans-serif" 
+        font-size="14" 
+        font-weight="300" 
+        fill="#9558B2"
+        letter-spacing="3"
+        opacity="0.85">
+    DIFFERENTIABLE OPTICS
+  </text>
+</svg>
