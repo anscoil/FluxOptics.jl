@@ -1,14 +1,28 @@
-name: Register Package
+name: Register Julia Package
+
+# Déclenchement manuel
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: v0.1.0
+        description: "v0.1.0"
         required: true
+
 jobs:
   register:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: julia-actions/RegisterAction@latest
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Julia
+        uses: julia-actions/setup-julia@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          version: '1.9'  # ou la version que tu utilises
+
+      - name: Register Julia package
+        uses: julia-actions/RegisterAction@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          version: ${{ github.event.inputs.version }}
