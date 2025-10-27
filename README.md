@@ -81,7 +81,7 @@ Learn through hands-on examples:
 | Tutorial | Description |
 |----------|-------------|
 | [**Fox-Li Cavity Simulation**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/01_FoxLi_simulation/) | Find laser cavity eigenmodes near degeneracy points. Demonstrates gain media, iterative propagation, and quasi-Ince-Gaussian mode formation. |
-| [**Phase Retrieval**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/02_field_retrieval/) | Reconstruct complex fields from intensity-only measurements. Shows multi-plane optimization and handling non-convex inverse problems. |
+| [**Field Retrieval**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/02_field_retrieval/) | Reconstruct complex fields from intensity-only measurements. Shows multi-plane optimization and handling non-convex inverse problems. |
 | [**RGB Beam Shaping**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/03_RGB_beam_shaping/) | Design cascaded DOEs for independent control of red, green, and blue wavelengths. Demonstrates chromatic optimization. |
 | [**Waveguide Tomography**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/04_waveguide_tomography/) | Reconstruct refractive index profiles from angle-resolved data. Full-wave tomography with joint aberration correction. |
 | [**Multimode Intensity Shaping**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/05_multimode_intensity_shaping/) | Shape 105 LG modes into square and ring targets using cascaded DOEs. Demonstrates TV-norm regularization and basis projection for symmetry. |
@@ -172,8 +172,8 @@ sample = AS_BPM(u0, L_sample, n_bulk, Δn; trainable=true)
 
 **[Read the full documentation →](https://anscoil.github.io/FluxOptics.jl/stable/)**
 
-- [Installation guide](https://anscoil.github.io/FluxOptics.jl/stable/)
-- [Tutorials](https://anscoil.github.io/FluxOptics.jl/stable/)
+- [Getting Started](https://anscoil.github.io/FluxOptics.jl/stable/)
+- [Tutorials](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/01_FoxLi_simulation)
 - [API reference](https://anscoil.github.io/FluxOptics.jl/stable/api/)
 
 ## 🤝 Contributing
