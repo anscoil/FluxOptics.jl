@@ -61,6 +61,8 @@ Learn FluxOptics through practical examples covering inverse design and optical 
 
 - **[Waveguide Tomography](tutorials/04_waveguide_tomography.md)**: Reconstruct refractive index profiles of photoinscribed waveguides from angle-resolved intensity data. Demonstrates full-wave tomography with joint aberration estimation.
 
+- **[Multimode Intensity Shaping](tutorials/05_multimode_intensity_shaping.md)**: Shape multimode light sources using cascaded diffractive optical elements. Demonstrates TV-norm regularization for smooth profiles and basis projection for cylindrical symmetry enforcement.
+
 ### [API Reference](api/index.md)
 
 Complete documentation of all modules, types, and functions:

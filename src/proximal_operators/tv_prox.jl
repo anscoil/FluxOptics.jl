@@ -227,10 +227,6 @@ julia> denoised_var = var(noisy);
 
 julia> denoised_var < original_var  # Reduced variation
 true
-
-julia> # Can chain operations:
-
-julia> result = TV_denoise!(copy(noisy), 0.05) |> x -> clamp.(x, 0, 1);
 ```
 
 See also: [`TVProx`](@ref), [`ClampProx`](@ref), [`PositiveProx`](@ref)

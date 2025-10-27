@@ -23,7 +23,8 @@ makedocs(;
                  "FoxLi Simulation" => "tutorials/01_FoxLi_simulation.md",
                  "Field Retrieval" => "tutorials/02_field_retrieval.md",
                  "Multi-Wavelength Beam Shaping" => "tutorials/03_RGB_beam_shaping.md",
-                 "Waveguide Tomography" => "tutorials/04_waveguide_tomography.md"
+                 "Waveguide Tomography" => "tutorials/04_waveguide_tomography.md",
+                 "Multimode Intensity Shaping" => "tutorials/05_multimode_intensity_shaping.md"
              ],
              "Reference" => [
                  "api/index.md",

@@ -76,18 +76,19 @@ using FluxOptics, Zygote, Optimisers
 using CairoMakie
 
 # Input: single Gaussian mode
-ds = 10.0  # 10 microns
-xv, yv = spatial_vectors(250, 250, ds, ds)
+ns = (250, 250)
+ds = (10.0, 10.0)  # 10 microns
+xv, yv = spatial_vectors(ns, ds)
 w0 = 150.0  # 150 microns
 λ = 0.7  # 700 nm
-u0 = ScalarField(Gaussian(w0)(xv, yv), (ds, ds), λ)
+u0 = ScalarField(Gaussian(w0)(xv, yv), ds, λ)
 normalize_power!(u0)  # normalize u0 to unit power
 
 # Target: coherent superposition of four Gaussian modes
 offset = 3.8 * w0
 positions = [(-offset, -offset), (offset, -offset), (-offset, offset), (offset, offset)]
 vf = sum(positions) do (Δx, Δy)
-    ScalarField(Gaussian(w0)(xv, yv, Shift2D(Δx, Δy)), (ds, ds), λ)
+    ScalarField(Gaussian(w0)(xv, yv, Shift2D(Δx, Δy)), ds, λ)
 end
 normalize_power!(vf)  # normalize vf to unit power
 
