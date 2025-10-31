@@ -24,7 +24,7 @@
 # **References:**
 #
 # [1]. N. Barré and A. Jesacher, "[Holographic beam shaping of partially coherent light](https://doi.org/10.1364/OL.444074)," 
-#    Opt. Lett. 47, 425-428 (2022).
+#    Opt. Lett. **47**, 425-428 (2022).
 #
 # [2]. N. Barré and A. Jesacher, "[Beam shaping of highly multimode sources with cascaded 
 #    diffractive optical elements](https://doi.org/10.1016/j.procir.2022.08.151)," Procedia CIRP 111, 566-570 (2022). 

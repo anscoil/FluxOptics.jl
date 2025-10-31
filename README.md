@@ -84,7 +84,7 @@ Learn through hands-on examples:
 | [**Field Retrieval**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/02_field_retrieval/) | Reconstruct complex fields from intensity-only measurements. Shows multi-plane optimization and handling non-convex inverse problems. |
 | [**RGB Beam Shaping**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/03_RGB_beam_shaping/) | Design cascaded DOEs for independent control of red, green, and blue wavelengths. Demonstrates chromatic optimization. |
 | [**Waveguide Tomography**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/04_waveguide_tomography/) | Reconstruct refractive index profiles from angle-resolved data. Full-wave tomography with joint aberration correction. |
-| [**Multimode Intensity Shaping**](https://anscoil.github.io/FluxOptics.jl/dev/tutorials/05_multimode_intensity_shaping/) | Shape 105 LG modes into square and ring targets using cascaded DOEs. Demonstrates TV-norm regularization and basis projection for symmetry. |
+| [**Multimode Intensity Shaping**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/05_multimode_intensity_shaping/) | Shape 105 LG modes into square and ring targets using cascaded DOEs. Demonstrates TV-norm regularization and basis projection for symmetry. |
 
 ## 🎯 What Can You Build?
 
