@@ -83,12 +83,13 @@ FluxOptics.jl natively supports polychromatic and multimode propagation.
 
 Seamless GPU acceleration via CUDA.jl:
 ```julia
-using CUDA
-u = cu(ScalarField(...))  # Move to GPU
-source = ScalarSource(u)   # Source inherits GPU context from u
-doe = Phase(u, ...)        # Components inherit GPU context from u
+using FluxOptics, CUDA
+u = cu(ScalarField(...))     # Move to GPU
+source = ScalarSource(u)     # Source inherits GPU context from u
+doe = Phase(u, ...)          # Components inherit GPU context from u
+propagator = ASProp(u, ...)  # Components inherit GPU context from u
 system = source |> doe |> propagator  # Define an optical system
-output_field, probes = system()  # GPU execution
+output_field, probes = system()       # GPU execution
 ```
 
 All operations transparently run on GPU with minimal code changes.
