@@ -724,7 +724,7 @@ julia> coupling_efficiency(u, v)
  1.0
 ```
 
-**ScalarField multi-mode case:**
+**ScalarField multimode case:**
 ```jldoctest
 julia> # Small example for documentation - use larger arrays in practice
 
@@ -790,7 +790,7 @@ julia> v = ScalarField(field2_data, (1.0, 1.0), 1.064);
 julia> overlap = dot(u, v);  # 0-dimensional Array storing the complex overlap integral
 ```
 
-**Multi-mode case:**
+**Multimode case:**
 ```jldoctest
 julia> # Small example for documentation - use larger arrays in practice
 
