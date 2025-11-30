@@ -10,7 +10,7 @@
 
 **Differentiable optical propagation and inverse design in Julia**
 
-FluxOptics.jl enables gradient-based optimization of optical systems through fully differentiable wave propagation. Design diffractive optical elements, optimize beam shaping, reconstruct optical fields, and characterize photonic structures—all with automatic differentiation.
+FluxOptics.jl enables gradient-based optimization of optical systems through fully differentiable wave propagation. It allows you to design diffractive optical elements, optimize beam shaping, reconstruct optical fields, and characterize photonic structures.
 
 ## ✨ Key Features
 
@@ -76,18 +76,11 @@ output = system().out
 coupling_efficiency(output, target)
 ```
 
-## 📖 Documentation
+## 📖 Tutorials
 
-**[Read the full documentation →](https://anscoil.github.io/FluxOptics.jl/stable/)**
+**[Complete documentation →](https://anscoil.github.io/FluxOptics.jl/stable/)**
 
-Five comprehensive tutorials cover:
-- Laser cavity eigenmode analysis (Fox-Li method)
-- Phase retrieval from intensity measurements
-- Multi-wavelength beam shaping (chromatic DOEs)
-- Waveguide tomography with aberration correction
-- Multimode intensity shaping (105 Laguerre-Gaussian modes)
-
-## 🧪 Tutorials Overview
+Five comprehensive tutorials:
 
 | Tutorial | Description |
 |----------|-------------|
