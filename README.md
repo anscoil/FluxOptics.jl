@@ -86,7 +86,7 @@ Five comprehensive tutorials:
 |----------|-------------|
 | [**Fox-Li Cavity**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/01_FoxLi_simulation/) | Eigenmode analysis in semi-degenerate laser resonators |
 | [**Field Retrieval**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/02_field_retrieval/) | Reconstruct amplitude and phase from intensity-only data |
-| [**Multi-Wavelength**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/03_multispectral_beam_shaping/) | Independent RGB beam control with cascaded DOEs |
+| [**Multi-Wavelength**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/03_RGB_beam_shaping/) | Independent RGB beam control with cascaded DOEs |
 | [**Waveguide Tomography**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/04_waveguide_tomography/) | Refractive index reconstruction from angle-resolved intensity |
 | [**Multimode Shaping**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/05_multimode_intensity_shaping/) | Shape 105 modes into square/ring targets with TV regularization |
 
