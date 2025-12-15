@@ -43,6 +43,12 @@ Design diffractive optical elements that split a Gaussian beam into two equal ou
 ```julia
 using FluxOptics, Zygote
 
+# Uncomment to use more FFTW threads
+# using FFTW
+# FFTW.set_num_threads(6)
+
+# using CUDA  # Uncomment to use CUDA
+
 # Setup: 512×512 grid, 1 μm pitch, 1.064 μm wavelength
 ns = (512, 512)
 ds = (1.0, 1.0)
@@ -53,19 +59,24 @@ x, y = spatial_vectors(ns, ds)
 u0 = ScalarField(Gaussian(30.0)(x, y), ds, λ)
 target = ScalarField(Gaussian(30.0)(x, y, Shift2D(-60, 0)), ds, λ) +
          ScalarField(Gaussian(30.0)(x, y, Shift2D(60, 0)), ds, λ)
+# Uncomment if you are using CUDA
+# u0 = cu(u0)
+# target = cu(target)
 normalize_power!(u0)
 normalize_power!(target)
 
-# Optical system: source → DOE → propagation → DOE → propagation
+# Optical system: source → propagation → DOE → propagation → DOE → propagation
 doe1 = Phase(u0, zeros(size(u0)); trainable=true, buffered=true)
 doe2 = Phase(u0, zeros(size(u0)); trainable=true, buffered=true)
-system = ScalarSource(u0) |> RSProp(u0, 1500.0) |> doe1 |> 
-         RSProp(u0, 2000.0) |> doe2 |> RSProp(u0, 1500.0)
+prop1 = RSProp(u0, 1500.0)
+prop2 = RSProp(u0, 2000.0)
+system = ScalarSource(u0) |> prop1 |> doe1 |> prop2 |> doe2 |> prop1
 
 # Optimize
-loss(sys) = sum(abs2, abs2.(sys().out.electric - target.electric))
+loss(system) = sum(abs2, abs2.(system().out.electric - target.electric))
 opt = FluxOptics.setup(Fista(4e3), system)
 
+# Lower the number of iterations for a quick test on cpu
 for i in 1:1000
     l, ∇ = Zygote.withgradient(loss, system)
     FluxOptics.update!(opt, system, ∇[1])
