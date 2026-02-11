@@ -416,7 +416,7 @@ function eval_mode(m::HermiteGaussian, x, y)
     my = m.hgy
     wz_x = eval_wz(mx)
     wz_y = eval_wz(my)
-    C = mx.C * mx.g.C * my.C * my.g.C
+    C = mx.C * mx.g.C * my.C * my.g.C * (-1)^(2*mx.n + my.n)
     eikz = eval_constant_phase(mx.g)
     (C *
      mx.hn(sqrt(2)*x/wz_x) *

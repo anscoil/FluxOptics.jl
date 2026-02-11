@@ -30,10 +30,26 @@ FluxOptics.jl is designed for:
 - **Photonics**: Fiber coupling, multimode decomposition, GRIN media simulation
 
 ## 📦 Installation
-
 ```julia
 using Pkg
 Pkg.add("FluxOptics")
+```
+
+**Minimum Julia version**: 1.11
+
+### Required for optimization workflows
+
+To run gradient-based optimization, you need to install:
+```julia
+Pkg.add(["Optimisers", "Zygote"])
+```
+
+### Optional: Visualization
+
+For plotting capabilities:
+```julia
+Pkg.add("CairoMakie")  # for visualize()
+Pkg.add("GLMakie")     # for visualize_slider()
 ```
 
 ## 🚀 Quick Start
