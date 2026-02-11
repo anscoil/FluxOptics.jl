@@ -20,6 +20,7 @@ makedocs(;
          pages = [
              "Home" => "index.md",
              "Tutorials" => [
+                 "tutorials/index.md",
                  "FoxLi Simulation" => "tutorials/01_FoxLi_simulation.md",
                  "Field Retrieval" => "tutorials/02_field_retrieval.md",
                  "Multi-Wavelength Beam Shaping" => "tutorials/03_RGB_beam_shaping.md",
