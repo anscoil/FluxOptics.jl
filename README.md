@@ -39,9 +39,20 @@ Pkg.add("FluxOptics")
 
 ### Required for optimization workflows
 
-To run gradient-based optimization, you need to install:
+To run gradient-based optimization, you need:
+
+**Automatic differentiation** (choose one):
 ```julia
-Pkg.add(["Optimisers", "Zygote"])
+Pkg.add("Zygote")    # Used in all examples and tutorials
+# or
+Pkg.add("Enzyme")    # Alternative AD backend
+```
+
+**Optimization algorithms** :
+FluxOptics.jl reexports `Descent` from Optimisers.jl and provides `Fista` (Nesterov-accelerated proximal gradient). Install Optimisers.jl for additional algorithms:
+
+```julia
+Pkg.add("Optimisers")  # For additional optimizers (Adam, Momentum, etc.)
 ```
 
 ### Optional: Visualization

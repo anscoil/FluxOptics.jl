@@ -88,10 +88,10 @@ export get_data
 
 include("OptimisersExt.jl")
 using .OptimisersExt
-import Optimisers: setup, update!, Descent, Momentum, Nesterov
+import Optimisers: setup, update!, Descent
 export make_rules, setup, update!
 export AbstractProximalOperator
-export ProxRule, Descent, Momentum, Nesterov, Fista, NoDescent
+export ProxRule, Fista, NoDescent, Descent
 export PointwiseProx, IstaProx, ClampProx, PositiveProx, TVProx
 export TV_denoise!
 export ProximalOperators

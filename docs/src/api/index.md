@@ -45,7 +45,7 @@ The heart of FluxOptics, providing all optical elements and system composition t
 ### Optimization
 
 **[OptimisersExt](optimisers/index.md)** - Optimization algorithms and proximal operators  
-Custom optimization rules (Descent, Momentum, FISTA) and proximal operators for constrained optimization. Use `make_rules` for per-component learning rates, `ProxRule` for regularization (TV, sparsity, constraints). Integration with Optimisers.jl ecosystem.
+Custom optimization rules (NoDescent, Fista) and proximal operators for constrained optimization. Use `make_rules` for per-component learning rates, `ProxRule` for regularization (TV, sparsity, constraints). Integration with Optimisers.jl ecosystem.
 
 **[Metrics](metrics/index.md)** - Loss functions for inverse design  
 Field overlap metrics (DotProduct, PowerCoupling) for mode matching, field and intensity matching objectives (SquaredFieldDifference, SquaredIntensityDifference). Custom gradient implementations for efficiency.
@@ -72,7 +72,8 @@ This example demonstrates inverse design of a cascaded diffractive optical syste
 ### 1. Setup: Input and Target modes
 
 ```@example splitter
-using FluxOptics, Zygote, Optimisers
+using FluxOptics, Zygote
+using Optimisers: Adam
 using CairoMakie
 
 # Input: single Gaussian mode
@@ -119,7 +120,7 @@ We maximize power coupling to the target pattern using the Adam optimizer:
 metric = PowerCoupling(vf)
 loss(m) = sum(1 .- metric(m().out))
 
-opt = FluxOptics.setup(Optimisers.Adam(0.1), system)
+opt = FluxOptics.setup(Adam(0.1), system)
 
 # Warm up for accurate allocation estimation
 _, g = withgradient(loss, system);

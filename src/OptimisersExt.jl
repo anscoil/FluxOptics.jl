@@ -6,17 +6,20 @@ using Optimisers: mapvalue, _trainable, isnumeric, subtract!, Leaf
 using Functors
 
 export make_rules, setup, update!, trainable
-export Descent, Momentum, Nesterov, Fista, NoDescent
+export Fista, NoDescent
 export ProximalOperators
 
 """
     Fista(η)
 
-Fast Iterative Shrinkage-Thresholding Algorithm (FISTA) optimizer.
+Nesterov-accelerated proximal gradient descent following Beck & Teboulle (2009).
 
-FISTA is an accelerated gradient method particularly effective for problems with
-proximal operators. It provides faster convergence than standard gradient descent
-for sparse and constrained optimization problems common in computational optics.
+Implements the FISTA momentum scheme with adaptive step size:
+- t_{k+1} = (1 + √(1 + 4t_k²)) / 2
+
+While originally developed for ℓ1 soft thresholding (shrinkage), this implementation 
+works with any proximal operator, making it suitable for constrained optimization in 
+optical inverse design.
 
 # Arguments
 - `η`: Learning rate (stored as η²)
