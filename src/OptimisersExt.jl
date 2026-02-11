@@ -112,7 +112,7 @@ julia> mask = Mask(u, (x, y) -> 1.0; trainable=true);
 
 julia> rules = make_rules(
            phase_mask => Descent(0.01),
-           mask => Momentum(0.1, 0.9)
+           mask => Fista(0.1)
        );
 
 julia> u = ScalarField(zeros(ComplexF64, 32, 32), (2.0, 2.0), 1.064);
