@@ -21,7 +21,7 @@ bibliography: paper.bib
 
 # Summary
 
-FluxOptics.jl is a Julia package for simulating optical field propagation with full support for automatic differentiation. It enables gradient-based inverse design of optical components, which consists in determining the structure of an optical element (lens, diffraction grating, phase mask) that produces a desired light pattern or functionality. The package implements scalar wave propagation methods that are computationally efficient alternatives to finite-difference time-domain (FDTD) simulations, particularly suited for applications in additive manufacturing and low-cost optical characterization.
+FluxOptics.jl is a Julia package for simulating optical field propagation with full support for automatic differentiation. It enables gradient-based inverse design of optical components, which consists in determining the structure of an optical element (lens, diffraction grating, phase mask) that produces a desired light pattern or functionality. The package implements scalar wave propagation methods that are computationally efficient alternatives to finite-difference time-domain (FDTD) simulations, particularly suited for applications in holography, additive manufacturing and optical characterization.
 
 FluxOptics.jl provides multiple propagation algorithms for free-space and graded-index media, a composable architecture for building complex optical systems, GPU acceleration, and optimization tools including proximal operators for constrained inverse design. The architecture supports current scalar field applications and is designed to extend to vector field propagation for polarization-dependent components and dielectric metasurfaces.
 
@@ -29,19 +29,20 @@ FluxOptics.jl provides multiple propagation algorithms for free-space and graded
 
 Inverse design of optical components has become increasingly important with the rise of freeform optics [@Schmidt2020; @Barre2025], diffractive optical elements (DOEs) [@Dinc2020], and metasurfaces [@Molesky2018; @Peurifoy2018]. Traditional optimization approaches include gradient-free methods (evolutionary algorithms, Bayesian optimization, stochastic search) which can be effective for low-dimensional problems with up to hundreds of parameters. However, these methods become intractable for spatially-resolved optical elements with thousands or millions of parameters. Gradient-based optimization using automatic differentiation [@Hughes2018; @Minkov2020] enables efficient convergence at computational cost comparable to a single forward simulation.
 
-However, existing tools face several limitations. Full-wave electromagnetic solvers like FDTD provide high accuracy but are computationally prohibitive for optimization, often requiring hours per forward simulation and limited to 2D or small 3D domains [@Oskooi2010]. Python packages like TorchOptics [@TorchOptics] provide differentiable scalar wave propagation but suffer from performance bottlenecks.
+However, existing tools face several limitations. Full-wave electromagnetic solvers like FDTD provide high accuracy but are computationally prohibitive for optimization, often requiring hours per forward simulation and limited to 2D or small 3D domains [@Oskooi2010]. Python packages like TorchOptics [@TorchOptics] provide differentiable scalar wave propagation but suffer from performance bottlenecks. In Julia, WaveOpticsPropagation.jl [@Wechsler:24] offers individual propagation functions, while FluxOptics.jl provides an integrated inverse design framework combining unified propagation components with established optimization methodology (proximal operators, FISTA acceleration) for end-to-end optical system design.
 
-FluxOptics.jl addresses these gaps through several key innovations. First, it provides high-performance differentiable propagation via Zygote.jl [@Innes2019] or Enzyme.jl [@Moses2021]. Implemented in Julia [@Bezanson2017], the package achieves CPU and GPU implementations that significantly outperform existing Python-based tools.
+FluxOptics.jl addresses these gaps through several key innovations. Implemented in Julia [@Bezanson2017] with custom adjoint rules via ChainRulesCore.jl, the package achieves high-performance CPU and GPU implementations that outperform 
+TorchOptics, particularly on GPU (13× speedup), while enabling integration with automatic differentiation frameworks such as Zygote.jl [@Innes2019] and Enzyme.jl [@Moses2021].
 
-Second, the package provides an extensible component architecture designed for users to implement their own optical components. The interface offers two implementation patterns depending on performance requirements: rapid prototyping with automatic adjoint derivation via automatic differentiation, or fine-grained control over memory allocations and gradient computation for production-level performance.
+The package provides an extensible component architecture designed for users to implement their own optical components. The interface offers two implementation patterns depending on performance requirements: rapid prototyping with automatic adjoint derivation, or fine-grained control over memory allocations and gradient computation for production-level performance.
 
-Third, FluxOptics.jl emphasizes composability. Optical systems are built using Julia's pipe operator (`|>`), allowing intuitive construction of cascaded systems. The `FieldProbe` mechanism enables capturing intermediate field states for multi-objective optimization, visualization, and debugging.
+FluxOptics.jl emphasizes composability. Optical systems are built using Julia's pipe operator (`|>`), allowing intuitive construction of cascaded systems. The `FieldProbe` mechanism enables capturing intermediate field states for multi-objective optimization, visualization, and debugging.
 
-Fourth, the package implements efficient propagation methods through kernel caching strategies that avoid redundant computations. This makes scalar wave propagation practical for iterative optimization in applications such as additive manufacturing and intensity-based waveguide tomography.
+The package implements efficient propagation methods through kernel caching strategies that avoid redundant computations. This makes scalar wave propagation practical for iterative optimization in applications such as additive manufacturing and intensity-based waveguide tomography.
 
 Finally, the architecture is designed for extensibility from scalar to vector field propagation, with planned support for polarization-dependent components.
 
-FluxOptics.jl emerged from practical research challenges in laser cavity design [@Barre2014], waveguide characterization [@Barre2021], and multimode beam control [@Barre2022OL; @Barre2022CIRP]. The package provides a unified framework consolidating these diverse applications into a single, well-tested library with consistent API design.
+FluxOptics.jl emerged from practical research challenges in laser cavity design [@Barre2014], waveguide characterization [@Barre2021], and multimode beam control [@Barre2022OL; @Barre2022CIRP]. The package provides a unified framework with consistent API design that consolidates these diverse applications and enables reproducing established results such as multimode light conversion [@Fontaine2019] using modern gradient-based optimization.
 
 # Key Features
 
@@ -49,7 +50,7 @@ FluxOptics.jl emerged from practical research challenges in laser cavity design 
 
 All optical components inherit from a unified abstract type hierarchy that enables automatic differentiation. Components are divided into sources (generating optical fields) and pipe components (transforming fields). Connecting components with the pipe operator (`|>`) creates an `OpticalSystem` that executes the complete optical simulation when invoked.
 
-The architecture offers two implementation patterns: **Pure components** require only a pure `propagate` method where automatic differentiation (Zygote or Enzyme) automatically derives adjoints, enabling rapid prototyping. **Custom components** implement the full interface with manual adjoint specification, providing fine-grained control over memory allocation and computational efficiency.
+The architecture offers two implementation patterns: **Pure components** require only a pure `propagate` method where automatic differentiation (Zygote or Enzyme) automatically derives adjoints, enabling rapid prototyping. **Custom components** implement the full interface with manual adjoint specification (leveraging ChainRulesCore.jl internally), providing fine-grained control over memory allocation and computational efficiency.
 
 The package provides optimization tools built on Optimisers.jl including proximal operators and FISTA acceleration [@Beck2009].
 
@@ -82,13 +83,14 @@ CPU memory footprint: 41 MiB total allocation for 200 iterations (~205 KiB per i
 
 # Tutorials and Documentation
 
-FluxOptics.jl provides comprehensive documentation including five tutorials:
+FluxOptics.jl provides comprehensive documentation including six tutorials:
 
 1. **Fox-Li Cavity Simulation**: Laser cavity eigenmodes in semi-degenerate resonators
 2. **Field Retrieval from Intensity**: Reconstructing complex optical fields from intensity-only measurements, generalizing classical iterative projection methods [@Fienup1982]
 3. **Multi-Wavelength Beam Shaping**: Chromatic DOE cascades for independent control of red, green, and blue beams
 4. **Waveguide Tomography**: Reconstructing refractive index profiles from angle-resolved intensity data
 5. **Multimode Intensity Shaping**: Shaping 105 Laguerre-Gaussian modes using 2 cascaded DOEs with TV-norm regularization
+6. **Hermite-Gaussian Multimode Sorter**: Converting 45 spatially separated Gaussian modes to copropagating higher-order HG modes
 
 Complete API documentation is available at [https://anscoil.github.io/FluxOptics.jl/stable/](https://anscoil.github.io/FluxOptics.jl/stable/).
 

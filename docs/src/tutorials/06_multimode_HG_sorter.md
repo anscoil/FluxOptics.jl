@@ -1,8 +1,8 @@
 # Hermite-Gaussian multimode sorter
 
 This tutorial demonstrates the inverse design of a multi-plane diffractive optical system
-that transforms spatially separated Gaussian beams into Hermite-Gaussian modes. This
-canonical mode sorting problem has applications in mode-division multiplexing
+that transforms spatially separated Gaussian beams into copropagating Hermite-Gaussian modes.
+This canonical mode sorting problem has applications in mode-division multiplexing
 for telecommunications and multimode fiber imaging.
 
 The approach presented here builds on the work of Carpenter and Fontaine, who demonstrated

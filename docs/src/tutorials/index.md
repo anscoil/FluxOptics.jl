@@ -14,6 +14,7 @@ The tutorials are available in two formats:
     
     - **Tutorials 1-4**: 2-6 seconds
     - **Tutorial 5**: ~42 seconds for the full 105-mode example
+	- **Tutorial 6**: ~34 seconds for the conversion of 45 modes with 8 planes
     
     CPU execution is possible but significantly slower and not recommended for iterative development.
 
@@ -52,4 +53,4 @@ Demonstrates inverse reconstruction of waveguide refractive index profiles from 
 Optimizes multimode fiber systems to achieve target intensity distributions. This tutorial demonstrates optimization with 105 modes and is the most computationally intensive example.
 
 ### [Hermite-Gaussian Multimode Sorter](06_multimode_HG_sorter.md)
-Designs a 45-mode sorter transforming triangular Gaussian arrays into Hermite-Gaussian modes with 8 cascaded phase masks. Revisits the seminal Carpenter & Fontaine approach (CLEO/Europe 2017) using algorithmic differentiation instead of classical error-reduction algorithms.
+Designs a 45-mode sorter transforming triangular Gaussian arrays into copropagating Hermite-Gaussian modes with 8 cascaded phase masks. Revisits the seminal Carpenter & Fontaine approach (CLEO/Europe 2017) using algorithmic differentiation instead of classical error-reduction algorithms.
