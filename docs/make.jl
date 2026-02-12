@@ -25,7 +25,8 @@ makedocs(;
                  "Field Retrieval" => "tutorials/02_field_retrieval.md",
                  "Multi-Wavelength Beam Shaping" => "tutorials/03_RGB_beam_shaping.md",
                  "Waveguide Tomography" => "tutorials/04_waveguide_tomography.md",
-                 "Multimode Intensity Shaping" => "tutorials/05_multimode_intensity_shaping.md"
+                 "Multimode Intensity Shaping" => "tutorials/05_multimode_intensity_shaping.md",
+                 "Hermite-Gaussian Multimode Sorter" => "tutorials/06_multimode_HG_sorter.md"
              ],
              "Reference" => [
                  "api/index.md",

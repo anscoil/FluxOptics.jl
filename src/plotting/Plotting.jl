@@ -186,7 +186,7 @@ function visualize(u_vec,
                 if show_colorbars && !is_complex
                     Colorbar(cell[1, 2],
                              hm;
-                             width = width * 0.05,
+                             width = min(height, width) * 0.05,
                              height = height,
                              tickformat = "{:.1f}")
                     if !iszero(factor)

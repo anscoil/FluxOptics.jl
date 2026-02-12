@@ -215,9 +215,9 @@ function Base.iterate(l::CustomLayout, state = 1)
 end
 
 """
-    generate_mode_stack(layout, nx, ny, dx, dy, mode; t=Id2D(), normalize=true)
-    generate_mode_stack(layout, nx, ny, dx, dy, mode_vector; t=Id2D(), normalize=true)
-    generate_mode_stack(nx, ny, dx, dy, mode_vector; t=Id2D(), normalize=true)
+    generate_mode_stack(layout, ns, ds, mode; t=Id2D(), normalize=true)
+    generate_mode_stack(layout, ns, ds, mode_vector; t=Id2D(), normalize=true)
+    generate_mode_stack(ns, ds, mode_vector; t=Id2D(), normalize=true)
 
 Generate arrays of optical modes at specified positions.
 
@@ -227,8 +227,8 @@ modes at the origin (single position each).
 
 # Arguments
 - `layout`: Spatial layout determining mode positions
-- `nx, ny`: Grid size for each mode field
-- `dx, dy`: Pixel size
+- `ns::NTuple`: Grid size for each mode field
+- `ds::NTuple`: Spatial sampling
 - `mode`: Single mode to replicate at all positions
 - `mode_vector`: Vector of modes (one per position)
 - `t=Id2D()`: Additional transformation applied to all modes
@@ -243,7 +243,7 @@ julia> layout = Modes.GridLayout(2, 2, 50.0, 50.0);
 
 julia> gaussian = Gaussian(10.0);
 
-julia> modes = generate_mode_stack(layout, 64, 64, 2.0, 2.0, gaussian);
+julia> modes = generate_mode_stack(layout, (64, 64), (2.0, 2.0), gaussian);
 
 julia> size(modes)
 (64, 64, 4)
@@ -253,69 +253,63 @@ julia> sum(abs2, modes[:, :, 1]) * 2.0 * 2.0  # Check first mode normalization
 
 julia> hg_modes = [HermiteGaussian(25.0, m, n) for m in 0:1 for n in 0:1];
 
-julia> modes_hg = generate_mode_stack(layout, 64, 64, 2.0, 2.0, hg_modes);
+julia> modes_hg = generate_mode_stack(layout, (64, 64), (2.0, 2.0), hg_modes);
 
 julia> size(modes_hg)
 (64, 64, 4)
 
 julia> lg_modes = [LaguerreGaussian(20.0, 0, l) for l in 0:2];
 
-julia> modes_lg = generate_mode_stack(64, 64, 2.0, 2.0, lg_modes);
+julia> modes_lg = generate_mode_stack((64, 64), (2.0, 2.0), lg_modes);
 
 julia> size(modes_lg)  # No layout specified, modes at origin
 (64, 64, 3)
 ```
 """
 function generate_mode_stack(layout::AbstractLayout2D,
-                             nx,
-                             ny,
-                             dx,
-                             dy,
+                             ns::NTuple{2, Integer},
+                             ds::NTuple{2, Real},
                              m::Mode{Nd, T};
                              t::AbstractAffineMap = Id2D(),
                              normalize = true) where {Nd, T}
     n_modes = length(layout)
-    xv, yv = spatial_vectors(nx, ny, dx, dy)
-    modes = zeros(Complex{T}, (nx, ny, n_modes))
+    xv, yv = spatial_vectors(ns, ds)
+    modes = zeros(Complex{T}, (ns..., n_modes))
     for (k, pos) in enumerate(layout)
         mode = m(@view(modes[:, :, k]), xv, yv, Shift2D(pos...) ∘ t)
         if normalize
-            mode ./= (norm(mode) * sqrt(dx*dy))
+            mode ./= (norm(mode) * sqrt(prod(ds)))
         end
     end
     modes
 end
 
 function generate_mode_stack(layout::AbstractLayout2D,
-                             nx,
-                             ny,
-                             dx,
-                             dy,
+                             ns::NTuple{2, Integer},
+                             ds::NTuple{2, Real},
                              m_v::AbstractVector{<:Mode};
                              t::AbstractAffineMap = Id2D(),
                              normalize = true)
     @assert length(layout) == length(m_v)
     n_modes = length(layout)
-    xv, yv = spatial_vectors(nx, ny, dx, dy)
+    xv, yv = spatial_vectors(ns, ds)
     T = reduce(promote_type, eltype.(m_v))
-    modes = zeros(T, (nx, ny, n_modes))
+    modes = zeros(T, (ns..., n_modes))
     for (k, (pos, m)) in enumerate(zip(layout, m_v))
         mode = m(@view(modes[:, :, k]), xv, yv, Shift2D(pos...) ∘ t)
         if normalize
-            mode ./= (norm(mode) * sqrt(dx*dy))
+            mode ./= (norm(mode) * sqrt(prod(ds)))
         end
     end
     modes
 end
 
-function generate_mode_stack(nx,
-                             ny,
-                             dx,
-                             dy,
+function generate_mode_stack(ns::NTuple{2, Integer},
+                             ds::NTuple{2, Real},
                              m_v::AbstractVector{<:Mode};
                              t::AbstractAffineMap = Id2D(),
                              normalize = true)
     n = length(m_v)
     layout = PointLayout(n)
-    generate_mode_stack(layout, nx, ny, dx, dy, m_v; t, normalize)
+    generate_mode_stack(layout, ns, ds, m_v; t, normalize)
 end

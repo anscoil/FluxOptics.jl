@@ -99,13 +99,13 @@
 
         # Grid layout
         layout = Modes.GridLayout(3, 3, 60.0, 60.0)
-        mode_stack = generate_mode_stack(layout, ns[1], ns[2], ds[1], ds[2], gaussian)
+        mode_stack = generate_mode_stack(layout, ns, ds, gaussian)
 
         @test size(mode_stack) == (ns[1], ns[2], 9)  # 3x3 = 9 modes
 
         # With different modes
         hg_modes = [HermiteGaussian(12.0, m, n) for m in 0:2 for n in 0:2]
-        mode_stack_hg = generate_mode_stack(layout, ns[1], ns[2], ds[1], ds[2], hg_modes)
+        mode_stack_hg = generate_mode_stack(layout, ns, ds, hg_modes)
         @test size(mode_stack_hg) == (ns[1], ns[2], 9)
     end
 

@@ -113,8 +113,10 @@ gaussian = Gaussian(10.0)
 layout = Modes.GridLayout(3, 3, 60.0, 60.0)
 
 # Generate mode stack
-xv_layout, yv_layout = spatial_vectors(256, 256, 1.0, 1.0)
-mode_stack = generate_mode_stack(layout, 256, 256, 1.0, 1.0, gaussian)
+ns = (256, 256)
+ds = (1.0, 1.0)
+xv_layout, yv_layout = spatial_vectors(ns, ds)
+mode_stack = generate_mode_stack(layout, ns, ds, gaussian)
 
 # Visualize first mode and total intensity
 field_first = mode_stack[:, :, 1]
@@ -130,7 +132,7 @@ visualize(((field_first, field_total),), intensity; colormap=:inferno, height=12
 hg_mode_list = [HermiteGaussian(12.0, m, n) for m in 0:2 for n in 0:2]
 layout_hg = Modes.GridLayout(3, 3, 60.0, 60.0)
 
-mode_stack_hg = generate_mode_stack(layout_hg, 256, 256, 1.0, 1.0, hg_mode_list)
+mode_stack_hg = generate_mode_stack(layout_hg, (256, 256), (1.0, 1.0), hg_mode_list)
 
 # Normalize by peak intensity for better visualization
 for i in 1:size(mode_stack_hg, 3)

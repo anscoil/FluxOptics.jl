@@ -50,3 +50,6 @@ Demonstrates inverse reconstruction of waveguide refractive index profiles from 
 
 ### [Multimode Intensity Shaping](05_multimode_intensity_shaping.md)
 Optimizes multimode fiber systems to achieve target intensity distributions. This tutorial demonstrates optimization with 105 modes and is the most computationally intensive example.
+
+### [Hermite-Gaussian Multimode Sorter](06_multimode_HG_sorter.md)
+Designs a 45-mode sorter transforming triangular Gaussian arrays into Hermite-Gaussian modes with 8 cascaded phase masks. Revisits the seminal Carpenter & Fontaine approach (CLEO/Europe 2017) using algorithmic differentiation instead of classical error-reduction algorithms.
