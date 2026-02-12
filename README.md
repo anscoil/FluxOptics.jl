@@ -127,7 +127,7 @@ Six comprehensive tutorials:
 | [**Multi-Wavelength**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/03_RGB_beam_shaping/) | Independent RGB beam control with cascaded DOEs |
 | [**Waveguide Tomography**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/04_waveguide_tomography/) | Refractive index reconstruction from angle-resolved intensity |
 | [**Multimode Shaping**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/05_multimode_intensity_shaping/) | Shape 105 modes into square/ring targets with TV regularization |
-| [**Mode Sorting**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/06_multimode_HG_sorter/) | Transform 45 Gaussian beams into Hermite-Gaussian modes (8-plane system) |
+| [**Mode Sorting**](https://anscoil.github.io/FluxOptics.jl/dev/tutorials/06_multimode_HG_sorter/) | Transform 45 Gaussian beams into Hermite-Gaussian modes (8-plane system) |
 
 ## 🤝 Contributing
 
