@@ -9,8 +9,7 @@
 # at CLEO/Europe in **June 2017** [1] an efficient mapping from triangular Gaussian beam arrays
 # to Laguerre-Gaussian modes (45 modes) using a remarkably low number of phase planes. This work
 # was significantly scaled up in their Nature Communications paper [2], demonstrating high-fidelity
-# mode sorting of **210 modes** with only a modest increase in the number of planes. This remarkable
-# achievement showcases the efficiency of this approach.
+# mode sorting of **210 modes**. This remarkable achievement showcases the efficiency of this approach.
 #
 # At that time, gradient descent was not yet widespread in the optics
 # community outside of nanophotonics. The original designs relied on error-reduction

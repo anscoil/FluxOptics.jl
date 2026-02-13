@@ -31,8 +31,7 @@ Inverse design of optical components has become increasingly important with the 
 
 However, existing tools face several limitations. Full-wave electromagnetic solvers like FDTD provide high accuracy but are computationally prohibitive for optimization, often requiring hours per forward simulation and limited to 2D or small 3D domains [@Oskooi2010]. Python packages like TorchOptics [@TorchOptics] provide differentiable scalar wave propagation but suffer from performance bottlenecks. In Julia, WaveOpticsPropagation.jl [@Wechsler:24] offers individual propagation functions, while FluxOptics.jl provides an integrated inverse design framework combining unified propagation components with established optimization methodology (proximal operators, FISTA acceleration) for end-to-end optical system design.
 
-FluxOptics.jl addresses these gaps through several key innovations. Implemented in Julia [@Bezanson2017] with custom adjoint rules via ChainRulesCore.jl, the package achieves high-performance CPU and GPU implementations that outperform 
-TorchOptics, particularly on GPU (13× speedup), while enabling integration with automatic differentiation frameworks such as Zygote.jl [@Innes2019] and Enzyme.jl [@Moses2021].
+FluxOptics.jl addresses these gaps through several key innovations. Implemented in Julia [@Bezanson2017] with custom adjoint rules via ChainRulesCore.jl, the package achieves high-performance CPU and GPU implementations that outperform TorchOptics, particularly on GPU (13× speedup), while enabling seamless integration with Zygote.jl [@Innes2019] for automatic differentiation.
 
 The package provides an extensible component architecture designed for users to implement their own optical components. The interface offers two implementation patterns depending on performance requirements: rapid prototyping with automatic adjoint derivation, or fine-grained control over memory allocations and gradient computation for production-level performance.
 
@@ -50,7 +49,7 @@ FluxOptics.jl emerged from practical research challenges in laser cavity design 
 
 All optical components inherit from a unified abstract type hierarchy that enables automatic differentiation. Components are divided into sources (generating optical fields) and pipe components (transforming fields). Connecting components with the pipe operator (`|>`) creates an `OpticalSystem` that executes the complete optical simulation when invoked.
 
-The architecture offers two implementation patterns: **Pure components** require only a pure `propagate` method where automatic differentiation (Zygote or Enzyme) automatically derives adjoints, enabling rapid prototyping. **Custom components** implement the full interface with manual adjoint specification (leveraging ChainRulesCore.jl internally), providing fine-grained control over memory allocation and computational efficiency.
+The architecture offers two implementation patterns: **Pure components** require only a pure `propagate` method where automatic differentiation automatically derives adjoints, enabling rapid prototyping. **Custom components** implement the full interface with manual adjoint specification (leveraging ChainRulesCore.jl internally), providing fine-grained control over memory allocation and computational efficiency.
 
 The package provides optimization tools built on Optimisers.jl including proximal operators and FISTA acceleration [@Beck2009].
 
