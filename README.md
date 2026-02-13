@@ -41,11 +41,9 @@ Pkg.add("FluxOptics")
 
 To run gradient-based optimization, you need:
 
-**Automatic differentiation** (choose one):
+**Automatic differentiation**:
 ```julia
 Pkg.add("Zygote")    # Used in all examples and tutorials
-# or
-Pkg.add("Enzyme")    # Alternative AD backend
 ```
 
 **Optimization algorithms** :
