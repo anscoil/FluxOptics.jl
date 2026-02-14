@@ -10,14 +10,16 @@ The tutorials are available in two formats:
 - **Interactive Jupyter notebooks** ([`notebooks/` folder](https://github.com/anscoil/FluxOptics.jl/tree/main/notebooks)): Executable versions including execution times and interactive exploration
 
 !!! note "Execution Times"
-    The interactive notebooks include timing information for each tutorial. All tutorials are GPU-optimized and execute very quickly on modern hardware (GeForce RTX 4070 Super):
+    All tutorials are GPU-optimized (GeForce RTX 4070 Super, CUDA 12.x). 
     
-    - **Tutorials 1-4**: 2-6 seconds
-    - **Tutorial 5**: ~42 seconds for the full 105-mode example
-	- **Tutorial 6**: ~34 seconds for the conversion of 45 modes with 8 planes
+    - **Tutorials 1-4**: 2-6 seconds (cavity modes, field retrieval, chromatic shaping, tomography)
+    - **Tutorial 5**: 
+        - Square beam shaping: ~36 seconds (600 iterations, 105 modes, TV regularization)
+        - Ring pattern synthesis: ~56 seconds (1500 iterations, polynomial radial basis)
+    - **Tutorial 6**: ~34 seconds (45-mode sorting, 8 phase planes)
     
-    CPU execution is possible but significantly slower and not recommended for iterative development.
-
+    CPU execution is significantly slower and not recommended for iterative development.
+	
 ## Running the Tutorials
 
 To run the notebooks yourself:

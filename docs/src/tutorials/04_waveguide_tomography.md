@@ -10,7 +10,7 @@ of the waveguide using angular spectrum beam propagation and inverse optimizatio
 > This tutorial follows the approach described in: N. Barré, R. Shivaraman,
 > L. Ackermann, S. Moser, M. Schmidt, P. Salter, M. Booth, and A. Jesacher,
 > ["Tomographic refractive index profiling of direct laser written waveguides"](https://doi.org/10.1364/OE.434846),
-> Opt. Express **29**, 35414-35425 (2021).
+> Optics Express **29**, 35414-35425 (2021).
 
 Unlike traditional tomography based on the Born or Rytov approximations, this
 approach uses full wave propagation through the sample with accelerated proximal
