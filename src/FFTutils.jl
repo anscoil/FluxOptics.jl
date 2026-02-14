@@ -11,9 +11,11 @@ export plan_czt, plan_czt!
 const FFTPlans = NamedTuple{(:ft, :ift), <:Tuple{AbstractFFTs.Plan, AbstractFFTs.Plan}}
 
 function make_fft_plans(u::U,
-                        dims::NTuple{N, Integer}) where {N, U <: AbstractArray{<:Complex}}
+                        dims::NTuple{N, Integer};
+                        normalize::Bool = true) where {N, U <: AbstractArray{<:Complex}}
     p_ft = plan_fft!(u, dims, flags = FFTW.MEASURE)
-    p_ift = plan_ifft!(u, dims, flags = FFTW.MEASURE)
+    p_ift = normalize ? plan_ifft!(u, dims, flags = FFTW.MEASURE) :
+            plan_bfft!(u, dims, flags = FFTW.MEASURE)
     (; ft = p_ft, ift = p_ift)
 end
 

@@ -53,9 +53,10 @@ struct FourierOperator{M, S, P} <: AbstractPureComponent{M}
         new{Static, S, P}(p_f, S(), direct)
     end
 
-    function FourierOperator(u::ScalarField{U, Nd}, direct::Bool) where {Nd, U}
+    function FourierOperator(u::ScalarField{U, Nd}, direct::Bool;
+                             normalize::Bool = true) where {Nd, U}
         u_plan = similar(u.electric)
-        p_f = make_fft_plans(u_plan, Tuple(1:Nd))
+        p_f = make_fft_plans(u_plan, Tuple(1:Nd); normalize)
         FourierOperator(p_f, direct)
     end
 end

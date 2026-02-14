@@ -32,9 +32,10 @@ v = propagate(u, phase_fourier, Forward)
 See also: [`FourierPhase`](@ref), [`FourierMask`](@ref)
 """
 function FourierWrapper(u::ScalarField{U, Nd},
-                        wrapped_components::Vararg{AbstractPipeComponent}) where {Nd, U}
+                        wrapped_components::Vararg{AbstractPipeComponent};
+                        normalize::Bool = true) where {Nd, U}
     u_plan = similar(u.electric)
-    p_f = make_fft_plans(u_plan, Tuple(1:Nd))
+    p_f = make_fft_plans(u_plan, Tuple(1:Nd); normalize)
     FourierWrapper(p_f, wrapped_components...)
 end
 

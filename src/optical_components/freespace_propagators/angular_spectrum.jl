@@ -1,42 +1,45 @@
 function as_kernel(fx::T, fy::T, λ::T, n0::Tp, z::Tp,
-                   filter::H) where {T <: Real, Tp <: Real, H}
+                   filter::H, nrm_f::Tp) where {T <: Real, Tp <: Real, H}
     fx, fy, λ = Tp(fx), Tp(fy), Tp(λ)/n0
     f² = complex(inv(λ^2))
     v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx, fy))
     kernel = z > 0 ? cis(Tp(2)*π*z*sqrt(f² - fx^2 - fy^2)) :
              conj(cis(-Tp(2)*π*z*sqrt(f² - fx^2 - fy^2)))
-    Complex{T}(kernel * v)
+    Complex{T}(kernel * v * nrm_f)
 end
 
-function as_kernel(fx::T, λ::T, n0::Tp, z::Tp, filter::H) where {T <: Real, Tp <: Real, H}
+function as_kernel(fx::T, λ::T, n0::Tp, z::Tp, filter::H,
+                   nrm_f::Tp) where {T <: Real, Tp <: Real, H}
     fx, λ = Tp(fx), Tp(λ)/n0
     f² = complex(inv(λ)^2)
     v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx))
     kernel = z > 0 ? cis(Tp(2)*π*z*sqrt(f² - fx^2)) :
              conj(cis(-Tp(2)*π*z*sqrt(f² - fx^2)))
-    Complex{T}(kernel * v)
+    Complex{T}(kernel * v * nrm_f)
 end
 
 function as_paraxial_kernel(fx::T, fy::T, λ::T, θx::T, θy::T, track_tilts::Bool,
-                            n0::Tp, z::Tp, filter::H) where {T <: Real, Tp <: Real, H}
+                            n0::Tp, z::Tp, filter::H,
+                            nrm_f::Tp) where {T <: Real, Tp <: Real, H}
     fx, fy, λ = Tp(fx), Tp(fy), Tp(λ/n0)
     f0x, f0y = sin(θx)/λ, sin(θy)/λ
     offset = track_tilts ? 2*(f0x*fx + f0y*fy) : Tp(0)
     v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx, fy))
-    Complex{T}(cis(-π*λ*z*((fx+f0x)^2 + (fy+f0y)^2) - offset + Tp(2)*π*z/λ) * v)
+    Complex{T}(cis(-π*λ*z*((fx+f0x)^2 + (fy+f0y)^2) - offset + Tp(2)*π*z/λ) * v * nrm_f)
 end
 
 function as_paraxial_kernel(fx::T, λ::T, θx::T, track_tilts::Bool, n0::Tp, z::Tp,
-                            filter::H) where {T <: Real, Tp <: Real, H}
+                            filter::H, nrm_f::Tp) where {T <: Real, Tp <: Real, H}
     fx, λ = Tp(fx), Tp(λ/n0)
     f0x = sin(θx)/λ
     offset = track_tilts ? 2*f0x*fx : Tp(0)
     v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx))
-    Complex{T}(cis(-π*λ*z*(fx+f0x)^2 - offset + Tp(2)*π*z/λ) * v)
+    Complex{T}(cis(-π*λ*z*(fx+f0x)^2 - offset + Tp(2)*π*z/λ) * v * nrm_f)
 end
 
 function tilted_as_kernel(fx::T, fy::T, λ::T, θx::T, θy::T, track_tilts::Bool,
-                          n0::Tp, z::Tp, filter::H) where {T <: Real, Tp <: Real, H}
+                          n0::Tp, z::Tp, filter::H,
+                          nrm_f::Tp) where {T <: Real, Tp <: Real, H}
     fx, fy, λ = Tp(fx), Tp(fy), Tp(λ)/n0
     θx, θy = Tp(θx), Tp(θy)
     f² = complex(inv(λ)^2)
@@ -45,11 +48,11 @@ function tilted_as_kernel(fx::T, fy::T, λ::T, θx::T, θy::T, track_tilts::Bool
     v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx+f0x, fy+f0y))
     kernel = z > 0 ? cis(Tp(2)*π*z*(sqrt(f²-(fx+f0x)^2-(fy+f0y)^2) + offset)) :
              conj(cis(-Tp(2)*π*z*(sqrt(f²-(fx+f0x)^2-(fy+f0y)^2) + offset)))
-    Complex{T}(kernel * v)
+    Complex{T}(kernel * v * nrm_f)
 end
 
 function tilted_as_kernel(fx::T, λ::T, θx::T, track_tilts::Bool, n0::Tp, z::Tp,
-                          filter::H) where {T <: Real, Tp <: Real, H}
+                          filter::H, nrm_f::Tp) where {T <: Real, Tp <: Real, H}
     fx, λ, θx = Tp(fx), Tp(λ)/n0, Tp(θx)
     f² = complex(inv(λ^2))
     f0x = sin(θx)/λ
@@ -57,7 +60,7 @@ function tilted_as_kernel(fx::T, λ::T, θx::T, track_tilts::Bool, n0::Tp, z::Tp
     kernel = z > 0 ? cis(Tp(2)*π*z*(sqrt(f²-(fx+f0x)^2) + offset)) :
              conj(cis(-Tp(2)*π*z*(sqrt(f²-(fx+f0x)^2) + offset)))
     v = isnothing(filter) ? Complex{Tp}(1) : Complex{Tp}(filter(fx+f0x))
-    Complex{T}(kernel * v)
+    Complex{T}(kernel * v * nrm_f)
 end
 
 struct ASKernelProp{M, K, T, Tp, H} <: AbstractPropagator{M, K, T}
@@ -66,6 +69,7 @@ struct ASKernelProp{M, K, T, Tp, H} <: AbstractPropagator{M, K, T}
     n0::Tp
     z::Tp
     filter::H
+    nrm_f::Tp
     is_paraxial::Bool
 
     function ASKernelProp(u::ScalarField{U, Nd},
@@ -80,10 +84,11 @@ struct ASKernelProp{M, K, T, Tp, H} <: AbstractPropagator{M, K, T}
                           = use_cache) where {Nd, T, H, U <: AbstractArray{Complex{T}}}
         ns = size(u)[1:Nd]
         cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
-        kernel = FourierKernel(u.electric, ns, ds, cache_size)
+        kernel = FourierKernel(u.electric, ns, ds, cache_size; normalize = false)
         Tp = double_precision_kernel ? Float64 : T
+        nrm_f = Tp(1/prod(ns))
         new{Static, typeof(kernel), T, Tp, H}(kernel, track_tilts, Tp(n0), Tp(z), filter,
-                                              paraxial)
+                                              nrm_f, paraxial)
     end
 end
 
@@ -103,12 +108,12 @@ end
 
 function build_kernel_args(p::ASKernelProp, u::ScalarField)
     if p.is_paraxial
-        (p.track_tilts, p.n0, p.z, p.filter)
+        (p.track_tilts, p.n0, p.z, p.filter, p.nrm_f)
     else
         if is_on_axis(u)
-            (p.n0, p.z, p.filter)
+            (p.n0, p.z, p.filter, p.nrm_f)
         else
-            (p.track_tilts, p.n0, p.z, p.filter)
+            (p.track_tilts, p.n0, p.z, p.filter, p.nrm_f)
         end
     end
 end
@@ -263,6 +268,7 @@ struct ASPropZ{M, T, A, V, H} <: AbstractPureComponent{M}
     is_paraxial::Bool
     f_vec::V
     filter::H
+    nrm_f::T
 
     function ASPropZ(n0::T, z::A, is_paraxial::Bool, f_vec::V, filter::H) where {T, A, V, H}
         new{Trainable, T, A, V, H}(z, is_paraxial, f_vec, filter)
@@ -287,7 +293,9 @@ struct ASPropZ{M, T, A, V, H} <: AbstractPureComponent{M}
         M = trainable ? Trainable : Static
         Tp = double_precision_kernel ? Float64 : T
         z_arr = Tp.([z] |> F)
-        new{M, Tp, typeof(z_arr), V, H}(Tp(n0), z_arr, track_tilts, paraxial, f_vec, filter)
+        nrm_f = Tp(1/prod(ns))
+        new{M, Tp, typeof(z_arr), V, H}(Tp(n0), z_arr, track_tilts, paraxial, f_vec,
+                                        filter, nrm_f)
     end
 
     function ASPropZ(u::ScalarField,
@@ -313,20 +321,15 @@ function propagate(u::ScalarField, p::ASPropZ, direction::Type{<:Direction})
     lambdas = get_lambdas(u)
     if p.is_paraxial
         kernel = @. as_paraxial_kernel(p.f_vec..., lambdas, u.tilts.val..., p.track_tilts,
-                                       p.n0, p.z, p.filter)
+                                       p.n0, p.z, p.filter, p.nrm_f)
     else
         if is_on_axis(u)
-            # z_pos = Val(all(sign.(p.z) .> 0))
-            # kernel = @. as_kernel(p.f_vec..., lambdas, p.n0, p.z, p.filter, z_pos)
-            kernel = @. as_kernel(p.f_vec..., lambdas, p.n0, p.z, p.filter)
+            kernel = @. as_kernel(p.f_vec..., lambdas, p.n0, p.z, p.filter, p.nrm_f)
         else
-            # z_pos = Val(all(sign.(p.z) .> 0))
-            # kernel = @. tilted_as_kernel(p.f_vec..., lambdas, u.tilts.val..., p.track_tilts,
-            #                              p.n0, p.z, p.filter, z_pos)
             kernel = @. tilted_as_kernel(p.f_vec..., lambdas, u.tilts.val..., p.track_tilts,
-                                         p.n0, p.z, p.filter)
+                                         p.n0, p.z, p.filter, p.nrm_f)
         end
     end
-    data = ifft(fft(u.electric, dims) .* conj_direction(kernel, direction), dims)
+    data = bfft(fft(u.electric, dims) .* conj_direction(kernel, direction), dims)
     set_field_data(u, data)
 end
