@@ -60,17 +60,15 @@ def check_correctness(uin, uout, z):
         return (check_overlap(uf, uout), check_overlap(ub, uin))
     return correct
 
-# device = "cpu"
+# Create Fields for each mode
+uin = [field(input_modes, i, "cpu") for i in range(n_modes_orig)]
+uout = [field(output_modes, i, "cpu") for i in range(n_modes_orig)]
 
-# # Create Fields for each mode
-# uin = [field(input_modes, i, device) for i in range(n_modes_orig)]
-# uout = [field(output_modes, i, device) for i in range(n_modes_orig)]
-
-# # Check correctness
-# fwd_correct, bwd_correct = check_correctness(uin, uout, z)()
-# assert fwd_correct, "Forward propagation correctness check failed"
-# assert bwd_correct, "Backward propagation correctness check failed"
-# print("✅ TorchOptics AS correct!")
+# Check correctness
+fwd_correct, bwd_correct = check_correctness(uin, uout, z)()
+assert fwd_correct, "Forward propagation correctness check failed"
+assert bwd_correct, "Backward propagation correctness check failed"
+print("✅ TorchOptics AS correct!")
 
 
 def benchmark_torch(input_modes, n_modes, dx, dy, wavelength, z, device='cuda'):

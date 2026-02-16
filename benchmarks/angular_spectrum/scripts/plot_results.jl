@@ -158,10 +158,8 @@ scatterlines!(ax_cpu, nm_torch_cpu, t_torch_cpu,
 
 axislegend(ax_cpu, position = :rb)
 
-# Info box
 info_text = """
 Hardware: $(data_fo["hardware"]["gpu"]) | FFTW threads: $(data_fo["hardware"]["fftw_threads"]) | Resolution: 512×512
-Max modes (GPU): Custom = $(maximum(nm_fo)), Pure = $(maximum(nm_pure)), WaveOpticsProp = $(maximum(nm_wave)), JaxOptics = $(maximum(nm_jax)), TorchOptics = $(maximum(nm_torch))
 """
 
 Label(fig1[2, 1:2], info_text, tellwidth = false,
@@ -241,14 +239,42 @@ hlines!(ax_speedup_cpu, [1.0], color = :blue, linestyle = :dash, linewidth = 2,
 
 axislegend(ax_speedup_cpu, position = :rb)
 
-# Info box
-info_text2 = """
-GPU - Pure: $(round(mean(speedup_pure), digits=2))×, WaveOpticsProp: $(round(mean(speedup_wave), digits=2))×, JaxOptics: $(round(mean(speedup_jax), digits=2))×, TorchOptics: $(round(mean(speedup_torch), digits=2))× ($(length(speedup_torch)) points)
-CPU - Pure: $(round(mean(speedup_pure_cpu), digits=2))×, WaveOpticsProp: $(round(mean(speedup_wave_cpu), digits=2))×, JaxOptics: $(round(mean(speedup_jax_cpu), digits=2))×, TorchOptics: $(round(mean(speedup_torch_cpu), digits=2))× ($(length(speedup_torch_cpu)) points)
-Note: Log scale on Y-axis to visualize TorchOptics slowdown (values < 1.0)
+# Info box with speedup ratios at 5th point (or last available)
+function get_ratio_at_point(speedup, idx = 10)
+    actual_idx = min(idx, length(speedup))
+    return 1.0 / speedup[actual_idx]
+end
+
+ratio_pure_gpu = get_ratio_at_point(speedup_pure)
+ratio_wave_gpu = get_ratio_at_point(speedup_wave)
+ratio_jax_gpu = get_ratio_at_point(speedup_jax)
+ratio_torch_gpu = get_ratio_at_point(speedup_torch, 5)
+
+ratio_pure_cpu = get_ratio_at_point(speedup_pure_cpu)
+ratio_wave_cpu = get_ratio_at_point(speedup_wave_cpu)
+ratio_jax_cpu = get_ratio_at_point(speedup_jax_cpu)
+ratio_torch_cpu = get_ratio_at_point(speedup_torch_cpu, 5)
+
+info_text_gpu = """
+On GPU, FluxOptics custom AS implementation is:
+$(round(ratio_pure_gpu, digits=2))× faster than FluxOptics pure AS implementation
+$(round(ratio_wave_gpu, digits=1))× faster than WaveOpticsProp
+$(round(ratio_jax_gpu, digits=1))× faster than JaxOptics
+$(round(ratio_torch_gpu, digits=1))× faster than TorchOptics
 """
 
-Label(fig2[2, 1:2], info_text2, tellwidth = false,
+info_text_cpu = """
+On CPU, FluxOptics custom AS implementation is:
+$(round(ratio_pure_cpu, digits=1))× faster than FluxOptics pure AS implementation
+$(round(ratio_wave_cpu, digits=1))× faster than WaveOpticsProp
+$(round(ratio_jax_cpu, digits=1))× faster than JaxOptics
+$(round(ratio_torch_cpu, digits=1))× faster than TorchOptics
+"""
+
+Label(fig2[2, 1], info_text_gpu, tellwidth = false,
+      fontsize = 14, halign = :left, valign = :top)
+
+Label(fig2[2, 2], info_text_cpu, tellwidth = false,
       fontsize = 14, halign = :left, valign = :top)
 
 save(joinpath(results_dir, "comparison_speedup.png"), fig2, px_per_unit = 2)

@@ -2,55 +2,55 @@
   "cpu": [
     {
       "n_modes": 1,
-      "time_median_ms": 451.6200344078243,
-      "time_std_ms": 12.580170208900054
+      "time_median_ms": 450.90904738754034,
+      "time_std_ms": 3.5975530734512664
     },
     {
       "n_modes": 8,
-      "time_median_ms": 3650.298935477622,
-      "time_std_ms": 48.46453780071038
+      "time_median_ms": 3655.587943037972,
+      "time_std_ms": 39.58708658293325
     },
     {
       "n_modes": 16,
-      "time_median_ms": 7266.364327515475,
-      "time_std_ms": 94.06475688728746
+      "time_median_ms": 7274.010731023736,
+      "time_std_ms": 82.11837143083137
     },
     {
       "n_modes": 23,
-      "time_median_ms": 10399.055697605945,
-      "time_std_ms": 125.46580067894003
+      "time_median_ms": 10390.453998465091,
+      "time_std_ms": 105.31355637545141
     },
     {
       "n_modes": 30,
-      "time_median_ms": 13620.138450991362,
-      "time_std_ms": 717.237937424317
+      "time_median_ms": 13417.917896527797,
+      "time_std_ms": 202.4516440210779
     }
   ],
   "gpu": [
     {
       "n_modes": 1,
-      "time_median_ms": 38.58139587100595,
-      "time_std_ms": 0.93107485096231
+      "time_median_ms": 38.51274598855525,
+      "time_std_ms": 0.9493963962178401
     },
     {
       "n_modes": 8,
-      "time_median_ms": 309.2165313428268,
-      "time_std_ms": 0.6803310452095397
+      "time_median_ms": 310.02129951957613,
+      "time_std_ms": 1.140973190312286
     },
     {
       "n_modes": 16,
-      "time_median_ms": 620.1792483916506,
-      "time_std_ms": 1.0371693964168451
+      "time_median_ms": 620.7350315526128,
+      "time_std_ms": 8.40154393576469
     },
     {
       "n_modes": 23,
-      "time_median_ms": 890.9488880308345,
-      "time_std_ms": 8.2064842801933
+      "time_median_ms": 892.4666920211166,
+      "time_std_ms": 1.522063513929211
     },
     {
       "n_modes": 30,
-      "time_median_ms": 1169.229873456061,
-      "time_std_ms": 4.431052479739855
+      "time_median_ms": 1163.3063310291618,
+      "time_std_ms": 1.8368876782281343
     }
   ],
   "config": {
