@@ -1,0 +1,217 @@
+{
+  "cpu": [
+    {
+      "n_modes": 1,
+      "time_std_ms": 0.8417628537390971,
+      "time_median_ms": 6.239404
+    },
+    {
+      "n_modes": 74,
+      "time_std_ms": 13.349400786319764,
+      "time_median_ms": 442.228073
+    },
+    {
+      "n_modes": 147,
+      "time_std_ms": 21.899796979081913,
+      "time_median_ms": 899.9464315
+    },
+    {
+      "n_modes": 220,
+      "time_std_ms": 20.59031583301988,
+      "time_median_ms": 1358.548453
+    },
+    {
+      "n_modes": 293,
+      "time_std_ms": 20.195584073646106,
+      "time_median_ms": 1832.744622
+    },
+    {
+      "n_modes": 365,
+      "time_std_ms": 45.373151466648565,
+      "time_median_ms": 2319.951912
+    },
+    {
+      "n_modes": 438,
+      "time_std_ms": 81.61686924409047,
+      "time_median_ms": 2945.428083
+    },
+    {
+      "n_modes": 511,
+      "time_std_ms": 16.861108777771772,
+      "time_median_ms": 3276.4690375
+    },
+    {
+      "n_modes": 584,
+      "time_std_ms": 35.918201073072694,
+      "time_median_ms": 3654.167466
+    },
+    {
+      "n_modes": 657,
+      "time_std_ms": 24.32609799998847,
+      "time_median_ms": 4243.951099
+    },
+    {
+      "n_modes": 730,
+      "time_std_ms": 95.56421579423615,
+      "time_median_ms": 5035.054841
+    },
+    {
+      "n_modes": 803,
+      "time_std_ms": 73.14634136757732,
+      "time_median_ms": 5285.149296
+    },
+    {
+      "n_modes": 876,
+      "time_std_ms": 28.652564278909008,
+      "time_median_ms": 5615.8520225
+    },
+    {
+      "n_modes": 949,
+      "time_std_ms": 157.48719070850086,
+      "time_median_ms": 6103.5769495
+    },
+    {
+      "n_modes": 1022,
+      "time_std_ms": 54.508528309293034,
+      "time_median_ms": 6861.528623
+    },
+    {
+      "n_modes": 1094,
+      "time_std_ms": 14.711642960832503,
+      "time_median_ms": 6888.7927095
+    },
+    {
+      "n_modes": 1167,
+      "time_std_ms": 53.0516118612973,
+      "time_median_ms": 7563.9278005
+    },
+    {
+      "n_modes": 1240,
+      "time_std_ms": 391.2266164889425,
+      "time_median_ms": 8215.8170965
+    },
+    {
+      "n_modes": 1313,
+      "time_std_ms": 68.51304822548302,
+      "time_median_ms": 8742.60985
+    },
+    {
+      "n_modes": 1386,
+      "time_std_ms": 98.46598611763477,
+      "time_median_ms": 8933.5183935
+    }
+  ],
+  "gpu": [
+    {
+      "n_modes": 1,
+      "time_std_ms": 0.059065034256902516,
+      "time_median_ms": 0.155087
+    },
+    {
+      "n_modes": 74,
+      "time_std_ms": 0.6666946061523664,
+      "time_median_ms": 12.2904785
+    },
+    {
+      "n_modes": 147,
+      "time_std_ms": 0.881384941289928,
+      "time_median_ms": 24.278932
+    },
+    {
+      "n_modes": 220,
+      "time_std_ms": 0.8743593407697231,
+      "time_median_ms": 35.604499
+    },
+    {
+      "n_modes": 293,
+      "time_std_ms": 1.102679731263575,
+      "time_median_ms": 48.4668575
+    },
+    {
+      "n_modes": 365,
+      "time_std_ms": 1.9237070912845449,
+      "time_median_ms": 59.913956
+    },
+    {
+      "n_modes": 438,
+      "time_std_ms": 2.23525145311717,
+      "time_median_ms": 73.662135
+    },
+    {
+      "n_modes": 511,
+      "time_std_ms": 2.9348650260927016,
+      "time_median_ms": 85.672031
+    },
+    {
+      "n_modes": 584,
+      "time_std_ms": 2.5921003616104326,
+      "time_median_ms": 98.031116
+    },
+    {
+      "n_modes": 657,
+      "time_std_ms": 3.449294971291747,
+      "time_median_ms": 110.6164045
+    },
+    {
+      "n_modes": 730,
+      "time_std_ms": 3.670306665789553,
+      "time_median_ms": 123.925789
+    },
+    {
+      "n_modes": 803,
+      "time_std_ms": 2.3857837593795916,
+      "time_median_ms": 136.68819
+    },
+    {
+      "n_modes": 876,
+      "time_std_ms": 4.086286122511715,
+      "time_median_ms": 151.115031
+    },
+    {
+      "n_modes": 949,
+      "time_std_ms": 3.221500857166272,
+      "time_median_ms": 157.7552745
+    },
+    {
+      "n_modes": 1022,
+      "time_std_ms": 8.795342123456065,
+      "time_median_ms": 174.223656
+    },
+    {
+      "n_modes": 1094,
+      "time_std_ms": 5.43198201626794,
+      "time_median_ms": 179.2307495
+    },
+    {
+      "n_modes": 1167,
+      "time_std_ms": 4.5646238498867975,
+      "time_median_ms": 194.59946
+    },
+    {
+      "n_modes": 1240,
+      "time_std_ms": 7.0436567501096174,
+      "time_median_ms": 209.593291
+    },
+    {
+      "n_modes": 1313,
+      "time_std_ms": 3.6047071563002895,
+      "time_median_ms": 216.111546
+    },
+    {
+      "n_modes": 1386,
+      "time_std_ms": 2.7896820926800667,
+      "time_median_ms": 228.964587
+    }
+  ],
+  "config": {
+    "wavelength": 1.064,
+    "n_bench": 20,
+    "dy": 1.0,
+    "dx": 1.0,
+    "z": 2000.0
+  },
+  "hardware": {
+    "gpu": "NVIDIA GeForce RTX 4070",
+    "fftw_threads": 12
+  }
+}
