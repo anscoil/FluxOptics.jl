@@ -7,9 +7,9 @@ This directory contains performance benchmarks comparing FluxOptics against othe
 ### Implementations Compared
 
 **Julia:**
-- **FluxOptics (custom)**: FluxOptics using optimized FFT/BFFT plans with in-place operations
-- **FluxOptics (pure)**: FluxOptics using pure FFT/BFFT function calls
-- **WaveOpticsPropagation.jl**: Alternative Julia library for wave optics
+- **FluxOptics (custom)**: FluxOptics using `ASProp` relying on optimized FFT/BFFT plans with in-place operations
+- **FluxOptics (pure)**: FluxOptics using `ASPropZ` relying on pure FFT/BFFT function calls
+- **[WaveOpticsPropagation.jl](https://github.com/JuliaPhysics/WaveOpticsPropagation.jl)**: Alternative Julia library for wave optics
 
 **Python:**
 - **[JaxOptics](https://github.com/anscoil/jaxoptics)**: Minimal JAX implementation developed for this comparison, representing best-practice Python/JAX performance
