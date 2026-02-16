@@ -86,13 +86,13 @@ speedup_torch_cpu = compute_speedup_with_interp(nm_fo_cpu, t_fo_cpu, nm_torch_cp
 # FIGURE 1: GPU vs CPU Performance
 # ============================================================================
 
-fig1 = Figure(size = (1600, 800), fontsize = 18)
+fig1 = Figure(size = (1600, 800), fontsize = 22)
 
 # GPU subplot
 ax_gpu = Axis(fig1[1, 1],
               xlabel = "Number of modes",
               ylabel = "Time (ms)",
-              title = "GPU Bidirectional Propagation Performance",
+              title = "GPU Performance",
               xscale = log10,
               yscale = log10)
 
@@ -127,7 +127,7 @@ axislegend(ax_gpu, position = :rb)
 ax_cpu = Axis(fig1[1, 2],
               xlabel = "Number of modes",
               ylabel = "Time (ms)",
-              title = "CPU Bidirectional Propagation Performance",
+              title = "CPU Performance",
               xscale = log10,
               yscale = log10)
 
@@ -163,7 +163,7 @@ Hardware: $(data_fo["hardware"]["gpu"]) | FFTW threads: $(data_fo["hardware"]["f
 """
 
 Label(fig1[2, 1:2], info_text, tellwidth = false,
-      fontsize = 14, halign = :left, valign = :top)
+      fontsize = 18, halign = :left, valign = :top)
 
 save(joinpath(results_dir, "comparison_performance.png"), fig1, px_per_unit = 2)
 println("✅ Saved to results/comparison_performance.png")
@@ -172,7 +172,7 @@ println("✅ Saved to results/comparison_performance.png")
 # FIGURE 2: Speedup Analysis (vs FluxOptics custom)
 # ============================================================================
 
-fig2 = Figure(size = (1600, 800), fontsize = 18)
+fig2 = Figure(size = (1600, 800), fontsize = 22)
 
 # GPU speedup - now with log scale to see TorchOptics values
 ax_speedup_gpu = Axis(fig2[1, 1],
@@ -272,10 +272,10 @@ $(round(ratio_torch_cpu, digits=1))× faster than TorchOptics
 """
 
 Label(fig2[2, 1], info_text_gpu, tellwidth = false,
-      fontsize = 14, halign = :left, valign = :top)
+      fontsize = 18, halign = :left, valign = :top)
 
 Label(fig2[2, 2], info_text_cpu, tellwidth = false,
-      fontsize = 14, halign = :left, valign = :top)
+      fontsize = 18, halign = :left, valign = :top)
 
 save(joinpath(results_dir, "comparison_speedup.png"), fig2, px_per_unit = 2)
 println("✅ Saved to results/comparison_speedup.png")
