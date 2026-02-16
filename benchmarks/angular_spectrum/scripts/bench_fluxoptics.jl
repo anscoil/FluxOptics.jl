@@ -6,7 +6,9 @@ include("fluxoptics_common.jl")
 println("✅ FluxOptics AS correct!")
 
 n_bench = 20
-nmodes_list = Int.(round.(range(1, n_modes, length = n_bench)))
+# nmodes_list = Int.(round.(range(1, n_modes, length = n_bench)))
+nmodes_list = unique([1;
+                      Int.(round.(exp.(range(log(10), log(n_modes), length = n_bench))))])
 
 bench_cpu_results = []
 bench_gpu_results = []
