@@ -67,4 +67,4 @@ Relative performance versus FluxOptics (custom) baseline on logarithmic scale. T
 
 ### Reproducibility
 
-Benchmark scripts and plotting code are available in the `angular_spectrum/scripts` subdirectory. Each implementation's benchmark script can be run independently to regenerate results.
+Benchmark scripts and plotting code are available in the [`angular_spectrum/scripts`](angular_spectrum/scripts) subdirectory. Each implementation's benchmark script can be run independently to regenerate results.
