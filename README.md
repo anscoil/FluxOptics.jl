@@ -127,6 +127,33 @@ Six comprehensive tutorials:
 | [**Multimode Shaping**](https://anscoil.github.io/FluxOptics.jl/stable/tutorials/05_multimode_intensity_shaping/) | Shape 105 modes into square/ring targets with TV regularization |
 | [**Mode Sorting**](https://anscoil.github.io/FluxOptics.jl/dev/tutorials/06_multimode_HG_sorter/) | Transform 45 Gaussian beams into Hermite-Gaussian modes (8-plane system) |
 
+## ⚡ Performance
+
+FluxOptics.jl is benchmarked against
+[JaxOptics](https://github.com/anscoil/jaxoptics),
+[WaveOpticsPropagation.jl](https://github.com/JuliaPhysics/WaveOpticsPropagation.jl),
+and [TorchOptics](https://github.com/MatthewFilipovich/torchoptics)
+on Angular Spectrum propagation (512×512, up to 1386 modes, NVIDIA RTX 4070):
+
+| Library | GPU speedup vs FluxOptics |
+|---------|--------------------------|
+| **FluxOptics** | **1×** (baseline) |
+| **JaxOptics** | 0.8× |
+| **WaveOpticsPropagation.jl** | 0.6× |
+| **TorchOptics** | 0.002× |
+
+FluxOptics also handles **~1.5× more modes** than JaxOptics before running out of GPU memory.
+
+> **Note**: these benchmarks measure Angular Spectrum propagation performance in isolation.
+> On full optimization loops, the gap may narrow: TorchOptics showed as little as 13×
+> slowdown on a 3-plane monomode conversion task. For FFT and tensor-dominated problems,
+> XLA-based frameworks like JAX may even slightly outperform Julia due to whole-graph
+> compilation, and for such cases, JaxOptics may well be sufficient.
+> FluxOptics is expected to show stronger advantages on more complex optical components
+> where manual optimization and Julia's flexibility become decisive.
+
+→ [Full benchmark details](benchmarks/README.md)
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:

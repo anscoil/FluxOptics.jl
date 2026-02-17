@@ -7,8 +7,10 @@ struct ConvolutionKernel{K, Nd, V, P, U} <: AbstractKernel{K, V}
     function ConvolutionKernel(u::U,
                                ns::NTuple{Nd, Integer},
                                ds::NTuple{Nd, Real},
-                               cache_size::Integer) where {N, Nd,
-                                                           U <: AbstractArray{<:Complex, N}}
+                               cache_size::Integer;
+                               normalize::Bool = true) where {N, Nd,
+                                                              U <:
+                                                              AbstractArray{<:Complex, N}}
         @assert Nd in (1, 2)
         @assert N >= Nd
         @assert cache_size >= 0
@@ -24,7 +26,7 @@ struct ConvolutionKernel{K, Nd, V, P, U} <: AbstractKernel{K, V}
             u_plan = similar(u, (2*nx-1, size(u)[2:end]...))
         end
         V = typeof(s_vec)
-        p_f = make_fft_plans(u_plan, Tuple(1:Nd))
+        p_f = make_fft_plans(u_plan, Tuple(1:Nd); normalize)
         P = typeof(p_f)
         if iszero(cache_size)
             new{Nothing, Nd, V, P, U}(s_vec, nothing, p_f, u_plan)

@@ -27,10 +27,11 @@ function Base.unique(x::CuArray)
 end
 
 function FFTutils.make_fft_plans(u::U,
-                                 dims::NTuple{N, Integer}) where {N,
-                                                                  U <: CuArray{<:Complex}}
+                                 dims::NTuple{N, Integer};
+                                 normalize::Bool = true) where {N,
+                                                                U <: CuArray{<:Complex}}
     p_ft = plan_fft!(u, dims)
-    p_ift = plan_ifft!(u, dims)
+    p_ift = normalize ? plan_ifft!(u, dims) : plan_bfft!(u, dims)
     (; ft = p_ft, ift = p_ift)
 end
 

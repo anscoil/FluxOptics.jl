@@ -13,10 +13,10 @@ The tutorials are available in two formats:
     All tutorials are GPU-optimized (GeForce RTX 4070 Super, CUDA 12.x). 
     
     - **Tutorials 1-4**: 2-6 seconds (cavity modes, field retrieval, chromatic shaping, tomography)
-    - **Tutorial 5**: 
-        - Square beam shaping: ~36 seconds (600 iterations, 105 modes, TV regularization)
-        - Ring pattern synthesis: ~56 seconds (1500 iterations, polynomial radial basis)
-    - **Tutorial 6**: ~34 seconds (45-mode sorting, 8 phase planes)
+    - **Tutorial 5**: 105-mode total intensity shaping
+        - Square beam shaping: ~34 seconds (600 iterations, TV regularization)
+        - Ring pattern synthesis: ~50 seconds (1500 iterations, polynomial radial basis)
+    - **Tutorial 6**: ~30 seconds (45-mode sorting, 8 phase planes)
     
     CPU execution is significantly slower and not recommended for iterative development.
 	

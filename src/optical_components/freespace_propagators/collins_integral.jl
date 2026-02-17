@@ -117,11 +117,12 @@ struct CollinsConvolution{M, K, T, Tp, Nd} <: AbstractPropagator{M, K, T}
                                 double_precision_kernel::Bool
                                 = use_cache) where {T, U <: AbstractArray{Complex{T}}, Nd}
         ns = size(u)[1:Nd]
+        ns′ = map(n -> 2*n-1, ns)
         cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
-        kernel = ConvolutionKernel(u.electric, ns, ds, cache_size)
+        kernel = ConvolutionKernel(u.electric, ns, ds, cache_size; normalize = false)
         Tp = double_precision_kernel ? Float64 : T
-        nrm_fwd = Complex{Tp}(prod(ds ./ sqrt(im*b)))
-        nrm_bwd = Complex{Tp}(prod(ds′ ./ sqrt(-im*b)))
+        nrm_fwd = Complex{Tp}(prod(ds ./ sqrt(im*b))/prod(ns′))
+        nrm_bwd = Complex{Tp}(prod(ds′ ./ sqrt(-im*b))/prod(ns′))
         αs = Tuple([Tp(dx′/dx) for (dx, dx′) in zip(ds, ds′)])
         K = typeof(kernel)
         new{Static, K, T, Tp, Nd}(kernel, αs, b, nrm_fwd, nrm_bwd)
