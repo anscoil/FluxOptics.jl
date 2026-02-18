@@ -15,19 +15,19 @@ authors:
 affiliations:
  - name: Independent Researcher, France
    index: 1
-date: 3 November 2025
+date: 18 February 2026
 bibliography: paper.bib
 ---
 
 # Summary
 
-FluxOptics.jl is a Julia package for simulating optical field propagation with full support for automatic differentiation. It enables gradient-based inverse design of optical components, which consists in determining the structure of an optical element (lens, diffraction grating, phase mask) that produces a desired light pattern or functionality. The package implements scalar wave propagation methods that are computationally efficient alternatives to finite-difference time-domain (FDTD) simulations, particularly suited for applications in holography, additive manufacturing and optical characterization.
+FluxOptics.jl is a Julia package for simulating optical field propagation with full support for automatic differentiation. It enables gradient-based inverse design of optical components, which involves determining the structure of an optical element (lens, diffraction grating, phase mask) that produces a desired light pattern or functionality. The package implements scalar wave propagation methods that are computationally efficient alternatives to finite-difference time-domain (FDTD) simulations, particularly suited for applications in holography, additive manufacturing and optical characterization.
 
 FluxOptics.jl provides multiple propagation algorithms for free-space and graded-index media, a composable architecture for building complex optical systems, GPU acceleration, and optimization tools including proximal operators for constrained inverse design. The architecture supports current scalar field applications and is designed to extend to vector field propagation for polarization-dependent components and dielectric metasurfaces.
 
 # Statement of Need
 
-Inverse design of optical components has become increasingly important with the rise of freeform optics [@Schmidt2020; @Barre2025], diffractive optical elements (DOEs) [@Dinc2020], and metasurfaces [@Molesky2018; @Peurifoy2018]. Traditional optimization approaches include gradient-free methods (evolutionary algorithms, Bayesian optimization, stochastic search) which can be effective for low-dimensional problems with up to hundreds of parameters. However, these methods become intractable for spatially-resolved optical elements with thousands or millions of parameters. Gradient-based optimization using automatic differentiation [@Hughes2018; @Minkov2020] enables efficient convergence at computational cost comparable to a single forward simulation.
+Inverse design of optical components has become increasingly important with the rise of freeform optics [@Schmidt2020; @Barre2025], diffractive optical elements (DOEs) [@Dinc2020], and metasurfaces [@Molesky2018; @Peurifoy2018]. Traditional optimization approaches include gradient-free methods (evolutionary algorithms, Bayesian optimization, stochastic search) which can be effective for low-dimensional problems with up to hundreds of parameters. However, these methods become intractable for spatially-resolved optical elements with thousands or millions of parameters. Gradient-based optimization using automatic differentiation [@Hughes2018; @Minkov2020] enables efficient convergence at a computational cost comparable to a single forward simulation.
 
 However, existing tools face several limitations. Full-wave electromagnetic solvers like FDTD provide high accuracy but are computationally prohibitive for optimization, often requiring hours per forward simulation and limited to 2D or small 3D domains [@Oskooi2010]. Python packages like TorchOptics [@TorchOptics] provide differentiable scalar wave propagation but suffer from performance bottlenecks. In Julia, WaveOpticsPropagation.jl [@Wechsler:24] offers individual propagation functions, while FluxOptics.jl provides an integrated inverse design framework combining unified propagation components with established optimization methodology (proximal operators, FISTA acceleration) for end-to-end optical system design.
 
@@ -71,7 +71,7 @@ Seamless GPU acceleration via CUDA.jl with automatic context propagation through
 
 ## Performance Benchmark
 
-Comparison with TorchOptics [@TorchOptics] on a [beam splitter inverse design task](https://anscoil.github.io/FluxOptics.jl/stable/api/#Typical-Workflow:-Beam-Splitter) (250×250 grid, 3 DOEs, 200 optimization iterations):
+We compared FluxOptics.jl with TorchOptics on a [beam splitter inverse design task](https://anscoil.github.io/FluxOptics.jl/stable/api/#Typical-Workflow:-Beam-Splitter) (250×250 grid, 3 DOEs, 200 optimization iterations):
 
 | Platform | TorchOptics | FluxOptics.jl | Speedup |
 |----------|-------------|---------------|---------|
@@ -92,9 +92,5 @@ FluxOptics.jl provides comprehensive documentation including six tutorials:
 6. **Hermite-Gaussian Multimode Sorter**: Converting 45 spatially separated Gaussian modes to copropagating higher-order HG modes
 
 Complete API documentation is available at [https://anscoil.github.io/FluxOptics.jl/stable/](https://anscoil.github.io/FluxOptics.jl/stable/).
-
-# Acknowledgments
-
-There are no acknowledgments to declare and no conflicts of interest to disclose.
 
 # References
