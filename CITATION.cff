@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: "Barré"
+    given-names: "Nicolas"
+    orcid: "https://orcid.org/0000-0002-4460-4151"
+title: "FluxOptics.jl: A Differentiable Wave Optics Framework for Inverse Design in Julia"
+version: 0.1.2
+doi: 10.21105/joss.09734
+date-released: 2026-02-24
+url: "https://github.com/anscoil/FluxOptics.jl"
+repository-code: "https://github.com/anscoil/FluxOptics.jl"
+license: MIT
+preferred-citation:
+  type: article
+  authors:
+    - family-names: "Barré"
+      given-names: "Nicolas"
+      orcid: "https://orcid.org/0000-0002-4460-4151"
+  doi: 10.21105/joss.09734
+  journal: "Journal of Open Source Software"
+  title: "FluxOptics.jl: A Differentiable Wave Optics Framework for Inverse Design in Julia"
+  volume: 11
+  number: 118
+  pages: 9734
+  year: 2026
