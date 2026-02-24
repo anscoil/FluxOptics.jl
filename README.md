@@ -7,6 +7,7 @@
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://anscoil.github.io/FluxOptics.jl/stable/)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://anscoil.github.io/FluxOptics.jl/dev/)
 [![Build Status](https://github.com/anscoil/FluxOptics.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/anscoil/FluxOptics.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![DOI](https://joss.theoj.org/papers/10.21105/joss.09734/status.svg)](https://doi.org/10.21105/joss.09734)
 
 **Differentiable optical propagation and inverse design in Julia**
 
@@ -166,12 +167,18 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for gui
 If you use FluxOptics.jl in your research, please cite:
 
 ```bibtex
-@software{fluxoptics2025,
+@article{Barré2026:FluxOptics,
+  doi = {10.21105/joss.09734},
+  url = {https://doi.org/10.21105/joss.09734},
+  year = {2026},
+  publisher = {The Open Journal},
+  volume = {11},
+  number = {118},
+  pages = {9734},
   author = {Barré, Nicolas},
-  title = {FluxOptics.jl: Differentiable Optical Simulations in Julia},
-  year = {2025},
-  url = {https://github.com/anscoil/FluxOptics.jl}
-}
+  title = {FluxOptics.jl: A Differentiable Wave Optics Framework for Inverse Design in Julia},
+  journal = {Journal of Open Source Software}
+} 
 ```
 
 ## 📄 License
