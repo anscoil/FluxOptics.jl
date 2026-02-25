@@ -92,8 +92,8 @@ normalize_power!(u0)
 normalize_power!(target)
 
 # Optical system: source → propagation → DOE → propagation → DOE → propagation
-doe1 = Phase(u0, zeros(size(u0)); trainable=true, buffered=true)
-doe2 = Phase(u0, zeros(size(u0)); trainable=true, buffered=true)
+doe1 = Phase(u0; trainable=true, buffered=true)
+doe2 = Phase(u0; trainable=true, buffered=true)
 prop1 = RSProp(u0, 1500.0)
 prop2 = RSProp(u0, 2000.0)
 system = ScalarSource(u0) |> prop1 |> doe1 |> prop2 |> doe2 |> prop1
