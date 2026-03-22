@@ -4,10 +4,7 @@ using Makie
 using Makie.Colors
 using Makie.ColorSchemes
 using LaTeXStrings
-using ..Fields
-using ..OpticalComponents
-
-export visualize, visualize_slider, twilight_shifted
+using FluxOptics
 
 function complex_to_rgb(A::AbstractArray{Complex{T}};
                         colormap = :dark,
@@ -156,11 +153,11 @@ fig = visualize(phase_mask, identity)
 
 See also: [`visualize_slider`](@ref), [`intensity`](@ref), [`phase`](@ref)
 """
-function visualize(u_vec,
-                   fs::Union{Function, Tuple};
-                   colormap = :viridis,
-                   height = 200,
-                   show_colorbars = false)
+function FluxOptics.visualize(u_vec,
+                              fs::Union{Function, Tuple};
+                              colormap = :viridis,
+                              height = 200,
+                              show_colorbars = false)
     n_lines = length(u_vec)
     @assert n_lines > 0
     n_fields_per_col = length(first(u_vec))
@@ -201,22 +198,22 @@ function visualize(u_vec,
     fig
 end
 
-function visualize(u_vec::Union{AbstractVector{U}, Tuple{Vararg{U}}},
-                   fs::Union{Function, Tuple};
-                   colormap = :viridis,
-                   height = 200,
-                   show_colorbars = false) where {U <: Plottable}
+function FluxOptics.visualize(u_vec::Union{AbstractVector{U}, Tuple{Vararg{U}}},
+                              fs::Union{Function, Tuple};
+                              colormap = :viridis,
+                              height = 200,
+                              show_colorbars = false) where {U <: Plottable}
     visualize(map(u -> (collect(u),), u_vec), fs; colormap, height, show_colorbars)
 end
 
-function visualize(u::Plottable,
-                   fs::Union{Function, Tuple};
-                   colormap = :viridis,
-                   ratio = 1,
-                   max_width = 1024,
-                   width = nothing,
-                   height = 200,
-                   show_colorbars = false)
+function FluxOptics.visualize(u::Plottable,
+                              fs::Union{Function, Tuple};
+                              colormap = :viridis,
+                              ratio = 1,
+                              max_width = 1024,
+                              width = nothing,
+                              height = 200,
+                              show_colorbars = false)
     visualize(((collect(u),),), fs; colormap, height, show_colorbars)
 end
 
@@ -301,10 +298,10 @@ fig = visualize_slider(sequence, (intensity, phase);
 
 See also: [`visualize`](@ref), [`intensity`](@ref), [`phase`](@ref)
 """
-function visualize_slider(u_vec,
-                          fs::Union{Function, Tuple};
-                          colormap = :viridis,
-                          height = 400)
+function FluxOptics.visualize_slider(u_vec,
+                                     fs::Union{Function, Tuple};
+                                     colormap = :viridis,
+                                     height = 400)
     n_lines = length(u_vec)
     @assert n_lines > 0
     n_fields_per_col = length(first(u_vec))
@@ -318,9 +315,9 @@ function visualize_slider(u_vec,
     u_data = map(u_fields -> map(u -> collect(u), collect(u_fields)), u_vec)
 
     fig = Figure()
-
+    
     heatmaps = []
-
+    
     for (j, (f, cmap)) in enumerate(zip(fs, cmaps))
         subgrid = fig[1, j] = GridLayout()
         for k in 1:n_fields_per_col
@@ -348,10 +345,10 @@ function visualize_slider(u_vec,
     fig
 end
 
-function visualize_slider(u_vec::Union{AbstractVector{U}, Tuple{Vararg{U}}},
-                          fs::Union{Function, Tuple};
-                          colormap = :viridis,
-                          height = 400) where {U <: Plottable}
+function FluxOptics.visualize_slider(u_vec::Union{AbstractVector{U}, Tuple{Vararg{U}}},
+                                     fs::Union{Function, Tuple};
+                                     colormap = :viridis,
+                                     height = 400) where {U <: Plottable}
     visualize_slider(map(u -> (collect(u),), u_vec), fs; colormap, height)
 end
 
