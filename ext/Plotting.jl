@@ -28,18 +28,17 @@ function complex_to_rgb(A::AbstractArray{Complex{T}};
     rgb_colors
 end
 
-function valid_colormap(name::Symbol)
-    name in keys(ColorSchemes.colorschemes) || error("Invalid colormap: $name")
-    name
-end
-
-valid_colormap(name::ColorScheme) = name
-
 twilight = ColorSchemes.twilight
 n = length(twilight.colors)
 shift = n ÷ 2
 shifted_colors = circshift(twilight.colors, shift)
 twilight_shifted = ColorScheme(shifted_colors)
+
+function valid_colormap(name::Symbol)
+    name == :twilight_shifted && return twilight_shifted
+    name in keys(ColorSchemes.colorschemes) || error("Invalid colormap: $name")
+    name
+end
 
 function fill_heatmap!(ax, f, u, cmap)
     img = f(u)
