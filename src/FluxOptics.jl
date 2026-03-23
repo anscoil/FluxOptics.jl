@@ -98,7 +98,6 @@ include("ChainRulesCoreExt.jl")
 # Plotting extension (loaded when Makie is available)
 function visualize end
 function visualize_slider end
-function twilight_shifted end
-export visualize, visualize_slider, twilight_shifted
+export visualize, visualize_slider
 
 end

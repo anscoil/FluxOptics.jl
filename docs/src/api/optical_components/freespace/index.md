@@ -24,7 +24,7 @@ u = ScalarField(Gaussian(75.0, 50.0)(xv, yv), (2.0, 2.0), 1.064)
 
 # Basic propagation
 prop = ASProp(u, 12000.0)
-u_out = propagate(u, prop, Forward)
+u_out = propagate(u, prop)
 
 # Compare beams before and after propagation
 visualize((u, u_out), (intensity, phase); colormap=(:inferno, :viridis), height=120)
@@ -33,12 +33,12 @@ visualize((u, u_out), (intensity, phase); colormap=(:inferno, :viridis), height=
 ```@example AS
 # Propagation in different medium
 prop_glass = ASProp(u, 12000.0; n0=1.5)
-u_glass = propagate(u, prop_glass, Forward)
+u_glass = propagate(u, prop_glass)
 
 # With spatial filter
 filter_lp = (fx, fy) -> sqrt(fx^2 + fy^2) < 0.008 ? 1.0 : 0.0
 prop_filtered = ASProp(u, 12000.0; filter=filter_lp)
-u_filtered = propagate(u, prop_filtered, Forward)
+u_filtered = propagate(u, prop_filtered)
 
 # Compare peak intensities
 visualize((u_glass, u_filtered), (intensity, phase);
@@ -57,8 +57,8 @@ u = ScalarField(Gaussian(75.0, 50.0)(xv, yv), (2.0, 2.0), 1.064)
 as_prop = ASProp(u, 50000.0)
 rs_prop = RSProp(u, 50000.0)
 
-u_as = propagate(u, as_prop, Forward)
-u_rs = propagate(u, rs_prop, Forward)
+u_as = propagate(u, as_prop)
+u_rs = propagate(u, rs_prop)
 
 # Compare beams propagated with AS and RS
 visualize((u_as, u_rs), (intensity, phase); colormap=(:inferno, :viridis), height=120)

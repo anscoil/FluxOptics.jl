@@ -11,21 +11,17 @@ Most users should use `FourierWrapper`, `FourierPhase`, or `FourierMask` instead
 - `u::ScalarField`: Field template (defines grid size and dimensions)
 - `direct::Bool`: `true` for FFT, `false` for IFFT
 
-# Direction Behavior
-- **Forward direction**: Applies FFT if `direct=true`, IFFT if `direct=false`
-- **Backward direction**: Reversed (IFFT if `direct=true`, FFT if `direct=false`)
-
 # Examples
 ```julia
 u = ScalarField(ones(ComplexF64, 256, 256), (1.0, 1.0), 1.064)
 
 # Forward FFT
 fft_op = FourierOperator(u, true)
-u_freq = propagate(u, fft_op, Forward)
+u_freq = propagate(u, fft_op)
 
 # Inverse FFT
 ifft_op = FourierOperator(u, false)
-u_back = propagate(u_freq, ifft_op, Forward)
+u_back = propagate(u_freq, ifft_op)
 ```
 
 **Note:** `FourierOperator` is used internally by `FourierWrapper` to create
@@ -63,7 +59,7 @@ end
 
 get_data(p::FourierOperator) = ()
 
-function propagate!(u::ScalarField, p::FourierOperator, ::Type{Forward})
+function propagate!(u::ScalarField, p::FourierOperator)
     if p.direct
         compute_ft!(p.p_f, u)
     else
@@ -71,14 +67,14 @@ function propagate!(u::ScalarField, p::FourierOperator, ::Type{Forward})
     end
 end
 
-function propagate!(u::ScalarField, p::FourierOperator, ::Type{Backward})
-    if !p.direct
-        compute_ft!(p.p_f, u)
-    else
+propagate(u::ScalarField, p::FourierOperator) = propagate!(copy(u), p)
+
+function backpropagate!(u::ScalarField, p::FourierOperator)
+    if p.direct
         compute_ift!(p.p_f, u)
+    else
+        compute_ft!(p.p_f, u)
     end
 end
 
-function propagate(u::ScalarField, p::FourierOperator, direction::Type{<:Direction})
-    propagate!(copy(u), p, direction)
-end
+backpropagate(u::ScalarField, p::FourierOperator) = backpropagate!(copy(u), p)

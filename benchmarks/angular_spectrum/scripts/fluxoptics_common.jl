@@ -33,9 +33,10 @@ vf_gpu = cu(vf)  # Comment if you don't have CUDA
 # Check correctness
 function check_correctness(uin, uout, z)
     p = Prop(uin, z)
+    p_back = Prop(uin, -z)
     function correct()
-        uf = propagate(uin, p, Forward)
-        ub = propagate(uf, p, Backward)
+        uf = propagate(uin, p)
+        ub = propagate(uf, p_back)
         (all(isapprox.(abs2.(dot(uf, uout)), 1; atol = 1e-4)),
          all(isapprox.(abs2.(dot(ub, uin)), 1; atol = 1e-4)))
     end
@@ -52,9 +53,10 @@ fwd_correct, bwd_correct = check_correctness(u0_gpu, vf_gpu, z)()  # Comment if 
 
 function bench_propagate!(u, z)
     p = Prop(u, z)
+    p_back = Prop(u, -z)
     function prop()
-        propagate!(u, p, Forward)
-        propagate!(u, p, Backward)
+        propagate!(u, p)
+        propagate!(u, p_back)
     end
     prop
 end

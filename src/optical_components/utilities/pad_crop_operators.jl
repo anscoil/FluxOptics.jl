@@ -264,8 +264,6 @@ pad_op = PadCropOperator(u, u_tmp; offset=offset)
 
 # Technical Details
 
-- `Forward` direction: Applies pad if `ispad=true`, crop otherwise
-- `Backward` direction: Swaps operation (crop if `ispad=true`, pad otherwise)
 - `adjoint(op)`: Flips `ispad` flag, swapping pad/crop behavior
 - `store_ref=true`: Only works for symmetric operations (same offset, sizes match)
 
@@ -319,8 +317,8 @@ end
 
 Functors.@functor PadCropOperator ()
 
-function propagate!(u::ScalarField{U, Nd}, p::PadCropOperator{M, U, Nd},
-                    ::Type{Forward}) where {M, U, Nd}
+function _propagate!(u::ScalarField{U, Nd}, p::PadCropOperator{M, U, Nd},
+                     ::Type{Forward}) where {M, U, Nd}
     if p.ispad
         if p.store_ref
             p.u_tmp[] = u.electric
@@ -335,8 +333,8 @@ function propagate!(u::ScalarField{U, Nd}, p::PadCropOperator{M, U, Nd},
     end
 end
 
-function propagate!(u::ScalarField{U, Nd}, p::PadCropOperator{M, U, Nd},
-                    ::Type{Backward}) where {M, U, Nd}
+function _propagate!(u::ScalarField{U, Nd}, p::PadCropOperator{M, U, Nd},
+                     ::Type{Backward}) where {M, U, Nd}
     if !p.ispad
         if p.store_ref
             p.u_tmp[] = u.electric
@@ -351,6 +349,3 @@ function propagate!(u::ScalarField{U, Nd}, p::PadCropOperator{M, U, Nd},
     end
 end
 
-function backpropagate!(∂v::ScalarField, p::PadCropOperator, direction::Type{<:Direction})
-    propagate!(∂v, p, reverse(direction))
-end

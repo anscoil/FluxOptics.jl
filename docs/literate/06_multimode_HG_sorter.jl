@@ -210,12 +210,12 @@ masks = map(x -> angle.(cis.(get_data(x))),
             filter(x -> isa(x, Phase), get_components(system)))
 
 fig_masks = visualize((vcat(masks[1:4]...), vcat(masks[5:end]...)), identity;  #src
-                      colormap = twilight_shifted, show_colorbars = true, height = 150)  #src
+                      colormap = :twilight_shifted, show_colorbars = true, height = 150)  #src
 save("docs/src/assets/$(prefix)_masks.png", fig_masks)  #src
 #nb visualize((vcat(masks[1:4]...), vcat(masks[5:end]...)) , identity;
-#nb            colormap=twilight_shifted, show_colorbars=true, height=300)
+#nb            colormap=:twilight_shifted, show_colorbars=true, height=300)
 #md visualize((vcat(masks[1:4]...), vcat(masks[5:end]...)), identity;
-#md            colormap = twilight_shifted, show_colorbars = true, height = 150)
+#md            colormap = :twilight_shifted, show_colorbars = true, height = 150)
 #md # ![Optimized phase masks](../assets/$(prefix)_masks.png)
 
 # ## Performance analysis: Mode coupling efficiency

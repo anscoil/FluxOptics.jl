@@ -38,6 +38,6 @@ reset_probe_counter!() = (_probe_counter[] = 0)
 
 Functors.@functor FieldProbe ()
 
-function propagate(u, p::FieldProbe, ::Type{<:Direction})
+function propagate(u, p::FieldProbe)
     (u, copy(u))
 end

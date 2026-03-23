@@ -40,14 +40,6 @@ isbuffered
 
 ## Propagation
 
-### Direction Types
-
-```@docs
-Direction
-Forward
-Backward
-```
-
 ### Propagation Functions
 
 ```@docs

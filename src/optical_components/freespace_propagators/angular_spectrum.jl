@@ -315,7 +315,7 @@ Functors.@functor ASPropZ (z,)
 
 trainable(p::ASPropZ{<:Trainable}) = (; z = p.z)
 
-function propagate(u::ScalarField, p::ASPropZ, direction::Type{<:Direction})
+function propagate(u::ScalarField, p::ASPropZ)
     ndims = length(p.f_vec)
     dims = ntuple(i -> i, ndims)
     lambdas = get_lambdas(u)
@@ -330,6 +330,6 @@ function propagate(u::ScalarField, p::ASPropZ, direction::Type{<:Direction})
                                          p.n0, p.z, p.filter, p.nrm_f)
         end
     end
-    data = bfft(fft(u.electric, dims) .* conj_direction(kernel, direction), dims)
+    data = bfft(fft(u.electric, dims) .* kernel, dims)
     set_field_data(u, data)
 end

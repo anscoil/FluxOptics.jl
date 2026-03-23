@@ -2,215 +2,215 @@
   "cpu": [
     {
       "n_modes": 1,
-      "time_std_ms": 0.20306030689046994,
-      "time_median_ms": 1.79194
+      "time_std_ms": 0.21793086139420878,
+      "time_median_ms": 1.795341
     },
     {
       "n_modes": 10,
-      "time_std_ms": 0.5355488510380438,
-      "time_median_ms": 21.599875
+      "time_std_ms": 1.0003571302419543,
+      "time_median_ms": 25.093971
     },
     {
       "n_modes": 13,
-      "time_std_ms": 0.88907187193947,
-      "time_median_ms": 33.4663245
+      "time_std_ms": 2.5130717336650514,
+      "time_median_ms": 37.925266
     },
     {
       "n_modes": 17,
-      "time_std_ms": 1.353203447973916,
-      "time_median_ms": 47.2460345
+      "time_std_ms": 1.6793877047467143,
+      "time_median_ms": 48.0141085
     },
     {
       "n_modes": 22,
-      "time_std_ms": 0.8403746954130911,
-      "time_median_ms": 62.5298385
+      "time_std_ms": 1.478280467667608,
+      "time_median_ms": 61.867943
     },
     {
       "n_modes": 28,
-      "time_std_ms": 1.7063108530000475,
-      "time_median_ms": 81.534806
+      "time_std_ms": 2.1196792428303435,
+      "time_median_ms": 81.185818
     },
     {
       "n_modes": 37,
-      "time_std_ms": 1.2219187794147877,
-      "time_median_ms": 105.7525205
+      "time_std_ms": 2.373584418506838,
+      "time_median_ms": 107.271985
     },
     {
       "n_modes": 47,
-      "time_std_ms": 1.7690240092427503,
-      "time_median_ms": 131.8825505
+      "time_std_ms": 8.720109530594824,
+      "time_median_ms": 137.6264675
     },
     {
       "n_modes": 62,
-      "time_std_ms": 2.571208140607232,
-      "time_median_ms": 177.578335
+      "time_std_ms": 6.839014222036003,
+      "time_median_ms": 181.6028295
     },
     {
       "n_modes": 80,
-      "time_std_ms": 3.3453337850934677,
-      "time_median_ms": 225.68684
+      "time_std_ms": 13.69896825595345,
+      "time_median_ms": 258.295724
     },
     {
       "n_modes": 103,
-      "time_std_ms": 3.029596897536433,
-      "time_median_ms": 288.92597
+      "time_std_ms": 12.928242349424792,
+      "time_median_ms": 316.958517
     },
     {
       "n_modes": 134,
-      "time_std_ms": 2.0212503859285764,
-      "time_median_ms": 374.894338
+      "time_std_ms": 13.134156260126726,
+      "time_median_ms": 431.012493
     },
     {
       "n_modes": 174,
-      "time_std_ms": 5.309478009678769,
-      "time_median_ms": 488.525961
+      "time_std_ms": 18.14206521713137,
+      "time_median_ms": 498.7606555
     },
     {
       "n_modes": 225,
-      "time_std_ms": 2.5031780191460578,
-      "time_median_ms": 627.8202645
+      "time_std_ms": 14.981938486558374,
+      "time_median_ms": 647.865029
     },
     {
       "n_modes": 292,
-      "time_std_ms": 19.94071175448263,
-      "time_median_ms": 818.851888
+      "time_std_ms": 21.4563088019658,
+      "time_median_ms": 835.4517065
     },
     {
       "n_modes": 379,
-      "time_std_ms": 3.994560060066565,
-      "time_median_ms": 1060.419589
+      "time_std_ms": 15.58250550547279,
+      "time_median_ms": 1078.402717
     },
     {
       "n_modes": 491,
-      "time_std_ms": 33.228295837901015,
-      "time_median_ms": 1369.2773115
+      "time_std_ms": 45.17319050790444,
+      "time_median_ms": 1397.870686
     },
     {
       "n_modes": 636,
-      "time_std_ms": 13.656842482544796,
-      "time_median_ms": 1772.55597
+      "time_std_ms": 11.775757720142215,
+      "time_median_ms": 1831.090099
     },
     {
       "n_modes": 825,
-      "time_std_ms": 19.091991900375508,
-      "time_median_ms": 2322.513853
+      "time_std_ms": 17.52403633812739,
+      "time_median_ms": 2327.583135
     },
     {
       "n_modes": 1069,
-      "time_std_ms": 5.385680920227683,
-      "time_median_ms": 2977.2752165
+      "time_std_ms": 30.35922023541811,
+      "time_median_ms": 3163.8692195
     },
     {
       "n_modes": 1386,
-      "time_std_ms": 49.105165476894996,
-      "time_median_ms": 3889.8794075
+      "time_std_ms": 41.47436183653719,
+      "time_median_ms": 3923.0151365
     }
   ],
   "gpu": [
     {
       "n_modes": 1,
-      "time_std_ms": 0.00415204657861623,
-      "time_median_ms": 0.052428
+      "time_std_ms": 0.001654143545029208,
+      "time_median_ms": 0.053248
     },
     {
       "n_modes": 10,
-      "time_std_ms": 0.007867253739985924,
-      "time_median_ms": 0.344662
+      "time_std_ms": 0.004630189207190888,
+      "time_median_ms": 0.345061
     },
     {
       "n_modes": 13,
-      "time_std_ms": 0.005257337855590377,
-      "time_median_ms": 0.482699
+      "time_std_ms": 0.00532587887645544,
+      "time_median_ms": 0.483169
     },
     {
       "n_modes": 17,
-      "time_std_ms": 0.003699454585472678,
-      "time_median_ms": 0.82743
+      "time_std_ms": 0.0036954420475273026,
+      "time_median_ms": 0.871673
     },
     {
       "n_modes": 22,
-      "time_std_ms": 0.005176784669660819,
-      "time_median_ms": 2.0326835
+      "time_std_ms": 0.005998852027226174,
+      "time_median_ms": 2.035626
     },
     {
       "n_modes": 28,
-      "time_std_ms": 0.0054442127710743315,
-      "time_median_ms": 2.585531
+      "time_std_ms": 0.0036014477624503444,
+      "time_median_ms": 2.585556
     },
     {
       "n_modes": 37,
-      "time_std_ms": 0.006938132967102613,
-      "time_median_ms": 3.412368
+      "time_std_ms": 0.004296693439062551,
+      "time_median_ms": 3.410712
     },
     {
       "n_modes": 47,
-      "time_std_ms": 0.005769794405140721,
-      "time_median_ms": 4.330797
+      "time_std_ms": 0.006575682550033422,
+      "time_median_ms": 4.330906
     },
     {
       "n_modes": 62,
-      "time_std_ms": 0.005748815468863452,
-      "time_median_ms": 5.7068795
+      "time_std_ms": 0.004255285260911958,
+      "time_median_ms": 5.711413
     },
     {
       "n_modes": 80,
-      "time_std_ms": 0.005281103759187225,
-      "time_median_ms": 7.362213
+      "time_std_ms": 0.010759076409648528,
+      "time_median_ms": 7.3671855
     },
     {
       "n_modes": 103,
-      "time_std_ms": 0.0057845706248638865,
-      "time_median_ms": 9.4732705
+      "time_std_ms": 0.007355789759075995,
+      "time_median_ms": 9.472321
     },
     {
       "n_modes": 134,
-      "time_std_ms": 0.007461514328710952,
-      "time_median_ms": 12.3190125
+      "time_std_ms": 0.007096224435197181,
+      "time_median_ms": 12.322622
     },
     {
       "n_modes": 174,
-      "time_std_ms": 0.008356112168125434,
-      "time_median_ms": 15.990443
+      "time_std_ms": 0.008277615395466906,
+      "time_median_ms": 15.996713
     },
     {
       "n_modes": 225,
-      "time_std_ms": 0.011150676731976087,
-      "time_median_ms": 20.6772115
+      "time_std_ms": 0.010026734366569624,
+      "time_median_ms": 20.668635
     },
     {
       "n_modes": 292,
-      "time_std_ms": 0.017001323358528123,
-      "time_median_ms": 26.838616
+      "time_std_ms": 0.014825878761440526,
+      "time_median_ms": 26.823413
     },
     {
       "n_modes": 379,
-      "time_std_ms": 0.020710361620469398,
-      "time_median_ms": 34.8585795
+      "time_std_ms": 0.021655030530510475,
+      "time_median_ms": 34.824716
     },
     {
       "n_modes": 491,
-      "time_std_ms": 0.025673452328850054,
-      "time_median_ms": 45.127858
+      "time_std_ms": 0.026483160706782978,
+      "time_median_ms": 45.143876
     },
     {
       "n_modes": 636,
-      "time_std_ms": 0.02365935320284886,
-      "time_median_ms": 58.4939175
+      "time_std_ms": 0.026654655066256146,
+      "time_median_ms": 58.473458
     },
     {
       "n_modes": 825,
-      "time_std_ms": 0.033059995940036724,
-      "time_median_ms": 75.8897505
+      "time_std_ms": 0.04347729402458253,
+      "time_median_ms": 75.903981
     },
     {
       "n_modes": 1069,
-      "time_std_ms": 0.03966560781604728,
-      "time_median_ms": 98.373261
+      "time_std_ms": 0.039537714836085404,
+      "time_median_ms": 98.370002
     },
     {
       "n_modes": 1386,
-      "time_std_ms": 0.05733026233343532,
-      "time_median_ms": 127.483031
+      "time_std_ms": 0.05742864031321828,
+      "time_median_ms": 127.5333405
     }
   ],
   "config": {

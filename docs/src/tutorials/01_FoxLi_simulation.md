@@ -160,7 +160,7 @@ distribution and phase structure.
 
 ````julia
 p_far = ParaxialProp(u_near, 2 .* ds, 2*ℓ; use_cache = true)
-u_far = propagate(u_near, p_far, Forward)
+u_far = propagate(u_near, p_far)
 
 visualize(u_far, (intensity, phase);
            colormap=(:inferno, :twilight), show_colorbars=true, height=150)

@@ -247,7 +247,7 @@ using GLMakie
 # Create propagation sequence
 distances = range(0, 2000, length=50)
 u0 = ScalarField(gaussian_data, (2.0, 2.0), 1.064)
-sequence = [propagate(u0, ASProp(u0, z), Forward) for z in distances]
+sequence = [propagate(u0, ASProp(u0, z)) for z in distances]
 
 # Interactive slider
 fig = visualize_slider(sequence, intensity)

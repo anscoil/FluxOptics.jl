@@ -1,12 +1,14 @@
+using CairoMakie
 using FluxOptics
 using Documenter
-using Makie
 
 DocMeta.setdocmeta!(FluxOptics, :DocTestSetup, :(using FluxOptics);
                     recursive = true)
 
+plotting = Base.get_extension(FluxOptics, :Plotting)
+
 makedocs(;
-         modules = [FluxOptics],
+         modules = [FluxOptics, plotting],
          authors = "Nicolas Barré",
          sitename = "FluxOptics.jl",
          format = Documenter.HTML(;

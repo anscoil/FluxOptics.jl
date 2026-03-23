@@ -163,7 +163,7 @@ fig
 ```@example splitter
 uf = system().out
 visualize(uf, (intensity, x -> -phase(x)); 
-    colormap=(:inferno, twilight_shifted), height=120)
+    colormap=(:inferno, :twilight_shifted), height=120)
 ```
 
 #### Optimized Phase Masks
@@ -172,7 +172,7 @@ visualize(uf, (intensity, x -> -phase(x));
 # Extract and visualize the three DOE phase profiles
 doe_phases = hcat(map(d -> -angle.(cis.(collect(d))), (doe1, doe2, doe3)))
 
-visualize(doe_phases, identity;  colormap=twilight_shifted, height=150)
+visualize(doe_phases, identity;  colormap=:twilight_shifted, height=150)
 ```
 
 ### Performance Benchmark

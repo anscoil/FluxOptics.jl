@@ -73,7 +73,7 @@ px = py = 3*w0  # Pitch between beams
 in_pos = Modes.TriangleLayout(n_groups, px, py, Shift2D(-2*px, 0) ∘ Rot2D(θ0))
 n_modes = length(in_pos)
 
-input_modes = generate_mode_stack(in_pos, ns, ds, Gaussian(Float32(w0)))
+input_modes = generate_mode_stack(in_pos, ns, ds, Gaussian(w0))
 u0 = ScalarField(input_modes, ds, λ)
 normalize_power!(u0, 1);
 ````
@@ -85,7 +85,7 @@ waist (wf = 8.0) than the input Gaussians. The modes are also rotated by 45°.
 
 ````julia
 wf = 8.0  # Output mode waist (HG modes need larger support)
-output_modes = generate_mode_stack(ns, ds, hermite_gaussian_groups(Float32(wf), n_groups);
+output_modes = generate_mode_stack(ns, ds, hermite_gaussian_groups(wf, n_groups);
                                    t = Rot2D(θ0))
 vf = ScalarField(output_modes, ds, λ)
 normalize_power!(vf, 1);
@@ -205,7 +205,7 @@ masks = map(x -> angle.(cis.(get_data(x))),
             filter(x -> isa(x, Phase), get_components(system)))
 
 visualize((vcat(masks[1:4]...), vcat(masks[5:end]...)), identity;
-           colormap = twilight_shifted, show_colorbars = true, height = 150)
+           colormap = :twilight_shifted, show_colorbars = true, height = 150)
 ````
 
 ![Optimized phase masks](../assets/06_multimode_HG_sorter_masks.png)
