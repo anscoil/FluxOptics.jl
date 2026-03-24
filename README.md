@@ -7,6 +7,7 @@
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://anscoil.github.io/FluxOptics.jl/stable/)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://anscoil.github.io/FluxOptics.jl/dev/)
 [![Build Status](https://github.com/anscoil/FluxOptics.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/anscoil/FluxOptics.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Hypercommit](https://img.shields.io/badge/Hypercommit-DB2475)](https://hypercommit.com/fluxoptics-jl)
 [![DOI](https://joss.theoj.org/papers/10.21105/joss.09734/status.svg)](https://doi.org/10.21105/joss.09734)
 
 **Differentiable optical propagation and inverse design in Julia**
