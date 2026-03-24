@@ -51,9 +51,8 @@ jobs:
         with:
           version: '1.12'
       - uses: julia-actions/cache@v2
-      - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libgio-2.0
       - name: Configure doc environment
+        run: sudo apt-get update && sudo apt-get install -y libgio-2.0
         shell: julia --project=docs --color=yes {0}
         run: |
           using Pkg
