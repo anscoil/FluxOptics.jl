@@ -87,53 +87,43 @@ alloc_saved_buffer(u::ScalarField, p::Phase{Trainable{Unbuffered}}) = similar(u.
 
 get_saved_buffer(p::Phase{Trainable{Buffered}}) = p.u
 
-function propagate!(u::ScalarField, p::Phase, direction::Type{<:Direction})
+function _propagate!(u::ScalarField, p::Phase, direction::Type{<:Direction})
     s = sign(direction)
     @. u.electric *= cis(s*p.ϕ)
     u
 end
 
-function backpropagate!(u::ScalarField, p::Phase, direction::Type{<:Direction})
-    propagate!(u, p, reverse(direction))
-end
-
 function propagate_and_save!(u::ScalarField,
-                             p::Phase{Trainable{Buffered}},
-                             direction::Type{<:Direction})
+                             p::Phase{Trainable{Buffered}})
     copyto!(p.u, u.electric)
-    propagate!(u, p, direction)
+    propagate!(u, p)
 end
 
 function propagate_and_save!(u::ScalarField,
                              u_saved::AbstractArray,
-                             p::Phase{Trainable{Unbuffered}},
-                             direction::Type{<:Direction})
+                             p::Phase{Trainable{Unbuffered}})
     copyto!(u_saved, u.electric)
-    propagate!(u, p, direction)
+    propagate!(u, p)
 end
 
 function compute_phase_gradient!(∂ϕ::AbstractArray{<:Real, Nd},
                                  u_saved,
-                                 ∂u::ScalarField,
-                                 direction) where {Nd}
+                                 ∂u::ScalarField) where {Nd}
     sdims = (Nd + 1):ndims(∂u.electric)
-    s = sign(direction)
-    g = @. s*imag(∂u.electric*conj(u_saved))
+    g = @. imag(∂u.electric*conj(u_saved))
     copyto!(∂ϕ, sum(g; dims = sdims))
 end
 
 function compute_phase_gradient!(∂ϕ::Array{<:Real, Nd},
                                  u_saved,
-                                 ∂u::ScalarField,
-                                 direction) where {Nd}
+                                 ∂u::ScalarField) where {Nd}
     sdims = 3:ndims(∂u)
-    s = sign(direction)
     ∂ϕ .= 0
     @inbounds for idx in CartesianIndices(size(∂u)[sdims])
         @inbounds for j in axes(∂ϕ, 2), i in axes(∂ϕ, 1)
             full_idx = (i, j, Tuple(idx)...)
             val = imag(∂u.electric[full_idx...] * conj(u_saved[full_idx...]))
-            ∂ϕ[i, j] += s*val
+            ∂ϕ[i, j] += val
         end
     end
     ∂ϕ
@@ -142,9 +132,8 @@ end
 function backpropagate_with_gradient!(∂v::ScalarField,
                                       u_saved::AbstractArray,
                                       ∂p::NamedTuple,
-                                      p::Phase{<:Trainable},
-                                      direction::Type{<:Direction})
-    ∂u = backpropagate!(∂v, p, direction)
-    compute_phase_gradient!(∂p.ϕ, u_saved, ∂u, direction)
+                                      p::Phase{<:Trainable})
+    ∂u = backpropagate!(∂v, p)
+    compute_phase_gradient!(∂p.ϕ, u_saved, ∂u)
     (∂u, ∂p)
 end

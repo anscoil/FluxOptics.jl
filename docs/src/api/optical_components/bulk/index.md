@@ -27,7 +27,7 @@ dn_3d = repeat(dn, 1, 1, n_slices)
 
 n0 = 1.5  # Bulk refractive index
 bpm = AS_BPM(u, thickness, n0, dn_3d)
-u_out = propagate(u, bpm, Forward)
+u_out = propagate(u, bpm)
 
 visualize((u, u_out), (intensity, phase); colormap=(:inferno, :viridis), height=120)
 ```

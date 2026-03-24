@@ -110,10 +110,12 @@ function set_basis_projection!(p::BasisProjectionWrapper)
     p.wrapped_component
 end
 
-function propagate(u::ScalarField, p::BasisProjectionWrapper, direction::Type{<:Direction})
+function propagate!(u::ScalarField, p::BasisProjectionWrapper)
     wrapped_component = set_basis_projection!(p)
-    propagate!(u, wrapped_component, direction)
+    propagate!(u, wrapped_component)
 end
+
+propagate(u::ScalarField, p::BasisProjectionWrapper) = propagate!(copy(u), p)
 
 function make_basis(f, xs::NTuple{Nd, AbstractArray{<:Real}}, args...) where {Nd}
     @assert Nd in (1, 2)

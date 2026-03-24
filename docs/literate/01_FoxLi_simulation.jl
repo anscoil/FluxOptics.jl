@@ -173,7 +173,7 @@ save("docs/src/assets/$(prefix)_eigenmode.png", fig_eigenmode)  #src
 # distribution and phase structure.
 
 p_far = ParaxialProp(u_near, 2 .* ds, 2*ℓ; use_cache = true)
-u_far = propagate(u_near, p_far, Forward)
+u_far = propagate(u_near, p_far)
 
 fig_far = visualize(u_far, (intensity, phase);  #src
                     colormap = (:inferno, :twilight), show_colorbars = true, height = 150)  #src

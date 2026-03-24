@@ -114,7 +114,7 @@ u = ScalarField(ones(ComplexF64, 256, 256), (0.5, 0.5), 1.064)  # dx < λ/2
 # Short distance propagation
 prop = RSProp(u, 100.0)
 
-u_out = propagate(u, prop, Forward)
+u_out = propagate(u, prop)
 ```
 
 See also: [`ASProp`](@ref)

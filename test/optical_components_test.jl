@@ -27,13 +27,13 @@
 
         # Constant phase
         phase_const = Phase(u, (x, y) -> π / 2)
-        result = propagate(u, phase_const, Forward)
+        result = propagate(u, phase_const)
         @test all(angle.(result.electric) .≈ π / 2)
 
         # Spatially varying phase
         x, y = spatial_vectors(ns, ds)
         phase_func = Phase(u, (x, y) -> x + y)
-        result_func = propagate(u, phase_func, Forward)
+        result_func = propagate(u, phase_func)
         expected_phase = x .+ y'
         @test all(angle.(result_func.electric) .≈ angle.(cis.(expected_phase)))
 
@@ -54,7 +54,7 @@
         R = 20.0
         aperture = Mask(u, (x, y) -> x^2 + y^2 < R^2 ? 1.0 : 0.0)
 
-        result = propagate(u, aperture, Forward)
+        result = propagate(u, aperture)
 
         # Check center is transmitted
         center_idx = ns[1] ÷ 2
@@ -77,7 +77,7 @@
         doe = TeaDOE(u, dn; trainable = true, buffered = true)
         @test istrainable(doe)
 
-        result = propagate(u, doe, Forward)
+        result = propagate(u, doe)
         # Zero height should give identity
         @test result.electric ≈ u.electric
     end
@@ -95,8 +95,9 @@
 
         # Test Angular Spectrum
         prop_as = ASProp(u_forward, z)
-        u_prop = propagate(u_forward, prop_as, Forward)
-        u_back = propagate(u_prop, prop_as, Backward)
+        prop_as_back = ASProp(u_forward, -z)
+        u_prop = propagate(u_forward, prop_as)
+        u_back = propagate(u_prop, prop_as_back)
 
         # Check unitarity (forward-backward ≈ identity)
         coupling = coupling_efficiency(u_forward, u_back)[]
@@ -104,8 +105,9 @@
 
         # Test Rayleigh-Sommerfeld
         prop_rs = RSProp(u_forward, z)
-        u_prop_rs = propagate(u_forward, prop_rs, Forward)
-        u_back_rs = propagate(u_prop_rs, prop_rs, Backward)
+        prop_rs_back = RSProp(u_forward, -z)
+        u_prop_rs = propagate(u_forward, prop_rs)
+        u_back_rs = propagate(u_prop_rs, prop_rs_back)
 
         coupling_rs = coupling_efficiency(u_forward, u_back_rs)[]
         @test coupling_rs > 0.999  # High coupling
@@ -124,7 +126,7 @@
 
         # Angular Spectrum propagation
         prop = ASProp(u, z)
-        u_prop = propagate(u, prop, Forward)
+        u_prop = propagate(u, prop)
 
         # Power should be conserved
         P_before = power(u)
@@ -144,7 +146,7 @@
 
         # Paraxial propagation
         prop_paraxial = ParaxialProp(u, ds, z)
-        u_prop = propagate(u, prop_paraxial, Forward)
+        u_prop = propagate(u, prop_paraxial)
 
         @test size(u_prop) == size(u)
         @test power(u_prop)[] > 0
@@ -164,7 +166,7 @@
         A, B, D = 1.0, z, 1.0
         prop_collins = CollinsProp(u, ds, (A, B, D))
 
-        u_prop = propagate(u, prop_collins, Forward)
+        u_prop = propagate(u, prop_collins)
         @test size(u_prop) == size(u)
     end
 
@@ -272,7 +274,7 @@
         L = 100.0  # Total length
 
         bpm = AS_BPM(u0, L, n_bulk, Δn)
-        result = propagate(u0, bpm, Forward)
+        result = propagate(u0, bpm)
 
         @test result isa ScalarField
         @test size(result)[1:2] == ns
@@ -294,7 +296,7 @@
         g0 = 0.01
         gain = GainSheet(u, dz, Isat, (x, y) -> g0)
 
-        result = propagate(u, gain, Forward)
+        result = propagate(u, gain)
 
         # Power should increase due to gain
         P_before = power(u)[]

@@ -1,6 +1,5 @@
 using Documenter: DocMeta, doctest
 using FluxOptics
-using Makie
 using Statistics
 using Test
 

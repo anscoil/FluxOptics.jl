@@ -1,7 +1,7 @@
 # Plotting API
 
 ```@meta
-CurrentModule = FluxOptics.Plotting
+CurrentModule = FluxOptics
 ```
 
 **Loading:** This module is loaded conditionally. Use `using Makie` (or `GLMakie`, `CairoMakie`, `WGLMakie`) before using plotting functions.

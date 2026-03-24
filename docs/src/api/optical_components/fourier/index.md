@@ -21,7 +21,7 @@ f_cutoff = 0.02  # 1/μm
 lowpass = FourierMask(u, (fx, fy) -> sqrt(fx^2 + fy^2) < f_cutoff ? 1.0 : 0.0)
 
 # Apply filter
-u_filtered = propagate(u, lowpass, Forward)
+u_filtered = propagate(u, lowpass)
 
 # Check power conservation (should be < 1 due to filtering)
 power(u_filtered)[] / power(u)[]
@@ -32,7 +32,7 @@ power(u_filtered)[] / power(u)[]
 sigma_f = 0.15  # 1/μm
 gaussian_filter = FourierMask(u, (fx, fy) -> exp(-(fx^2 + fy^2)/(2*sigma_f^2)))
 
-u_smooth = propagate(u, gaussian_filter, Forward)
+u_smooth = propagate(u, gaussian_filter)
 
 power(u_smooth)[] / power(u)[]
 ```
@@ -43,7 +43,7 @@ power(u_smooth)[] / power(u)[]
 # Parabolic phase in frequency (quadratic chirp in spatial domain)
 fourier_phase = FourierPhase(u, (fx, fy) -> π * 0.01 * (fx^2 + fy^2))
 
-u_chirped = propagate(u, fourier_phase, Forward)
+u_chirped = propagate(u, fourier_phase)
 
 # Phase modulation doesn't affect power
 power(u_chirped)[]

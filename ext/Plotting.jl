@@ -4,10 +4,7 @@ using Makie
 using Makie.Colors
 using Makie.ColorSchemes
 using LaTeXStrings
-using ..Fields
-using ..OpticalComponents
-
-export visualize, visualize_slider, twilight_shifted
+using FluxOptics
 
 function complex_to_rgb(A::AbstractArray{Complex{T}};
                         colormap = :dark,
@@ -31,18 +28,17 @@ function complex_to_rgb(A::AbstractArray{Complex{T}};
     rgb_colors
 end
 
-function valid_colormap(name::Symbol)
-    name in keys(ColorSchemes.colorschemes) || error("Invalid colormap: $name")
-    name
-end
-
-valid_colormap(name::ColorScheme) = name
-
 twilight = ColorSchemes.twilight
 n = length(twilight.colors)
 shift = n ÷ 2
 shifted_colors = circshift(twilight.colors, shift)
 twilight_shifted = ColorScheme(shifted_colors)
+
+function valid_colormap(name::Symbol)
+    name == :twilight_shifted && return twilight_shifted
+    name in keys(ColorSchemes.colorschemes) || error("Invalid colormap: $name")
+    name
+end
 
 function fill_heatmap!(ax, f, u, cmap)
     img = f(u)
@@ -156,11 +152,11 @@ fig = visualize(phase_mask, identity)
 
 See also: [`visualize_slider`](@ref), [`intensity`](@ref), [`phase`](@ref)
 """
-function visualize(u_vec,
-                   fs::Union{Function, Tuple};
-                   colormap = :viridis,
-                   height = 200,
-                   show_colorbars = false)
+function FluxOptics.visualize(u_vec,
+                              fs::Union{Function, Tuple};
+                              colormap = :viridis,
+                              height = 200,
+                              show_colorbars = false)
     n_lines = length(u_vec)
     @assert n_lines > 0
     n_fields_per_col = length(first(u_vec))
@@ -201,22 +197,22 @@ function visualize(u_vec,
     fig
 end
 
-function visualize(u_vec::Union{AbstractVector{U}, Tuple{Vararg{U}}},
-                   fs::Union{Function, Tuple};
-                   colormap = :viridis,
-                   height = 200,
-                   show_colorbars = false) where {U <: Plottable}
+function FluxOptics.visualize(u_vec::Union{AbstractVector{U}, Tuple{Vararg{U}}},
+                              fs::Union{Function, Tuple};
+                              colormap = :viridis,
+                              height = 200,
+                              show_colorbars = false) where {U <: Plottable}
     visualize(map(u -> (collect(u),), u_vec), fs; colormap, height, show_colorbars)
 end
 
-function visualize(u::Plottable,
-                   fs::Union{Function, Tuple};
-                   colormap = :viridis,
-                   ratio = 1,
-                   max_width = 1024,
-                   width = nothing,
-                   height = 200,
-                   show_colorbars = false)
+function FluxOptics.visualize(u::Plottable,
+                              fs::Union{Function, Tuple};
+                              colormap = :viridis,
+                              ratio = 1,
+                              max_width = 1024,
+                              width = nothing,
+                              height = 200,
+                              show_colorbars = false)
     visualize(((collect(u),),), fs; colormap, height, show_colorbars)
 end
 
@@ -251,7 +247,7 @@ using GLMakie
 # Create propagation sequence
 distances = range(0, 2000, length=50)
 u0 = ScalarField(gaussian_data, (2.0, 2.0), 1.064)
-sequence = [propagate(u0, ASProp(u0, z), Forward) for z in distances]
+sequence = [propagate(u0, ASProp(u0, z)) for z in distances]
 
 # Interactive slider
 fig = visualize_slider(sequence, intensity)
@@ -301,10 +297,10 @@ fig = visualize_slider(sequence, (intensity, phase);
 
 See also: [`visualize`](@ref), [`intensity`](@ref), [`phase`](@ref)
 """
-function visualize_slider(u_vec,
-                          fs::Union{Function, Tuple};
-                          colormap = :viridis,
-                          height = 400)
+function FluxOptics.visualize_slider(u_vec,
+                                     fs::Union{Function, Tuple};
+                                     colormap = :viridis,
+                                     height = 400)
     n_lines = length(u_vec)
     @assert n_lines > 0
     n_fields_per_col = length(first(u_vec))
@@ -318,9 +314,9 @@ function visualize_slider(u_vec,
     u_data = map(u_fields -> map(u -> collect(u), collect(u_fields)), u_vec)
 
     fig = Figure()
-
+    
     heatmaps = []
-
+    
     for (j, (f, cmap)) in enumerate(zip(fs, cmaps))
         subgrid = fig[1, j] = GridLayout()
         for k in 1:n_fields_per_col
@@ -348,10 +344,10 @@ function visualize_slider(u_vec,
     fig
 end
 
-function visualize_slider(u_vec::Union{AbstractVector{U}, Tuple{Vararg{U}}},
-                          fs::Union{Function, Tuple};
-                          colormap = :viridis,
-                          height = 400) where {U <: Plottable}
+function FluxOptics.visualize_slider(u_vec::Union{AbstractVector{U}, Tuple{Vararg{U}}},
+                                     fs::Union{Function, Tuple};
+                                     colormap = :viridis,
+                                     height = 400) where {U <: Plottable}
     visualize_slider(map(u -> (collect(u),), u_vec), fs; colormap, height)
 end
 

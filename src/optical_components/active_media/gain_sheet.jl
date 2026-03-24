@@ -84,7 +84,7 @@ get_data(p::GainSheet) = p.g0
 
 trainable(p::GainSheet{<:Trainable}) = (; g0 = p.g0)
 
-function propagate(u::ScalarField, p::GainSheet, ::Type{<:Direction})
+function propagate(u::ScalarField, p::GainSheet)
     data = u.electric .* exp.((p.g0*p.dz) ./ (1 .+ intensity(u)/p.Isat))
     set_field_data(u, data)
 end

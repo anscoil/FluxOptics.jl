@@ -61,6 +61,7 @@ Functors.@functor ScalarSource (u0,)
 
 Base.collect(p::ScalarSource) = collect(p.u0)
 Base.size(p::ScalarSource) = size(p.u0)
+Base.size(p::ScalarSource, k::Integer) = size(p.u0, k)
 
 trainable(p::ScalarSource{<:Trainable}) = (; u0 = p.u0)
 
