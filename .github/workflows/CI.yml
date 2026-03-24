@@ -51,7 +51,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:
-          version: '1.11'
+          version: '1.12'
       - uses: julia-actions/cache@v2
       - name: Check Ubuntu version
         run: lsb_release -a && apt list --installed 2>/dev/null | grep libglib
