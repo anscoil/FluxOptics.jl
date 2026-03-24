@@ -9,4 +9,4 @@ Glib_jll = "7746bdde-850d-59dc-9ae8-88ece973131d"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 
 [compat]
-Glib_jll = "2.80, < 2.81"
+Glib_jll = "~2.80"
