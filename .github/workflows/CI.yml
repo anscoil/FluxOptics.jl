@@ -42,7 +42,7 @@ jobs:
       - uses: julia-actions/julia-runtest@v1
   docs:
     name: Documentation
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     permissions:
       actions: write # needed to allow julia-actions/cache to proactively delete old caches that it has created
       contents: write
