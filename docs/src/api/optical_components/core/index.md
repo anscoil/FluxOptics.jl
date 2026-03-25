@@ -40,14 +40,9 @@ keys(params)
 ### Propagation Interface
 
 ```@example core
-# Forward propagation
-u_fwd = propagate(u, phase_static, Forward)
+# Propagation through phase mask
+u_prop = propagate(u, phase_static)
 
-# Backward propagation (applies conjugate phase)
-u_bwd = propagate(u, phase_static, Backward)
-
-# Forward and backward are complex conjugates
-maximum(abs, u_fwd.electric - conj.(u_bwd.electric))
 ```
 
 ### Buffering Strategy
@@ -90,13 +85,6 @@ Controls whether component parameters can be optimized:
 Controls memory allocation strategy for trainable components:
 - **Buffered**: Pre-allocates gradient and forward buffers → faster for repeated optimization
 - **Unbuffered**: Allocates on-demand → lower memory usage, good for prototyping
-
-### Bidirectional Propagation
-All components support forward and backward propagation:
-- **Forward**: Standard propagation through the component
-- **Backward**: Computes the adjoint operation (required for gradient computation)
-- Backward propagation is used internally during automatic differentiation
-- Physical interpretation: time-reversal with conjugate fields
 
 ### Pure vs Custom Components
 
@@ -141,10 +129,6 @@ All components support forward and backward propagation:
 - [`Trainable`](@ref): Trainable components
 - [`Buffering`](@ref): Buffer management strategy
 - [`Buffered`](@ref), [`Unbuffered`](@ref): Buffering modes
-
-**Direction**
-- [`Direction`](@ref): Abstract direction type
-- [`Forward`](@ref), [`Backward`](@ref): Propagation directions
 
 ## Key Functions
 

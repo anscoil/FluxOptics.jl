@@ -6,7 +6,6 @@ module FluxOptics
 
 __precompile__()
 
-using Requires
 using LinearAlgebra
 
 Base.copyto!(::Nothing, u) = nothing
@@ -64,11 +63,9 @@ using .FFTutils
 include("optical_components/OpticalComponents.jl")
 using .OpticalComponents
 export OpticalComponents
-export Direction, Forward, Backward
 export Trainability, Trainable, Static, Buffered, Unbuffered
 export trainable, istrainable, isbuffered
 export propagate!, propagate
-export backpropagate!, backpropagate
 export AbstractOpticalComponent, AbstractPipeComponent, AbstractOpticalSource
 export AbstractCustomComponent, AbstractCustomSource
 export AbstractPureComponent, AbstractPureSource
@@ -88,29 +85,19 @@ export get_data
 
 include("OptimisersExt.jl")
 using .OptimisersExt
-import Optimisers: setup, update!, Descent, Momentum, Nesterov
+import Optimisers: setup, update!, Descent
 export make_rules, setup, update!
 export AbstractProximalOperator
-export ProxRule, Descent, Momentum, Nesterov, Fista, NoDescent
+export ProxRule, Fista, NoDescent, Descent
 export PointwiseProx, IstaProx, ClampProx, PositiveProx, TVProx
 export TV_denoise!
 export ProximalOperators
 
 include("ChainRulesCoreExt.jl")
 
-# include("cuda/CUDAExt.jl")
-# using .CUDAExt
-
-function __init__()
-    @require CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba" begin
-        include("cuda/CUDAExt.jl")
-        using .CUDAExt
-    end
-    @require Makie="ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a" begin
-        include("plotting/Plotting.jl")
-        using .Plotting
-        export visualize, visualize_slider, twilight_shifted
-    end
-end
+# Plotting extension (loaded when Makie is available)
+function visualize end
+function visualize_slider end
+export visualize, visualize_slider
 
 end

@@ -150,50 +150,41 @@ function apply_phase!(u::AbstractArray{T}, lambdas, p::TeaDOE, ::Type{Backward})
     @. u *= conj(p.r(lambdas)) * cis(-(T(2)*π/lambdas)*p.dn(lambdas)*p.h)
 end
 
-function propagate!(u::ScalarField, p::TeaDOE, direction::Type{<:Direction})
+function _propagate!(u::ScalarField, p::TeaDOE, direction::Type{<:Direction})
     apply_phase!(u.electric, get_lambdas(u), p, direction)
     u
 end
 
-function backpropagate!(u::ScalarField, p::TeaDOE, direction::Type{<:Direction})
-    propagate!(u, p, reverse(direction))
-end
-
 function propagate_and_save!(u::ScalarField,
-                             p::TeaDOE{Trainable{Buffered}},
-                             direction::Type{<:Direction})
+                             p::TeaDOE{Trainable{Buffered}})
     copyto!(p.u, u.electric)
-    propagate!(u, p, direction)
+    propagate!(u, p)
 end
 
 function propagate_and_save!(u::ScalarField,
                              u_saved,
-                             p::TeaDOE{Trainable{Unbuffered}},
-                             direction::Type{<:Direction})
+                             p::TeaDOE{Trainable{Unbuffered}})
     copyto!(u_saved, u.electric)
-    propagate!(u, p, direction)
+    propagate!(u, p)
 end
 
 function compute_surface_gradient!(∂h::P,
                                    u_saved,
                                    ∂u::ScalarField,
                                    dn,
-                                   r,
-                                   direction) where {T <: Real, Nd,
-                                                     P <: AbstractArray{T, Nd}}
+                                   r) where {T <: Real, Nd,
+                                             P <: AbstractArray{T, Nd}}
     sdims = (Nd + 1):ndims(∂u)
-    s = sign(direction)
     lambdas = get_lambdas(∂u)
-    g = @. (s*T(2)*π*dn(lambdas)/lambdas)*imag(∂u.electric*conj(u_saved))
+    g = @. (T(2)*π*dn(lambdas)/lambdas)*imag(∂u.electric*conj(u_saved))
     copyto!(∂h, sum(g; dims = sdims))
 end
 
 function backpropagate_with_gradient!(∂v::ScalarField,
                                       u_saved::AbstractArray,
                                       ∂p::NamedTuple,
-                                      p::TeaDOE{<:Trainable},
-                                      direction::Type{<:Direction})
-    ∂u = backpropagate!(∂v, p, direction)
-    compute_surface_gradient!(∂p.h, u_saved, ∂u, p.dn, p.r, direction)
+                                      p::TeaDOE{<:Trainable})
+    ∂u = backpropagate!(∂v, p)
+    compute_surface_gradient!(∂p.h, u_saved, ∂u, p.dn, p.r)
     (∂u, ∂p)
 end

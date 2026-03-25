@@ -57,7 +57,7 @@ rule = ProxRule(Descent(0.01), prox)
 
 # Compose multiple constraints
 prox = ClampProx(0.0, 1.0) ∘ PositiveProx()
-rule = ProxRule(Momentum(0.1, 0.9), prox)
+rule = ProxRule(Fista(0.1), prox)
 ```
 
 # References
@@ -78,7 +78,7 @@ step, then applies a proximal operator for regularization or constraints. This i
 useful for constrained optimization in inverse optics design.
 
 # Arguments
-- `rule`: Base optimization rule (e.g., `Descent`, `Momentum`)
+- `rule`: Base optimization rule (e.g., `Descent`, `Fista`, `Optimisers.Momentum`)
 - `prox`: Proximal operator to apply after the optimization step
 
 # Returns
@@ -88,7 +88,7 @@ useful for constrained optimization in inverse optics design.
 ```jldoctest
 julia> prox_descent = ProxRule(Descent(0.01), PositiveProx());  # Positive constraint
 
-julia> tv_regularized = ProxRule(Momentum(0.1, 0.9), TVProx(0.001));  # TV regularization
+julia> tv_regularized = ProxRule(Fista(0.1), TVProx(0.001));  # TV regularization
 
 julia> clamped = ProxRule(Descent(0.05), ClampProx(0.0, 1.0));  # Clamp to [0,1]
 ```

@@ -26,7 +26,7 @@ u = ScalarField(Gaussian(5.0)(xv, yv), (0.5, 0.5), 1.064)
 lens = FourierLens(u, (1.5, 1.5), 1000.0)
 
 # Beam collimiation
-u_col = propagate(u, lens, Forward)
+u_col = propagate(u, lens)
 ```
 
 See also: [`CollinsProp`](@ref), [`ParaxialProp`](@ref)

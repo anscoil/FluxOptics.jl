@@ -51,23 +51,31 @@ end
 
 trainable(p::AbstractSequence{<:Trainable}) = (; optical_components = get_sequence(p))
 
-function propagate!(u::ScalarField, p::AbstractSequence, ::Type{Forward})
-    for c in get_sequence(p)
-        u = propagate!(u, c, Forward)
-    end
-    u
+function propagate!(u::ScalarField, p::AbstractSequence)
+    _propagate_sequence!(u, get_sequence(p))
 end
 
-function propagate!(u::ScalarField, p::AbstractSequence, ::Type{Backward})
-    for c in reverse(get_sequence(p))
-        u = propagate!(u, c, Backward)
-    end
-    u
+function backpropagate!(u::ScalarField, p::AbstractSequence)
+    _backpropagate_sequence!(u, get_sequence(p))
 end
 
-function propagate(u::ScalarField, p::AbstractSequence, direction::Type{<:Direction})
-    propagate!(copy(u), p, direction)
+@inline _propagate_sequence!(u, ::Tuple{}) = u
+
+@inline _backpropagate_sequence!(u, ::Tuple{}) = u
+
+@inline function _propagate_sequence!(u, components::Tuple)
+    u = propagate!(u, first(components))
+    _propagate_sequence!(u, Base.tail(components))
 end
+
+@inline function _backpropagate_sequence!(u, components::Tuple)
+    u = backpropagate!(u, last(components))
+    _backpropagate_sequence!(u, Base.front(components))
+end
+
+propagate(u::ScalarField, p::AbstractSequence) = propagate!(copy(u), p)
+
+backpropagate(u::ScalarField, p::AbstractSequence) = backpropagate!(copy(u), p)
 
 """
     OpticalSequence(components...)
@@ -95,7 +103,7 @@ prop = ASProp(u, 500.0)
 sequence = OpticalSequence(phase, lens, prop)
 
 # Apply to field
-result = propagate(u, sequence, Forward)
+result = propagate(u, sequence)
 
 # Extract components
 components = get_sequence(sequence)

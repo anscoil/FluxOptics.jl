@@ -26,9 +26,9 @@ function _propagate_core!(apply_kernel_fn!::F,
     error("Not implemented")
 end
 
-function propagate!(u::ScalarField,
-                    p::AbstractPropagator{M, <:AbstractKernel{Nothing}},
-                    direction::Type{<:Direction}) where {M}
+function _propagate!(u::ScalarField,
+                     p::AbstractPropagator{M, <:AbstractKernel{Nothing}},
+                     direction::Type{<:Direction}) where {M}
     kernels = get_kernels(p)
     kernel_key_args = map(f -> f(false), build_kernel_key_args(p, u))
     kernel_args = build_kernel_args(p, u)
@@ -41,9 +41,9 @@ function propagate!(u::ScalarField,
     _propagate_core!(apply_kernel_fns, u, p, direction)
 end
 
-function propagate!(u::ScalarField,
-                    p::AbstractPropagator{M, <:AbstractKernel{K}},
-                    direction::Type{<:Direction}) where {M, K <: AbstractArray}
+function _propagate!(u::ScalarField,
+                     p::AbstractPropagator{M, <:AbstractKernel{K}},
+                     direction::Type{<:Direction}) where {M, K <: AbstractArray}
     kernels = get_kernels(p)
     kernel_key_args = map(f -> f(true), build_kernel_key_args(p, u))
     kernel_args = build_kernel_args(p, u)
@@ -56,10 +56,6 @@ function propagate!(u::ScalarField,
                                                                        direction),
                            kernels)
     _propagate_core!(apply_kernel_fns, u, p, direction)
-end
-
-function backpropagate!(∂v, p::AbstractPropagator, direction::Type{<:Direction})
-    propagate!(∂v, p, reverse(direction))
 end
 
 include("fourier_kernel.jl")

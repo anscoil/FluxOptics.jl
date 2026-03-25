@@ -11,9 +11,9 @@ This metric supports two modes depending on target array dimensions:
 - `field_intensity_pairs...`: Tuples of (ScalarField, target_intensity_array).
 
 # Mathematical definition  
-**Full dimensions case:** L = ∫∫ |uₖ(x,y)|² - Itargetₖ(x,y)|² dx dy (per mode)
+**Full dimensions case:** L = ∑ₓᵧ ||uₖ(x,y)|² - Itargetₖ(x,y)|² (per mode)
 
-**Spatial only case:** L = ∫∫ |(∑ₖ |uₖ(x,y)|²) - Itarget(x,y)|² dx dy (total intensity)
+**Spatial only case:** L = ∑ₓᵧ |(∑ₖ |uₖ(x,y)|²) - Itarget(x,y)|² (total intensity)
 
 # Examples
 
@@ -77,14 +77,14 @@ end
 
 function compute_metric(m::SquaredIntensityDifference, u::NTuple{N, ScalarField}) where {N}
     foreach(((z, x),) -> sum!(abs2, z, x.electric), zip(m.v_tmp, u))
-    foreach(((z, x, y),) -> (@. z = x - y), zip(m.u, m.v_tmp, m.v))
-    foreach(((c, x),) -> sum!(abs2, c, x), zip(m.c, m.u))
+    foreach(((z, x),) -> (@. z = z - x), zip(m.v_tmp, m.v))
+    foreach(((c, x),) -> sum!(abs2, c, x), zip(m.c, m.v_tmp))
     m.c
 end
 
 function backpropagate_metric(m::SquaredIntensityDifference,
                               u::NTuple{N, ScalarField},
                               ∂c) where {N}
-    foreach(((x, y, c),) -> (@. x *= 4*c*y.electric), zip(m.u, u, ∂c))
+    foreach(((z, x, y, c),) -> (@. z = 4*c*x*y.electric), zip(m.u, m.v_tmp, u, ∂c))
     Tuple(map(((x, y),) -> set_field_data(x, y), zip(u, m.u)))
 end

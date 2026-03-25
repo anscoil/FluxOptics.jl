@@ -1,4 +1,4 @@
-function kernel_phase_gradient!(∂ϕ, ∂u, u, s)
+function kernel_phase_gradient!(∂ϕ, ∂u, u)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -14,19 +14,17 @@ function kernel_phase_gradient!(∂ϕ, ∂u, u, s)
         acc += imag(a * conj(b))
     end
 
-    ∂ϕ[i, j] = s*acc
+    ∂ϕ[i, j] = acc
     return
 end
 
 function OpticalComponents.compute_phase_gradient!(∂ϕ::CuArray{<:Real, Nd},
                                                    u_saved,
-                                                   ∂u::ScalarField,
-                                                   direction) where {Nd}
+                                                   ∂u::ScalarField) where {Nd}
     nx, ny = size(u_saved)
     @assert size(∂u) == size(u_saved)
     @assert size(∂ϕ, 1) == nx
     @assert size(∂ϕ, 2) == ny
-    s = sign(direction)
     nz = prod(size(∂u)[3:end])
 
     tx, ty = compute_thread_config()
@@ -37,8 +35,7 @@ function OpticalComponents.compute_phase_gradient!(∂ϕ::CuArray{<:Real, Nd},
                                                                reshape(∂u.electric,
                                                                        (nx, ny, nz)),
                                                                reshape(u_saved,
-                                                                       (nx, ny, nz)),
-                                                               s)
+                                                                       (nx, ny, nz)))
 
     ∂ϕ
 end

@@ -76,18 +76,5 @@ Complete documentation of all modules, types, and functions:
 ## Getting Help
 
 - 📖 Browse the [API Reference](api/index.md) for detailed function documentation
-- 💬 Open an issue on [GitHub](https://github.com/anscoil/FluxOptics.jl) for bugs or feature requests
+- 💬 Open an issue or a discussion on [GitHub](https://github.com/anscoil/FluxOptics.jl) for bugs or feature requests
 - 📧 Contact the maintainers for questions
-
-## Citation
-
-If you use FluxOptics.jl in your research, please cite:
-
-```bibtex
-@software{fluxoptics2025,
-  author = {Barré, Nicolas},
-  title = {FluxOptics.jl: Differentiable Optical Simulations},
-  year = {2025},
-  url = {https://github.com/anscoil/FluxOptics.jl}
-}
-```

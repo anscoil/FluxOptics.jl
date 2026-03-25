@@ -33,8 +33,6 @@ u_crop = crop(u_centered, (128, 128); offset=offset)
 size(u_crop)
 ```
 
-### PadCropOperator
-
 ```@example utilities
 # Efficient pad/crop in systems
 u = ScalarField(ones(ComplexF64, 128, 128), (2.0, 2.0), 1.064)

@@ -57,34 +57,32 @@ system_inplace = system |> (; inplace=true)
 
 See also: [`OpticalSequence`](@ref), [`get_source`](@ref), [`get_components`](@ref)
 """
-struct OpticalSystem
-    source::Union{Nothing, AbstractOpticalSource}
-    components::OpticalSequence
-    direction::Type{<:Direction}
+struct OpticalSystem{S <: Union{Nothing, AbstractOpticalSource}, C <: OpticalSequence}
+    source::S
+    components::C
     inplace::Bool
     merge_components::Bool
 
-    function OpticalSystem(source, components, direction, inplace, merge_components)
-        new(source, components, direction, inplace, merge_components)
+    function OpticalSystem(source::S, components::C, inplace, merge_components) where {S, C}
+        new{S, C}(source, components, inplace, merge_components)
     end
 
-    function OpticalSystem(source::Union{Nothing, AbstractOpticalSource},
+    function OpticalSystem(source::S,
                            components::Vararg{AbstractPipeComponent};
                            inplace::Bool = false,
-                           direction::Type{<:Direction} = Forward,
-                           merge_components::Bool = false)
-        components = OpticalSequence(components...)
+                           merge_components::Bool = false
+                           ) where {S <: Union{Nothing, AbstractOpticalSource}}
+        seq = OpticalSequence(components...)
         if merge_components
-            components = merge(components)
+            seq = merge(seq)
         end
-        new(source, components, direction, inplace, merge_components)
+        new{S, typeof(seq)}(source, seq, inplace, merge_components)
     end
 
     function OpticalSystem(components::Vararg{AbstractPipeComponent};
                            inplace::Bool = false,
-                           direction::Type{<:Direction} = Forward,
                            merge_components::Bool = false)
-        OpticalSystem(nothing, components...; inplace, direction, merge_components)
+        OpticalSystem(nothing, components...; inplace, merge_components)
     end
 end
 
@@ -158,24 +156,21 @@ end
 
 function Base.:|>(component::AbstractPipeComponent, system::OpticalSystem)
     OpticalSystem(component, system.components.optical_components...;
-                  direction = system.direction, inplace = system.inplace,
-                  system.merge_components)
+                  inplace = system.inplace, system.merge_components)
 end
 
 function Base.:|>(system::OpticalSystem, component::AbstractPipeComponent)
     OpticalSystem(system.source, system.components.optical_components..., component;
-                  direction = system.direction, inplace = system.inplace,
-                  system.merge_components)
+                  inplace = system.inplace, system.merge_components)
 end
 
 function Base.:|>(s1::OpticalSystem, s2::OpticalSystem)
-    @assert s1.direction == s2.direction
     @assert s1.inplace == s2.inplace
     @assert isnothing(s2.source)
     merge_components = s1.merge_components && s2.merge_components
     OpticalSystem(s1.source, s1.components.optical_components...,
                   s2.components.optical_components...;
-                  direction = s1.direction, inplace = s1.inplace, merge_components)
+                  inplace = s1.inplace, merge_components)
 end
 
 function Base.:|>(system::OpticalSystem, kwargs::NamedTuple)
@@ -186,18 +181,18 @@ function Base.:|>(component::AbstractOpticalComponent, kwargs::NamedTuple)
     OpticalSystem(component; kwargs...)
 end
 
-function compute_split_output(p::AbstractPipeComponent, u, inplace, direction)
-    v = inplace ? propagate!(u, p, direction) : propagate(u, p, direction)
+function compute_split_output(p::AbstractPipeComponent, u, inplace)
+    v = inplace ? propagate!(u, p) : propagate(u, p)
     (v, nothing)
 end
 
-function compute_split_output(p::FieldProbe, u, inplace, direction)
-    propagate(u, p, direction)
+function compute_split_output(p::FieldProbe, u, inplace)
+    propagate(u, p)
 end
 
-function iter_components(components, x, d, inplace, direction)
+function iter_components(components, x, d, inplace)
     for component in components
-        x, x_probe = compute_split_output(component, x, inplace, direction)
+        x, x_probe = compute_split_output(component, x, inplace)
         if !isnothing(x_probe)
             d[component] = x_probe
         end
@@ -205,10 +200,13 @@ function iter_components(components, x, d, inplace, direction)
     (; out = x, probes = d)
 end
 
-function (system::OpticalSystem)(x::Union{Nothing, ScalarField} = nothing)
-    @assert (isnothing(x) ⊻ isnothing(system.source))
-    x = isnothing(x) ? propagate(system.source) : x
-    components = system.components.optical_components
-    d = IdDict{AbstractOpticalComponent, typeof(x)}()
-    iter_components(components, x, d, system.inplace, system.direction)
+function (system::OpticalSystem{S, C})() where {S <: AbstractOpticalSource, C}
+    x = propagate(system.source)
+    d = IdDict{AbstractOpticalComponent, Any}()
+    iter_components(system.components.optical_components, x, d, system.inplace)
+end
+
+function (system::OpticalSystem{Nothing, C})(x) where {C}
+    d = IdDict{AbstractOpticalComponent, Any}()
+    iter_components(system.components.optical_components, x, d, system.inplace)
 end

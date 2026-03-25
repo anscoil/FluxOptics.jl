@@ -1,12 +1,14 @@
+using CairoMakie
 using FluxOptics
 using Documenter
-using Makie
 
 DocMeta.setdocmeta!(FluxOptics, :DocTestSetup, :(using FluxOptics);
                     recursive = true)
 
+plotting = Base.get_extension(FluxOptics, :Plotting)
+
 makedocs(;
-         modules = [FluxOptics],
+         modules = [FluxOptics, plotting],
          authors = "Nicolas Barré",
          sitename = "FluxOptics.jl",
          format = Documenter.HTML(;
@@ -20,11 +22,13 @@ makedocs(;
          pages = [
              "Home" => "index.md",
              "Tutorials" => [
+                 "tutorials/index.md",
                  "FoxLi Simulation" => "tutorials/01_FoxLi_simulation.md",
                  "Field Retrieval" => "tutorials/02_field_retrieval.md",
                  "Multi-Wavelength Beam Shaping" => "tutorials/03_RGB_beam_shaping.md",
                  "Waveguide Tomography" => "tutorials/04_waveguide_tomography.md",
-                 "Multimode Intensity Shaping" => "tutorials/05_multimode_intensity_shaping.md"
+                 "Multimode Intensity Shaping" => "tutorials/05_multimode_intensity_shaping.md",
+                 "Hermite-Gaussian Multimode Sorter" => "tutorials/06_multimode_HG_sorter.md"
              ],
              "Reference" => [
                  "api/index.md",

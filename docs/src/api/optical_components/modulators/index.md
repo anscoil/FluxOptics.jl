@@ -37,7 +37,7 @@ radius = 80.0
 aperture = Mask(u, (x, y) -> sqrt(x^2 + y^2) < radius ? 1.0 : 0.0)
 
 # Apply to field
-u_masked = propagate(u, aperture, Forward)
+u_masked = propagate(u, aperture)
 
 # Check power reduction
 (power(u)[], power(u_masked)[])
@@ -48,7 +48,7 @@ u_masked = propagate(u, aperture, Forward)
 w0 = 100.0
 apodization = Mask(u, (x, y) -> exp(-(x^2 + y^2)/(2*w0^2)))
 
-u_apodized = propagate(u, apodization, Forward)
+u_apodized = propagate(u, apodization)
 
 power(u_apodized)[]
 ```
@@ -93,12 +93,10 @@ power(result.out)[]
 
 ### Phase Masks
 - Apply transmission: `t(x,y) = exp(iφ(x,y))`
-- Forward: `+φ`, Backward: `-φ` (adjoint)
 - Conserve power (unitary)
 
 ### Amplitude Masks
 - Apply transmission: `t(x,y) = m(x,y)` (complex-valued)
-- Forward: `m`, Backward: `conj(m)` (adjoint)
 - Real `m`: pure amplitude, Complex `m`: amplitude + phase
 
 ### Diffractive Elements (TeaDOE)

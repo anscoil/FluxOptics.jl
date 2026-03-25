@@ -73,7 +73,7 @@ using FluxOptics, CairoMakie
 # Create initial and propagated fields
 xv, yv = spatial_vectors(256, 256, 1.0, 1.0)
 u_initial = ScalarField(Gaussian(20.0)(xv, yv), (1.0, 1.0), 1.064)
-u_prop = propagate(u_initial, ASProp(u_initial, 1000.0), Forward)
+u_prop = propagate(u_initial, ASProp(u_initial, 1000.0))
 
 # Compare side by side
 visualize((u_initial, u_prop), (intensity, phase);
@@ -127,7 +127,7 @@ u0 = ScalarField(Gaussian(20.0)(xv, yv), (1.0, 1.0), 1.064)
 
 # Propagate at different distances
 distances = [0, 100, 500, 1000, 2000]
-propagation = [propagate(u0, ASProp(u0, z), Forward) for z in distances]
+propagation = [propagate(u0, ASProp(u0, z)) for z in distances]
 
 # Visualize evolution
 visualize(propagation, (intensity, phase); colormap=(:inferno, :twilight), height=120)
@@ -156,6 +156,6 @@ Common functions for field visualization:
 ## Index
 
 ```@index
-Modules = [FluxOptics.Plotting]
+Modules = [FluxOptics]
 Order = [:type, :function]
 ```

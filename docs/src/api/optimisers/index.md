@@ -5,7 +5,7 @@ Optimization rules and proximal operators for constrained inverse design.
 ## Overview
 
 The `OptimisersExt` module extends `Optimisers.jl` with:
-- **Custom optimization rules**: FISTA, NoDescent
+- **Custom optimization rules**: Fista, NoDescent
 - **Proximal operators**: Constraints and regularization (TV, sparsity, clamping)
 - **Per-parameter rules**: Different optimizers for different components
 - **Proximal-gradient methods**: Combine optimization with constraints
@@ -30,7 +30,7 @@ system = source |> phasemask |> mask
 # Per-component optimization rules
 rules = make_rules(
     phasemask => ProxRule(Descent(0.01), ClampProx(-π, π)),  # Constrained phase
-    mask => Momentum(0.1, 0.9)                               # Momentum for mask
+    mask => Fista(0.1)                                       # Nesterov momentum for mask
 )
 
 # Setup
@@ -40,8 +40,9 @@ opt_state = setup(rules, system)
 ## Key Types
 
 - [`ProxRule`](@ref): Combine optimizer with proximal operator
-- [`Fista`](@ref): Fast iterative shrinkage-thresholding
+- [`Fista`](@ref): Nesterov-accelerated proximal gradient (Beck & Teboulle, 2009)
 - [`NoDescent`](@ref): No-op optimizer for fixed parameters
+- `Descent`: Classic gradient descent optimizer (from [Optimisers.jl](https://fluxml.ai/Optimisers.jl/stable/api/#Optimisers.Descent))
 
 ## Proximal Operators
 

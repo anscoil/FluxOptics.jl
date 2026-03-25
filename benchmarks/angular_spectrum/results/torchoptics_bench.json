@@ -1,0 +1,67 @@
+{
+  "cpu": [
+    {
+      "n_modes": 1,
+      "time_median_ms": 450.90904738754034,
+      "time_std_ms": 3.5975530734512664
+    },
+    {
+      "n_modes": 8,
+      "time_median_ms": 3655.587943037972,
+      "time_std_ms": 39.58708658293325
+    },
+    {
+      "n_modes": 16,
+      "time_median_ms": 7274.010731023736,
+      "time_std_ms": 82.11837143083137
+    },
+    {
+      "n_modes": 23,
+      "time_median_ms": 10390.453998465091,
+      "time_std_ms": 105.31355637545141
+    },
+    {
+      "n_modes": 30,
+      "time_median_ms": 13417.917896527797,
+      "time_std_ms": 202.4516440210779
+    }
+  ],
+  "gpu": [
+    {
+      "n_modes": 1,
+      "time_median_ms": 38.51274598855525,
+      "time_std_ms": 0.9493963962178401
+    },
+    {
+      "n_modes": 8,
+      "time_median_ms": 310.02129951957613,
+      "time_std_ms": 1.140973190312286
+    },
+    {
+      "n_modes": 16,
+      "time_median_ms": 620.7350315526128,
+      "time_std_ms": 8.40154393576469
+    },
+    {
+      "n_modes": 23,
+      "time_median_ms": 892.4666920211166,
+      "time_std_ms": 1.522063513929211
+    },
+    {
+      "n_modes": 30,
+      "time_median_ms": 1163.3063310291618,
+      "time_std_ms": 1.8368876782281343
+    }
+  ],
+  "config": {
+    "wavelength": 1.064,
+    "z": 2000.0,
+    "dx": 1.0,
+    "dy": 1.0,
+    "n_bench": 5
+  },
+  "hardware": {
+    "gpu": "NVIDIA GeForce RTX 4070",
+    "cpu_count": 1
+  }
+}

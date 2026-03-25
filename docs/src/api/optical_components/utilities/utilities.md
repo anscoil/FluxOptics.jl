@@ -34,10 +34,6 @@ make_fourier_basis
 - Only valid for symmetric operations
 - Requires pad and crop to use same offset/sizes
 
-**Direction handling:**
-- Forward: applies operation based on `ispad` flag
-- Backward: swaps operation
-
 ### BasisProjectionWrapper
 
 **Use cases:**

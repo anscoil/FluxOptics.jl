@@ -12,7 +12,6 @@ The `Optical Components` module provides all the building blocks needed to const
 Abstract types, trainability system, and propagation interface.
 - Component hierarchy (Sources vs Pipes, Pure vs Custom)
 - Trainability (Static, Trainable, Buffered)
-- Bidirectional propagation (Forward/Backward)
 
 ### [Sources](sources/index.md) - Field Generation
 Components that generate optical fields.

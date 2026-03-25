@@ -10,7 +10,7 @@ as a loss function for direct field matching in inverse design problems.
 - `fields...`: Reference ScalarField(s) to match against.
 
 # Mathematical definition
-L = ∫∫ |u(x,y) - v(x,y)|² dx dy = ‖u - v‖²
+L = ∑ₓᵧ |u(x,y) - v(x,y)|² = ‖u - v‖²
 
 # Examples
 ```jldoctest
