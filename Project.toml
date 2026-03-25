@@ -24,8 +24,8 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [weakdeps]
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
-Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 
 [extensions]
 CUDAExt = "CUDA"
@@ -34,6 +34,7 @@ Plotting = ["Makie", "CairoMakie"]
 [compat]
 AbstractFFTs = "1.5"
 CUDA = "5.8"
+CairoMakie = "0.15"
 ChainRulesCore = "1.25"
 CoordinateTransformations = "0.6"
 EllipsisNotation = "1.8"
