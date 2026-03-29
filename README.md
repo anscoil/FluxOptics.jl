@@ -99,16 +99,16 @@ prop2 = RSProp(u0, 2000.0)
 system = ScalarSource(u0) |> prop1 |> doe1 |> prop2 |> doe2 |> prop1
 
 # Optimize
-loss(system) = sum(abs2, abs2.(system().out.electric - target.electric))
-opt = FluxOptics.setup(Fista(4e3), system)
+loss(system) = sum(abs2, system().out.electric - target.electric)
+opt = FluxOptics.setup(Fista(50), system)
 
 # Lower the number of iterations for a quick test on cpu
-for i in 1:1000
+for i in 1:200
     l, ∇ = Zygote.withgradient(loss, system)
     FluxOptics.update!(opt, system, ∇[1])
 end
 
-# Result: 99.25% coupling efficiency
+# Result: 99.92% coupling efficiency
 output = system().out
 coupling_efficiency(output, target)
 ```
