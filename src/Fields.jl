@@ -14,6 +14,7 @@ export get_tilts, get_tilts_collection, offset_tilts!
 export select_lambdas, select_tilts, set_field_ds!, set_field_data, set_field_tilts
 export is_on_axis
 export power, normalize_power!, coupling_efficiency, intensity, phase
+export orthonormalize, unitary_transform
 
 function parse_val(u::AbstractArray{Complex{T}, N},
                    val::AbstractArray,
@@ -882,6 +883,86 @@ Return complex conjugate of the field. Creates a new field with conjugated elect
 """
 function Base.conj(u::ScalarField)
     set_field_data(u, conj(u.electric))
+end
+
+"""
+    orthonormalize(u::ScalarField; method=:svd)
+
+Orthonormalize the field distributions of `u`.
+
+Returns a new `ScalarField` whose mode distributions form an orthonormal basis
+spanning the same subspace as the original fields.
+
+# Arguments
+- `u::ScalarField`: Input field with potentially non-orthonormal mode distributions.
+- `method`: Orthonormalization algorithm, either `:svd` (default) or `:qr`.
+  SVD is more numerically stable but slower; QR is faster for well-conditioned inputs.
+
+# Returns
+A `ScalarField` with orthonormal mode distributions.
+
+See also: [`dot`](@ref), [`coupling_efficiency`](@ref)
+"""
+function orthonormalize(u::ScalarField{U, Nd}; method=:svd) where {U, Nd}
+    n_pixels = prod(size(u)[1:Nd])
+    n_modes = prod(size(u)[Nd+1:end]; init=1)
+    
+    u_flat = reshape(u.electric, n_pixels, n_modes)
+    
+    u_ortho = if method == :svd
+        F = svd(u_flat)
+        F.U * F.Vt
+    elseif method == :qr
+        F = qr(u_flat)
+        Matrix(F.Q)
+    else
+        throw(ArgumentError("Method must be :svd or :qr"))
+    end
+    
+    return set_field_data(u, reshape(u_ortho, size(u.electric)))
+end
+
+"""
+    unitary_transform(u::ScalarField, A; input=:general)
+
+Apply a unitary transformation to the mode distributions of `u`.
+
+The transformation matrix is specified by `A` and the `input` keyword argument
+controls how `A` is interpreted:
+
+- `:general` (default): `A` is an arbitrary complex matrix. It is first
+  projected onto the anti-Hermitian matrices via `(A - A†)/2`, then
+  exponentiated to obtain a unitary matrix `U = exp((A - A†)/2)`.
+- `:antihermitian`: `A` is already anti-Hermitian. The unitary matrix is
+  computed directly as `U = exp(A)`, skipping the symmetrization step.
+- `:unitary`: `A` is already a unitary matrix and is applied directly.
+
+# Arguments
+- `u::ScalarField`: Input field with 2 spatial dimensions.
+- `A`: Transformation matrix of size `n × n` where `n` is the number of mode distributions.
+- `input::Symbol`: Interpretation of `A`, one of `:general`, `:antihermitian`, `:unitary`.
+
+# Returns
+A new `ScalarField` with transformed mode distributions spanning the same subspace as `u`.
+
+See also: [`orthonormalize`](@ref)
+"""
+function unitary_transform(u::ScalarField{U, 2}, A::AbstractArray{<:Complex, 2};
+                           input::Symbol = :general) where {U}
+    ns = prod(size(u)[1:2])
+    n = prod(size(u)[3:end]; init=1)
+    @assert size(A, 1) == size(A, 2) == n
+    u_flat = reshape(u.electric, (ns, n))
+    U_mat = if input == :general
+        exp((A .- A') ./ 2)
+    elseif input == :antihermitian
+        exp(A)
+    elseif input == :unitary
+        A
+    else
+        throw(ArgumentError("input must be :general, :antihermitian or :unitary"))
+    end
+    set_field_data(u, reshape(u_flat * U_mat, size(u)))
 end
 
 end

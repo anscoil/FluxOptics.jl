@@ -53,6 +53,12 @@ coupling_efficiency
 dot(::ScalarField)
 ```
 
+## Field Transformations
+```@docs
+orthonormalize
+unitary_transform
+```
+
 ## Vectorization
 
 ```@docs

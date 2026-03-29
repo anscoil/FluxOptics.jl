@@ -137,6 +137,10 @@ is_on_axis(u_tilted)  # false
 - [`dot`](@ref dot(::ScalarField, ::ScalarField)): Field overlap integral (mode-selective or full coupling matrix)
 - [`coupling_efficiency`](@ref): Coupling efficiency between fields (mode-selective or full matrix)
 
+**Field Transformations**
+- [`orthonormalize`](@ref): Orthonormalize field mode distributions with SVD or QR
+- [`unitary_transform`](@ref): Apply a unitary transformation to field mode distributions
+
 **Vectorization**
 - [`vec`](@ref vec(::ScalarField)): Vectorize into independent ScalarFields
 
