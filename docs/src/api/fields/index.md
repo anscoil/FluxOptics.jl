@@ -134,8 +134,8 @@ is_on_axis(u_tilted)  # false
 - [`phase`](@ref): Extract phase distribution
 
 **Field Comparison**
-- [`coupling_efficiency`](@ref): Coupling efficiency between fields
-- [`dot`](@ref dot(::ScalarField, ::ScalarField)): Field overlap integral
+- [`dot`](@ref dot(::ScalarField, ::ScalarField)): Field overlap integral (mode-selective or full coupling matrix)
+- [`coupling_efficiency`](@ref): Coupling efficiency between fields (mode-selective or full matrix)
 
 **Vectorization**
 - [`vec`](@ref vec(::ScalarField)): Vectorize into independent ScalarFields

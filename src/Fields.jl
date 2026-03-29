@@ -673,144 +673,57 @@ function phase(u::ScalarField)
 end
 
 """
-    coupling_efficiency(u, v)
-    coupling_efficiency(u::ScalarField, v::ScalarField)
-
-Compute the power coupling efficiency between two optical fields.
-
-For multi-dimensional fields, computes power coupling efficiency between corresponding field
-distributions (same extra dimension indices). This normalized metric returns values between 0 and 1,
-representing the fraction of power that would be transferred from field u to field v.
-
-# Mathematical definition
-η = |⟨u,v⟩|² / (‖u‖ ‖v‖)
-
-# Arguments
-- `u`: First field (ScalarField or AbstractArray).
-- `v`: Second field with same spatial dimensions as `u`.
-
-# Returns
-- For AbstractArrays: Scalar coupling efficiency [0,1].
-- For ScalarFields: Array of coupling efficiencies, one for each field distribution.
-
-# Examples
-
-**Array case:**
-```jldoctest
-julia> # Small example for documentation - use larger arrays in practice
-
-julia> u = ones(ComplexF64, 4, 4);
-
-julia> v = ones(ComplexF64, 4, 4);
-
-julia> coupling_efficiency(u, v)
-1.0
-```
-
-**ScalarField single-mode case:**
-```jldoctest
-julia> # Small example for documentation - use larger arrays in practice
-
-julia> field1_data = ones(ComplexF64, 4, 4);
-
-julia> field2_data = ones(ComplexF64, 4, 4);
-
-julia> u = ScalarField(field1_data, (1.0, 1.0), 1.064);
-
-julia> v = ScalarField(field2_data, (1.0, 1.0), 1.064);
-
-julia> coupling_efficiency(u, v)
-1-element Vector{Float64}:
- 1.0
-```
-
-**ScalarField multimode case:**
-```jldoctest
-julia> # Small example for documentation - use larger arrays in practice
-
-julia> field1_data = ones(ComplexF64, 4, 4, 3);
-
-julia> field2_data = ones(ComplexF64, 4, 4, 3);
-
-julia> u = ScalarField(field1_data, (1.0, 1.0), 1.064);
-
-julia> v = ScalarField(field2_data, (1.0, 1.0), 1.064);
-
-julia> coupling_efficiency(u, v)
-3-element Vector{Float64}:
- 1.0
- 1.0
- 1.0
-```
-
-See also: [`power`](@ref)
-"""
-function coupling_efficiency(u::AbstractArray, v::AbstractArray)
-    abs2(dot(u, v)/(norm(u)*norm(v)))
-end
-
-function coupling_efficiency(u::ScalarField{U, Nd}, v::ScalarField{V, Nd}) where {U, V, Nd}
-    u_vec = vec(u)
-    v_vec = vec(v)
-    [coupling_efficiency(u.electric, v.electric) for (u, v) in zip(u_vec, v_vec)]
-end
-
-"""
-    dot(u::ScalarField, v::ScalarField)
+    dot(u::ScalarField, v::ScalarField; mode_selective::Bool = true)
 
 Compute the inner product ⟨u,v⟩ between two optical fields.
 
-For multi-dimensional fields, computes the dot product between corresponding
-field distributions (same extra dimension indices).
-
-# Mathematical definition  
-⟨u,v⟩ = ∫∫ u*(x,y) v(x,y) dx dy ≈ Σᵢⱼ u*[i,j] v[i,j]
+# Mathematical definition
+⟨u,v⟩ = ∫∫ u*(x,y) v(x,y) dx dy ≈ Σᵢⱼ u*[i,j] v[i,j] dx dy
 
 # Arguments
 - `u::ScalarField`: First field.
 - `v::ScalarField`: Second field with same spatial dimensions as `u`.
+- `mode_selective`: If `true` (default), computes the inner product between
+  corresponding field distributions (same extra dimension indices), returning
+  a vector of complex overlaps. If `false`, computes the full coupling matrix
+  between all pairs of field distributions, returning an `n_u × n_v` matrix.
 
 # Returns
-Vector of complex inner products, one for each field distribution.
+- `mode_selective=true`: Vector of complex inner products, one per field distribution.
+- `mode_selective=false`: Matrix of complex inner products of size `n_u × n_v`.
 
 # Examples
-
-**Single-mode case:**
+**Mode-selective (default):**
 ```jldoctest
-julia> # Small example for documentation - use larger arrays in practice
-
-julia> field1_data = rand(ComplexF64, 4, 4);
-
-julia> field2_data = rand(ComplexF64, 4, 4);
-
-julia> u = ScalarField(field1_data, (1.0, 1.0), 1.064);
-
-julia> v = ScalarField(field2_data, (1.0, 1.0), 1.064);
-
-julia> overlap = dot(u, v);  # 0-dimensional Array storing the complex overlap integral
-```
-
-**Multimode case:**
-```jldoctest
-julia> # Small example for documentation - use larger arrays in practice
-
 julia> field1_data = rand(ComplexF64, 4, 4, 3);
-
 julia> field2_data = rand(ComplexF64, 4, 4, 3);
-
 julia> u = ScalarField(field1_data, (1.0, 1.0), 1.064);
-
 julia> v = ScalarField(field2_data, (1.0, 1.0), 1.064);
-
 julia> overlaps = dot(u, v);  # 3-element Vector of complex overlaps
 ```
 
-See also: [`coupling_efficiency`](@ref), [`dot`](@ref dot(::ScalarField)), [`power`](@ref)
+**Full coupling matrix:**
+```jldoctest
+julia> overlaps = dot(u, v; mode_selective=false);  # 3×3 Matrix of complex overlaps
+```
+
+See also: [`coupling_efficiency`](@ref), [`power`](@ref)
 """
-function LinearAlgebra.dot(u::ScalarField{U, Nd}, v::ScalarField{V, Nd}) where {U, V, Nd}
-    u_vec = vec(u)
-    v_vec = vec(v)
-    [dot(u.electric, v.electric) for (u, v) in zip(u_vec, v_vec)]
+function LinearAlgebra.dot(u::ScalarField{U, Nd}, v::ScalarField{V, Nd};
+                           mode_selective::Bool = true) where {U, V, Nd}
+    T = real(eltype(u))
+    ns = prod(size(u)[1:Nd])
+    ds = T(prod(u.ds))
+    n_u = prod(size(u)[Nd+1:end]; init=1)
+    n_v = prod(size(v)[Nd+1:end]; init=1)
+    u_flat = reshape(u.electric, ns, n_u)
+    v_flat = reshape(v.electric, ns, n_v)
+    if mode_selective
+        @assert size(u_flat) == size(v_flat)
+        dropdims(sum(conj.(u_flat) .* v_flat, dims=1), dims=1) .* ds
+    else
+        (u_flat' * v_flat) * ds
+    end
 end
 
 """
@@ -841,8 +754,10 @@ julia> P = power(u);  # Returns 1×1×3 Array
 See also: [`normalize_power!`](@ref)
 """
 function power(u::ScalarField{U, Nd}) where {U, Nd}
+    T = real(eltype(u))
+    ds = T(prod(u.ds))
     dims = ntuple(k -> k, Nd)
-    sum(abs2, u.electric; dims = dims) .* prod(u.ds)
+    sum(abs2, u.electric; dims = dims) * ds
 end
 
 """
@@ -889,6 +804,63 @@ See also: [`power`](@ref)
 function normalize_power!(u::ScalarField, target_power = 1)
     u.electric .*= sqrt.(target_power ./ power(u))
     u
+end
+
+"""
+    coupling_efficiency(u::ScalarField, v::ScalarField; mode_selective::Bool = true)
+
+Compute the power coupling efficiency between two optical fields.
+
+This normalized metric returns values between 0 and 1, representing the fraction
+of power that would be transferred from field `u` to field `v`.
+
+# Mathematical definition
+η = |⟨u,v⟩|² / (‖u‖² ‖v‖²)
+
+# Arguments
+- `u::ScalarField`: First field.
+- `v::ScalarField`: Second field with same spatial dimensions as `u`.
+- `mode_selective`: If `true` (default), computes coupling efficiency between
+  corresponding field distributions, returning a vector. If `false`, computes
+  the full coupling efficiency matrix between all pairs of distributions,
+  returning an `n_u × n_v` matrix.
+
+# Returns
+- `mode_selective=true`: Vector of coupling efficiencies in [0,1], one per field distribution.
+- `mode_selective=false`: Matrix of coupling efficiencies of size `n_u × n_v`.
+
+# Examples
+**Mode-selective (default):**
+```jldoctest
+julia> field1_data = ones(ComplexF64, 4, 4, 3);
+julia> field2_data = ones(ComplexF64, 4, 4, 3);
+julia> u = ScalarField(field1_data, (1.0, 1.0), 1.064);
+julia> v = ScalarField(field2_data, (1.0, 1.0), 1.064);
+julia> coupling_efficiency(u, v)
+3-element Vector{Float64}:
+ 1.0
+ 1.0
+ 1.0
+```
+
+**Full coupling efficiency matrix:**
+```jldoctest
+julia> coupling_efficiency(u, v; mode_selective=false)  # 3×3 Matrix
+```
+
+See also: [`dot`](@ref), [`power`](@ref)
+"""
+function coupling_efficiency(u::ScalarField{U, Nd}, v::ScalarField{V, Nd};
+                             mode_selective::Bool = true) where {U, V, Nd}
+    s = dot(u, v; mode_selective)
+    p_u = dropdims(power(u), dims=Tuple(1:Nd))
+    p_v = dropdims(power(v), dims=Tuple(1:Nd))
+    r = abs2.(s)
+    if mode_selective
+        r ./ (p_u .* p_v)
+    else
+        r ./ (p_u' .* p_v)
+    end
 end
 
 """

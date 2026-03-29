@@ -55,27 +55,14 @@ function propagate!(u::ScalarField, p::AbstractSequence)
     _propagate_sequence!(u, get_sequence(p))
 end
 
-function backpropagate!(u::ScalarField, p::AbstractSequence)
-    _backpropagate_sequence!(u, get_sequence(p))
-end
-
 @inline _propagate_sequence!(u, ::Tuple{}) = u
-
-@inline _backpropagate_sequence!(u, ::Tuple{}) = u
 
 @inline function _propagate_sequence!(u, components::Tuple)
     u = propagate!(u, first(components))
     _propagate_sequence!(u, Base.tail(components))
 end
 
-@inline function _backpropagate_sequence!(u, components::Tuple)
-    u = backpropagate!(u, last(components))
-    _backpropagate_sequence!(u, Base.front(components))
-end
-
 propagate(u::ScalarField, p::AbstractSequence) = propagate!(copy(u), p)
-
-backpropagate(u::ScalarField, p::AbstractSequence) = backpropagate!(copy(u), p)
 
 """
     OpticalSequence(components...)

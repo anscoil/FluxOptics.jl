@@ -12,7 +12,7 @@ using ..OpticalComponents: propagate_and_save!, backpropagate_with_gradient!
 
 using ChainRulesCore
 using Functors: fleaves
-using LinearAlgebra: mul!
+using LinearAlgebra
 
 ACTB = AbstractCustomComponent{Trainable{Buffered}}
 ACTU = AbstractCustomComponent{Trainable{Unbuffered}}
@@ -156,12 +156,20 @@ function ChainRulesCore.rrule(::Type{<:ScalarField}, data::AbstractArray, ds,
     return y, pullback
 end
 
-function ChainRulesCore.ProjectTo(u::ScalarField)
+function materialize(x::Base.ReshapedArray{T, N, <:Adjoint{T, <:AbstractArray}}) where {T, N}
+    adj_materialized = copy(parent(x))
+    reshape(adj_materialized, size(x))
+end
+
+materialize(x) = x
+
+function ChainRulesCore.ProjectTo(u::ScalarField{U}) where {U}
     function pullback(∂y)
+        ∂y = unthunk(∂y)
         if ∂y.electric isa NoTangent
             NoTangent()
         else
-            ScalarField(∂y.electric, u.ds, u.lambdas, u.tilts)
+            ScalarField(materialize(∂y.electric), u.ds, u.lambdas, u.tilts)
         end
     end
     pullback

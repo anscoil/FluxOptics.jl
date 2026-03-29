@@ -69,12 +69,3 @@ end
 
 propagate(u::ScalarField, p::FourierOperator) = propagate!(copy(u), p)
 
-function backpropagate!(u::ScalarField, p::FourierOperator)
-    if p.direct
-        compute_ift!(p.p_f, u)
-    else
-        compute_ft!(p.p_f, u)
-    end
-end
-
-backpropagate(u::ScalarField, p::FourierOperator) = backpropagate!(copy(u), p)
