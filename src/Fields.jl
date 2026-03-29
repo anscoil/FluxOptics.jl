@@ -694,16 +694,20 @@ Compute the inner product ⟨u,v⟩ between two optical fields.
 
 # Examples
 **Mode-selective (default):**
-```jldoctest
+```jldoctest dot_example
 julia> field1_data = rand(ComplexF64, 4, 4, 3);
+
 julia> field2_data = rand(ComplexF64, 4, 4, 3);
+
 julia> u = ScalarField(field1_data, (1.0, 1.0), 1.064);
+
 julia> v = ScalarField(field2_data, (1.0, 1.0), 1.064);
+
 julia> overlaps = dot(u, v);  # 3-element Vector of complex overlaps
 ```
 
 **Full coupling matrix:**
-```jldoctest
+```jldoctest dot_example
 julia> overlaps = dot(u, v; mode_selective=false);  # 3×3 Matrix of complex overlaps
 ```
 
@@ -831,11 +835,15 @@ of power that would be transferred from field `u` to field `v`.
 
 # Examples
 **Mode-selective (default):**
-```jldoctest
+```jldoctest coupling_example
 julia> field1_data = ones(ComplexF64, 4, 4, 3);
+
 julia> field2_data = ones(ComplexF64, 4, 4, 3);
+
 julia> u = ScalarField(field1_data, (1.0, 1.0), 1.064);
+
 julia> v = ScalarField(field2_data, (1.0, 1.0), 1.064);
+
 julia> coupling_efficiency(u, v)
 3-element Vector{Float64}:
  1.0
@@ -844,8 +852,12 @@ julia> coupling_efficiency(u, v)
 ```
 
 **Full coupling efficiency matrix:**
-```jldoctest
+```jldoctest coupling_example
 julia> coupling_efficiency(u, v; mode_selective=false)  # 3×3 Matrix
+3×3 Matrix{Float64}:
+ 1.0  1.0  1.0
+ 1.0  1.0  1.0
+ 1.0  1.0  1.0
 ```
 
 See also: [`dot`](@ref), [`power`](@ref)
