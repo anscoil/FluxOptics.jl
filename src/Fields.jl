@@ -962,7 +962,7 @@ function unitary_transform(u::ScalarField{U, 2}, A::AbstractArray{<:Complex, 2};
     else
         throw(ArgumentError("input must be :general, :antihermitian or :unitary"))
     end
-    set_field_data(u, reshape(u_flat * U_mat, size(u)))
+    set_field_data(u, reshape(u_flat * U_mat', size(u)))
 end
 
 end
