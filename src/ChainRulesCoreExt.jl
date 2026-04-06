@@ -1,5 +1,6 @@
 module ChainRulesCoreExt
 
+using ..GridUtils
 using ..Metrics
 using ..FFTutils
 using ..Fields
@@ -18,6 +19,15 @@ ACTB = AbstractCustomComponent{Trainable{Buffered}}
 ACTU = AbstractCustomComponent{Trainable{Unbuffered}}
 ASTB = AbstractCustomSource{Trainable{Buffered}}
 ASTU = AbstractCustomSource{Trainable{Unbuffered}}
+
+function ChainRulesCore.rrule(::typeof(spatial_vectors),
+                              ns::NTuple{Nd, Real},
+                              ds::NTuple{Nd, T};
+                              offset::NTuple{Nd, Real} = ntuple(_ -> 0, Nd)) where {Nd, T <: Real}
+    result = spatial_vectors(ns, ds; offset)
+    pullback(∂result) = NoTangent(), NoTangent(), NoTangent()
+    return result, pullback
+end
 
 function ChainRulesCore.rrule(::typeof(propagate),
                               u,
@@ -139,8 +149,9 @@ function ChainRulesCore.rrule(::typeof(propagate), p::P) where {P <: ASTU}
 end
 
 function ChainRulesCore.rrule(::Type{<:ScalarField}, data::AbstractArray, ds, lambdas;
-                              tilts)
-    y = ScalarField(data, ds, lambdas; tilts)
+                              tilts=nothing)
+    y = isnothing(tilts) ? ScalarField(data, ds, lambdas) : ScalarField(data, ds, lambdas; tilts)
+    # y = ScalarField(data, ds, lambdas; tilts)
     function pullback(∂y)
         (NoTangent(), ∂y.electric, NoTangent(), NoTangent())
     end
