@@ -38,7 +38,7 @@ using .Fields
 export ScalarField
 export set_field_data, set_field_tilts, offset_tilts!, is_on_axis
 export dot, power, normalize_power!, coupling_efficiency, intensity, phase
-export orthonormalize, unitary_transform
+export orthonormalize, unitary_transform, spatial_moments, spatial_centroids, spatial_variance
 
 include("metrics/Metrics.jl")
 using .Metrics

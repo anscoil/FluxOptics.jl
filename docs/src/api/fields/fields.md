@@ -46,6 +46,14 @@ intensity
 phase
 ```
 
+## Spatial Statistics
+
+```@docs
+spatial_centroids
+spatial_variance
+spatial_moments
+```
+
 ## Field Comparison
 
 ```@docs

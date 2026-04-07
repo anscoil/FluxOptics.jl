@@ -14,7 +14,7 @@ export get_tilts, get_tilts_collection, offset_tilts!
 export select_lambdas, select_tilts, set_field_ds!, set_field_data, set_field_tilts
 export is_on_axis
 export power, normalize_power!, coupling_efficiency, intensity, phase
-export orthonormalize, unitary_transform
+export orthonormalize, unitary_transform, spatial_moments, spatial_centroids, spatial_variance
 
 function parse_val(u::AbstractArray{Complex{T}, N},
                    val::AbstractArray,
@@ -963,6 +963,201 @@ function unitary_transform(u::ScalarField{U, 2}, A::AbstractArray{<:Complex, 2};
         throw(ArgumentError("input must be :general, :antihermitian or :unitary"))
     end
     set_field_data(u, reshape(u_flat * U_mat', size(u)))
+end
+
+"""
+    spatial_moments(u::ScalarField{U, 1}) -> NamedTuple
+    spatial_moments(u::ScalarField{U, 2}; covariance::Bool = false) -> NamedTuple
+
+Compute intensity-weighted spatial moments of a scalar field.
+
+For each mode, computes the centroid and spatial variances of the intensity
+distribution. In the 2D case, an optional cross-covariance term can be included
+to characterize the orientation of the intensity profile.
+
+# Arguments
+- `u::ScalarField`: Field with 1 or 2 transverse spatial dimensions.
+- `covariance::Bool=false`: (2D only) Whether to also compute the cross-covariance `vxy`.
+
+# Returns
+Named tuple with fields:
+- `cx`, `vx`: centroid and variance along x (both cases)
+- `cy`, `vy`: centroid and variance along y (2D only)
+- `vxy`: cross-covariance `⟨(x - cx)(y - cy)⟩` (2D only, if `covariance=true`)
+
+Each field has the same shape as the non-spatial dimensions of `u`.
+
+# Examples
+```jldoctest
+julia> u = ScalarField(ones(ComplexF64, 32, 32, 6), (1.0, 1.0), 1.064);
+
+julia> m = spatial_moments(u);
+
+julia> keys(m)
+(:cx, :cy, :vx, :vy)
+
+julia> size(m.cx)
+(6,)
+```
+
+See also: [`spatial_centroids`](@ref), [`spatial_variance`](@ref)
+"""
+function spatial_moments(u::ScalarField{U, 1}) where {U}
+    T = real(eltype(u))
+    nx = size(u, 1)
+    xv, = spatial_vectors((nx,), T.(Tuple(u.ds)))
+    I = abs2.(u.electric)
+    I = I ./ sum(I, dims=1)
+    cx = dropdims(sum(xv .* I, dims=1), dims=1)
+    vx = dropdims(sum((xv .- cx).^2 .* I, dims=1), dims=1)
+    return (; cx, vx)
+end
+
+function spatial_moments(u::ScalarField{U, 2}; covariance::Bool = false) where {U}
+    _spatial_moments(u, Val(covariance))
+end
+
+function _moments_core(u::ScalarField{U, 2}) where {U}
+    T = real(eltype(u))
+    nx, ny = size(u)[1:2]
+    xv, yv = spatial_vectors((nx, ny), T.(Tuple(u.ds)))
+    I = abs2.(u.electric)
+    I = I ./ sum(I, dims=(1,2))
+
+    cx = sum(xv .* I, dims=(1,2))
+    cy = sum(yv' .* I, dims=(1,2))
+
+    xvc = xv .- cx
+    yvc = yv' .- cy
+
+    cx = dropdims(cx, dims=(1,2))
+    cy = dropdims(cy, dims=(1,2))
+    
+    vx = dropdims(sum(xvc.^2 .* I, dims=(1,2)), dims=(1,2))
+    vy = dropdims(sum(yvc.^2 .* I, dims=(1,2)), dims=(1,2))
+
+    return cx, cy, xvc, yvc, vx, vy, I
+end
+
+function _spatial_moments(u::ScalarField{U, 2}, ::Val{false}) where {U}
+    cx, cy, _, _, vx, vy, _ = _moments_core(u)
+    return (; cx, cy, vx, vy)
+end
+
+function _spatial_moments(u::ScalarField{U, 2}, ::Val{true}) where {U}
+    cx, cy, xvc, yvc, vx, vy, I = _moments_core(u)
+    vxy = dropdims(sum(xvc .* yvc .* I, dims=(1,2)), dims=(1,2))
+    return (; cx, cy, vx, vy, vxy)
+end
+
+"""
+    spatial_centroids(u::ScalarField{U, 1})
+    spatial_centroids(u::ScalarField{U, 2})
+
+Compute the intensity-weighted centroids of a scalar field.
+
+Returns the center of mass of the intensity distribution for each mode.
+
+# Returns
+- 1D: vector of centroid positions `cx`, one per mode.
+- 2D: tuple `(cx, cy)` of centroid vectors along each axis.
+
+# Examples
+```jldoctest
+julia> u = ScalarField(ones(ComplexF64, 32, 32, 6), (1.0, 1.0), 1.064);
+
+julia> cx, cy = spatial_centroids(u);
+
+julia> size(cx)
+(6,)
+```
+
+See also: [`spatial_moments`](@ref), [`spatial_variance`](@ref)
+"""
+function spatial_centroids(u::ScalarField{U, 1}) where {U}
+    T = real(eltype(u))
+    nx = size(u, 1)
+    xv, = spatial_vectors((nx,), T.(Tuple(u.ds)))
+    I = abs2.(u.electric)
+    I = I ./ sum(I, dims=1)
+    dropdims(sum(xv .* I, dims=1), dims=1)
+end
+
+function spatial_centroids(u::ScalarField{U, 2}) where {U}
+    T = real(eltype(u))
+    nx, ny = size(u)[1:2]
+    xv, yv = spatial_vectors((nx, ny), T.(Tuple(u.ds)))
+    I = abs2.(u.electric)
+    I = I ./ sum(I, dims=(1,2))
+    cx = dropdims(sum(xv .* I, dims=(1,2)), dims=(1,2))
+    cy = dropdims(sum(yv' .* I, dims=(1,2)), dims=(1,2))
+    (cx, cy)
+end
+
+function spatial_variance(u::ScalarField{U, 1}) where {U}
+    T = real(eltype(u))
+    nx = size(u, 1)
+    xv, = spatial_vectors((nx,), T.(Tuple(u.ds)))
+    I = abs2.(u.electric)
+    I = I ./ sum(I, dims=1)
+    cx = dropdims(sum(xv .* I, dims=1), dims=1)
+    dropdims(sum((xv .- cx).^2 .* I, dims=1), dims=1)
+end
+
+"""
+    spatial_variance(u::ScalarField{U, 1})
+    spatial_variance(u::ScalarField{U, 2}; principal::Bool = false)
+
+Compute the spatial variances of a scalar field.
+
+For each mode, returns the variance of the intensity distribution along each
+spatial axis. In the 2D case, setting `principal=true` returns the variances
+along the principal axes of the intensity ellipse instead of the coordinate axes.
+
+# Arguments
+- `u::ScalarField`: Field with 1 or 2 transverse spatial dimensions.
+- `principal::Bool=false`: (2D only) Whether to diagonalize the covariance matrix
+  and return variances along principal axes.
+
+# Returns
+- 1D: vector of variances `vx`, one per mode.
+- 2D, `principal=false`: tuple `(vx, vy)` of variance vectors.
+- 2D, `principal=true`: tuple `(v1, v2, α)` where `v1 ≥ v2` are the principal
+  variances and `α` is the orientation angle of the major axis in radians.
+
+Note: variances are not multiplied by any prefactor. To recover the Gaussian
+waist along x, use `sqrt(2 * vx)`.
+
+# Examples
+```jldoctest
+julia> u = ScalarField(ones(ComplexF64, 32, 32, 6), (1.0, 1.0), 1.064);
+
+julia> vx, vy = spatial_variance(u);
+
+julia> v1, v2, α = spatial_variance(u; principal=true);
+
+julia> size(vx)
+(6,)
+```
+
+See also: [`spatial_moments`](@ref), [`spatial_centroids`](@ref)
+"""
+function spatial_variance(u::ScalarField{U, 2}; principal::Bool = false) where {U}
+    _spatial_variance(u, Val(principal))
+end
+
+function _spatial_variance(u::ScalarField{U, 2}, ::Val{false}) where {U}
+    cx, cy, _, _, vx, vy, _ = _moments_core(u)
+    (vx, vy)
+end
+
+function _spatial_variance(u::ScalarField{U, 2}, ::Val{true}) where {U}
+    cx, cy, xvc, yvc, vx, vy, I = _moments_core(u)
+    vxy = dropdims(sum(xvc .* yvc .* I, dims=(1,2)), dims=(1,2))
+    v1  = @. (vx + vy)/2 + sqrt(((vx - vy)/2)^2 + vxy^2)
+    v2  = @. (vx + vy)/2 - sqrt(((vx - vy)/2)^2 + vxy^2)
+    α   = @. atan(2*vxy, vx - vy) / 2
+    (v1, v2, α)
 end
 
 end

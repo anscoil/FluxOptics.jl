@@ -133,6 +133,11 @@ is_on_axis(u_tilted)  # false
 - [`intensity`](@ref): Calculate total intensity
 - [`phase`](@ref): Extract phase distribution
 
+**Spatial Statistics**
+- [`spatial_centroids`](@ref): Intensity-weighted centroids of field modes
+- [`spatial_variance`](@ref): Spatial variances along coordinate or principal axes
+- [`spatial_moments`](@ref): Full set of intensity-weighted spatial moments
+
 **Field Comparison**
 - [`dot`](@ref dot(::ScalarField, ::ScalarField)): Field overlap integral (mode-selective or full coupling matrix)
 - [`coupling_efficiency`](@ref): Coupling efficiency between fields (mode-selective or full matrix)
