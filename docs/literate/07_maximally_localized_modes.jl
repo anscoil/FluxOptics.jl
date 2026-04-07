@@ -18,6 +18,8 @@ using FluxOptics, Zygote, CairoMakie
 using CUDA  #src
 CUDA.allowscalar(false)  #src
 #nb using CUDA  # comment if you don't have CUDA
+using Random
+Random.seed!(6);  # Determinist example
 prefix = "07_maximally_localized_modes"  #src
 
 # ## Input basis: Laguerre-Gaussian modes
@@ -84,7 +86,9 @@ end
 
 rule = Fista(0.008)
 find_mlm(u0, rule, 2)  # Warm-up
-@time uf = find_mlm(u0, rule, 2000);
+@time uf = find_mlm(u0, rule, 2000);  #src
+#nb @time uf = find_mlm(u0, rule, 2000);
+#md uf = find_mlm(u0, rule, 2000);
 
 # Let's visualize a few modes of the localized basis:
 

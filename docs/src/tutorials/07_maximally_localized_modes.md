@@ -16,6 +16,8 @@ arXiv:2604.04903 (2026).
 
 ````julia
 using FluxOptics, Zygote, CairoMakie
+using Random
+Random.seed!(6);  # Determinist example
 ````
 
 ## Input basis: Laguerre-Gaussian modes
@@ -83,7 +85,7 @@ We use FISTA with a small step size. A warm-up call compiles the gradient comput
 ````julia
 rule = Fista(0.008)
 find_mlm(u0, rule, 2)  # Warm-up
-@time uf = find_mlm(u0, rule, 2000);
+uf = find_mlm(u0, rule, 2000);
 ````
 
 Let's visualize a few modes of the localized basis:
