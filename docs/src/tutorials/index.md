@@ -56,3 +56,9 @@ Optimizes multimode fiber systems to achieve target intensity distributions. Thi
 
 ### [Hermite-Gaussian Multimode Sorter](06_multimode_HG_sorter.md)
 Designs a 45-mode sorter transforming triangular Gaussian arrays into copropagating Hermite-Gaussian modes with 8 cascaded phase masks. Revisits the seminal Carpenter & Fontaine approach (CLEO/Europe 2017) using algorithmic differentiation instead of classical error-reduction algorithms.
+
+### [Maximally Localized Fiber Modes](07_maximally_localized_modes.md)
+Computes the most spatially concentrated basis of a multimode fiber by minimizing
+the total spread over all unitary transformations of a given LG mode set. The resulting
+modes spontaneously organize into concentric rings, illustrating the optical analogue
+of maximally localized Wannier functions in solid-state physics.
