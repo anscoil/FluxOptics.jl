@@ -270,8 +270,9 @@ struct ASPropZ{M, T, A, V, H} <: AbstractPureComponent{M}
     filter::H
     nrm_f::T
 
-    function ASPropZ(n0::T, z::A, is_paraxial::Bool, f_vec::V, filter::H) where {T, A, V, H}
-        new{Trainable, T, A, V, H}(z, is_paraxial, f_vec, filter)
+    function ASPropZ(n0::T, z::A, track_tilts::Bool, is_paraxial::Bool,
+                     f_vec::V, filter::H, nrm_f::T) where {T, A, V, H}
+        new{Trainable, T, A, V, H}(n0, z, track_tilts, is_paraxial, f_vec, filter, nrm_f)
     end
 
     function ASPropZ(u::ScalarField{U, Nd},
@@ -312,6 +313,8 @@ struct ASPropZ{M, T, A, V, H} <: AbstractPureComponent{M}
 end
 
 Functors.@functor ASPropZ (z,)
+
+get_data(p::ASPropZ) = p.z
 
 trainable(p::ASPropZ{<:Trainable}) = (; z = p.z)
 
