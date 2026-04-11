@@ -33,7 +33,7 @@ Plotting = "Makie"
 
 [compat]
 AbstractFFTs = "1.5"
-CUDA = "5.8"
+CUDA = "5.8, 6"
 CairoMakie = "0.15"
 ChainRulesCore = "1.25"
 CoordinateTransformations = "0.6"
