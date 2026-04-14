@@ -790,6 +790,7 @@ export as_rotation!, as_rotation, field_rotation_matrix
 
 include("bulk_propagators/bulk_propagators.jl")
 export BPM, AS_BPM, TiltedAS_BPM, Shift_BPM
+export FS_WPM, smoothstep_partition
 
 include("utilities/basis_projection_wrapper.jl")
 export BasisProjectionWrapper, set_basis_projection!, make_spatial_basis, make_fourier_basis
