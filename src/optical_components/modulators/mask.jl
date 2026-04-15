@@ -94,14 +94,8 @@ function _propagate!(u::ScalarField, p::Mask, direction::Type{<:Direction})
 end
 
 function propagate_and_save!(u::ScalarField,
-                             p::Mask{Trainable{Buffered}})
-    copyto!(p.u, u.electric)
-    propagate!(u, p)
-end
-
-function propagate_and_save!(u::ScalarField,
                              u_saved::AbstractArray,
-                             p::Mask{Trainable{Unbuffered}})
+                             p::Mask{<:Trainable})
     copyto!(u_saved, u.electric)
     propagate!(u, p)
 end

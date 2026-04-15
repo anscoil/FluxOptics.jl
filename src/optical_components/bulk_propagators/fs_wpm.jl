@@ -186,8 +186,3 @@ function propagate_and_save!(u::ScalarField,
     end
     u
 end
-
-function propagate_and_save!(u::ScalarField,
-                             p::FS_WPM{Trainable{Buffered}})
-    propagate_and_save!(u, p.u, p)
-end

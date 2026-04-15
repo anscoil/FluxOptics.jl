@@ -156,14 +156,8 @@ function _propagate!(u::ScalarField, p::TeaDOE, direction::Type{<:Direction})
 end
 
 function propagate_and_save!(u::ScalarField,
-                             p::TeaDOE{Trainable{Buffered}})
-    copyto!(p.u, u.electric)
-    propagate!(u, p)
-end
-
-function propagate_and_save!(u::ScalarField,
-                             u_saved,
-                             p::TeaDOE{Trainable{Unbuffered}})
+                             u_saved::AbstractArray,
+                             p::TeaDOE{<:Trainable})
     copyto!(u_saved, u.electric)
     propagate!(u, p)
 end

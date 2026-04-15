@@ -605,12 +605,13 @@ end
 
 propagate!(u, p::AbstractCustomComponent) = _propagate!(u, p, Forward)
 
-function propagate_and_save!(u, p::AbstractCustomComponent{Trainable{Buffered}})
+function propagate_and_save!(u, u_saved, p::AbstractCustomComponent{<:Trainable})
     error("Not implemented")
 end
 
-function propagate_and_save!(u, u_saved, p::AbstractCustomComponent{Trainable{Unbuffered}})
-    error("Not implemented")
+function propagate_and_save!(u, p::AbstractCustomComponent{Trainable{Buffered}})
+    u_saved = get_saved_buffer(p)
+    propagate_and_save!(u, u_saved, p)
 end
 
 backpropagate!(∂v, p::AbstractCustomComponent) = _propagate!(∂v, p, Backward)

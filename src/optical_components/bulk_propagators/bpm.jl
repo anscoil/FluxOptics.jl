@@ -260,13 +260,8 @@ function propagate!(u::ScalarField, p::BPM; u_saved = nothing)
 end
 
 function propagate_and_save!(u::ScalarField,
-                             p::BPM{Trainable{Buffered}})
-    propagate!(u, p; u_saved = p.u)
-end
-
-function propagate_and_save!(u::ScalarField,
                              u_saved::AbstractArray,
-                             p::BPM{Trainable{Unbuffered}})
+                             p::BPM{<:Trainable})
     propagate!(u, p; u_saved)
 end
 
