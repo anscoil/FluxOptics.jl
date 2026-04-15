@@ -2,6 +2,7 @@ module OpticalComponents
 
 using Functors
 using LinearAlgebra
+using KernelAbstractions
 using AbstractFFTs
 using FINUFFT
 using EllipsisNotation
@@ -614,7 +615,7 @@ end
 
 backpropagate!(∂v, p::AbstractCustomComponent) = _propagate!(∂v, p, Backward)
 
-backpropagate(∂v, p::AbstractCustomComponent) = _propagate!(copy(∂v), p, Backward)
+backpropagate(∂v, p::AbstractCustomComponent) = backpropagate!(copy(∂v), p)
 
 function backpropagate_with_gradient!(∂v, u_saved, ∂p::NamedTuple,
                                       p::AbstractCustomComponent{<:Trainable})
