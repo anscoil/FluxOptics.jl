@@ -24,6 +24,7 @@ struct FS_WPM{M, A, U, T, P} <: AbstractCustomComponent{M}
         M = trainability(trainable, buffered)
         n_slices = Int(round(thickness / dz))
         @assert Nd in (1, 2)
+        @assert nz >= 0
         A = similar(U, real, Nd)
         ns = size(u)[1:Nd]
         S = isa(f, Function) ? A(function_to_array(f, ns, ds)) : A(f)
@@ -31,10 +32,11 @@ struct FS_WPM{M, A, U, T, P} <: AbstractCustomComponent{M}
         p_n2 = ASProp(u, dz; use_cache, n0 = n2)
         k_dn_dz = T(2π*(n2-n1)*dz) ./ get_lambdas(u)
         ∂p = (trainable && buffered) ? (; S = similar(S)) : nothing
-        u_sav = (trainable && buffered) ? similar(u.electric, (size(u)..., nz, 2)) : nothing
-        Us = typeof(u_sav)
+        u_saved = (trainable && buffered) ?
+            (similar(u.electric, (size(u)..., nz, 2)), similar(S, Int)) : nothing
+        Us = typeof(u_saved)
         P = typeof(p_n1)
-        new{M, A, Us, T, P}(S, n_slices, nz, dz, n1, n2, k_dn_dz, p_n1, p_n2, ∂p, u_sav)
+        new{M, A, Us, T, P}(S, n_slices, nz, dz, n1, n2, k_dn_dz, p_n1, p_n2, ∂p, u_saved)
     end
 
     function FS_WPM(u::ScalarField{U, Nd},
@@ -58,7 +60,7 @@ trainable(p::FS_WPM{<:Trainable}) = (; S = p.S)
 get_preallocated_gradient(p::FS_WPM{Trainable{Buffered}}) = p.∂p
 
 function alloc_saved_buffer(u::ScalarField, p::FS_WPM{Trainable{Unbuffered}})
-    similar(u.electric, (size(u)..., p.nz, 2))
+    (similar(u.electric, (size(u)..., p.nz, 2)), similar(p.S, Int))
 end
 
 get_saved_buffer(p::FS_WPM{Trainable{Buffered}}) = p.u
@@ -110,21 +112,24 @@ end
                                          ::Val{Save}) where Save
     I = @index(Global, Cartesian)
     m = smoothstep_partition(S[I], ε, z)
-    
-    a1 = u1_e[I] * cis(k_dn_dz * (1 - m))
-    a2 = u2_e[I] * cis(-k_dn_dz * m)
-    
+    phase1 = cis(k_dn_dz * (1 - m))
+    phase2 = cis(-k_dn_dz * m)
+
     if Save
         idx = indexmap[I]
-        idx += (m < 1 && idx <= nz) ? 1 : 0
+        idx += m < 1 ? 1 : 0
         indexmap[I] = idx
-        if 1 <= idx <= nz
-            u1_s[I, idx] = a1
-            u2_s[I, idx] = a2
-        end
     end
-    
-    u1_e[I] = m * a1 + (1 - m) * a2
+
+    for J in CartesianIndices(axes(u1_e)[(ndims(S)+1):end])
+        a1 = u1_e[I, J] * phase1
+        a2 = u2_e[I, J] * phase2
+        if Save && 1 <= idx <= nz
+            u1_s[I, J, idx] = a1
+            u2_s[I, J, idx] = a2
+        end
+        u1_e[I, J] = m * a1 + (1 - m) * a2
+    end
 end
 
 function propagate_slice!(u1_e, u2_e, p, z)
@@ -161,28 +166,42 @@ function propagate_and_save_slice!(u1_e, u2_e, u1_s, u2_s, indexmap, p, z)
 end
 
 function propagate_and_save_slice!(u1::ScalarField, u2::ScalarField,
-                                   u_saved::AbstractArray, indexmap::AbstractArray,
+                                   u_interface::AbstractArray, indexmap::AbstractArray,
                                    p::FS_WPM, z::Real)
     propagate!(u1, p.p_n1)
     propagate!(u2, p.p_n2)
     u1_e = u1.electric
     u2_e = u2.electric
-    u1_s = selectdim(p.u, ndims(p.u), 1)
-    u2_s = selectdim(p.u, ndims(p.u), 2)
+    u1_s = selectdim(u_interface, ndims(u_interface), 1)
+    u2_s = selectdim(u_interface, ndims(u_interface), 2)
     propagate_and_save_slice!(u1_e, u2_e, u1_s, u2_s, indexmap, p, z)
     u1
 end
 
 function propagate_and_save!(u::ScalarField,
-                             u_saved::AbstractArray,
+                             u_saved::Tuple{AbstractArray, AbstractArray},
                              p::FS_WPM{<:Trainable})
-    indexmap = similar(p.S, Int)
+    u_interface, indexmap = u_saved
     indexmap .= 0
     u2 = similar(u)
     zv, = spatial_vectors(p.n_slices, p.dz)
     for z in zv
         copyto!(u2, u)
-        propagate_and_save_slice!(u, u2, u_saved, indexmap, p, z)
+        propagate_and_save_slice!(u, u2, u_interface, indexmap, p, z)
     end
     u
+end
+
+function backpropagate!(u::ScalarField, p::FS_WPM)
+    # TODO: compute u backpropagated
+    u
+end
+
+function backpropagate_with_gradient!(∂v::ScalarField,
+                                      u_saved::Tuple{AbstractArray, AbstractArray},
+                                      ∂p::NamedTuple,
+                                      p::FS_WPM{<:Trainable})
+    # ∂p.S contains the gradient of p.S
+    # TODO: compute ∂u 
+    (∂u, ∂p)
 end
