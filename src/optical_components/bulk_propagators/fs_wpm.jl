@@ -112,8 +112,6 @@ end
                                          ::Val{Save}) where Save
     I = @index(Global, Cartesian)
     m = smoothstep_partition(S[I], ε, z)
-    phase1 = cis(-k_dz * dn * (1 - m))
-    phase2 = cis(k_dz * dn * m)
 
     if Save
         idx = indexmap[I]
@@ -122,6 +120,8 @@ end
     end
 
     for J in CartesianIndices(axes(u1_e)[(ndims(S)+1):end])
+        phase1 = cis(-k_dz[J] * dn * (1 - m))
+        phase2 = cis(k_dz[J] * dn * m)
         a1 = u1_e[I, J] * phase1
         a2 = u2_e[I, J] * phase2
         if Save && 1 <= idx <= nz
@@ -198,14 +198,14 @@ end
     I = @index(Global, Cartesian)
     s = S[I]
     m = smoothstep_partition(s, ϵ, z)
-    phase1 = cis(k_dz * dn * (1 - m))
-    phase2 = cis(-k_dz * dn * m)
 
     if ComputeGrad
         idx = indexmap[I]
     end
     
     for J in CartesianIndices(axes(∂u1)[(ndims(S)+1):end])
+        phase1 = cis(k_dz[J] * dn * (1 - m))
+        phase2 = cis(-k_dz[J] * dn * m)
         ∂a = ∂u1[I, J]  # also equal to ∂u2[I, J]
         ∂a1 = ∂a * m * phase1
         ∂a2 = ∂a * (1-m) * phase2
@@ -213,7 +213,7 @@ end
             a1 = u1[I, J, idx]
             a2 = u2[I, J, idx]
             ∂m1 = real(conj(a1 - a2) * ∂a)
-            ∂m2 = k_dz * dn * imag(conj(a1)*∂a1 + conj(a2)*∂a2)
+            ∂m2 = k_dz[J] * dn * imag(conj(a1)*∂a1 + conj(a2)*∂a2)
             Dm = smoothstep_derivative_partition(s, ϵ, z)
             ∂s = ∂S[I]
             ∂S[I] = ∂s + Dm * (∂m1 + ∂m2)

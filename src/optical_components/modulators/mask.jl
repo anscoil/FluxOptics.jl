@@ -100,12 +100,19 @@ function propagate_and_save!(u::ScalarField,
     propagate!(u, p)
 end
 
-function compute_mask_gradient!(∂m::AbstractArray{<:Complex, Nd},
-                                u_saved,
-                                ∂u::ScalarField) where {Nd}
-    sdims = (Nd + 1):ndims(∂u.electric)
-    g = @. ∂u.electric*conj(u_saved)
-    copyto!(∂m, sum(g; dims = sdims))
+@kernel function mask_gradient_kernel!(∂m, ∂u, u)
+    I = @index(Global, Cartesian)
+    acc = zero(eltype(∂m))
+    for J in CartesianIndices(axes(∂u)[(ndims(∂m)+1):end])
+        acc += ∂u[I, J] * conj(u[I, J])
+    end
+    ∂m[I] = acc
+end
+
+function compute_mask_gradient!(∂m, u_saved, ∂u)
+    backend = get_backend(∂m)
+    mask_gradient_kernel!(backend)(∂m, ∂u.electric, u_saved,
+                                   ndrange=size(∂m))
 end
 
 function backpropagate_with_gradient!(∂v::ScalarField,

@@ -12,17 +12,6 @@ function CUDA.cu(u::ScalarField)
     set_field_data(u, cu(u.electric))
 end
 
-function compute_thread_config()
-    props = CUDA.device()
-    max_threads = CUDA.attribute(props, CUDA.DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK)
-
-    base = floor(Int, sqrt(max_threads))
-    threads_x = base
-    threads_y = div(max_threads, threads_x)
-
-    return (threads_x, threads_y)
-end
-
 function Base.unique(x::CuArray)
     unique(Array(x))
 end

@@ -9,6 +9,7 @@ __precompile__()
 using LinearAlgebra
 
 Base.copyto!(::Nothing, u) = nothing
+Base.getindex(x::Real, ::CartesianIndex) = x
 Base.getindex(::Iterators.Cycle{Nothing}, ::Integer) = nothing
 Base.lastindex(::Iterators.Cycle{Nothing}) = 1
 Base.iterate(::Nothing) = (nothing, nothing)

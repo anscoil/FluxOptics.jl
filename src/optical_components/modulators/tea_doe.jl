@@ -162,16 +162,22 @@ function propagate_and_save!(u::ScalarField,
     propagate!(u, p)
 end
 
-function compute_surface_gradient!(∂h::P,
-                                   u_saved,
-                                   ∂u::ScalarField,
-                                   dn,
-                                   r) where {T <: Real, Nd,
-                                             P <: AbstractArray{T, Nd}}
-    sdims = (Nd + 1):ndims(∂u)
+@kernel function surface_gradient_kernel!(∂h, ∂u, u, lambdas, dn)
+    I = @index(Global, Cartesian)
+    acc = zero(eltype(∂h))
+    for J in CartesianIndices(axes(∂u)[(ndims(∂h)+1):end])
+        k_dn = 2 * π * dn(lambdas[J]) / lambdas[J]
+        acc += k_dn * imag(∂u[I, J] * conj(u[I, J]))
+    end
+    ∂h[I] = acc
+end
+
+function compute_surface_gradient!(∂h, u_saved, ∂u, dn, r)
     lambdas = get_lambdas(∂u)
-    g = @. (T(2)*π*dn(lambdas)/lambdas)*imag(∂u.electric*conj(u_saved))
-    copyto!(∂h, sum(g; dims = sdims))
+    backend = get_backend(∂h)
+    surface_gradient_kernel!(backend)(∂h, ∂u.electric, u_saved,
+                                      lambdas, dn,
+                                      ndrange=size(∂h))
 end
 
 function backpropagate_with_gradient!(∂v::ScalarField,
