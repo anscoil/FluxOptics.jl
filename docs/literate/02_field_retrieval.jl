@@ -36,9 +36,16 @@ z2 = 15000.0
 w0 = 50.0
 m, n = 2, 3
 
-u0_th = LaguerreGaussian(w0, m, n; kind = :odd)(x_vec, y_vec)
-u1_th = LaguerreGaussian(w0, m, n, λ, z1; kind = :odd)(x_vec, y_vec)
-u2_th = LaguerreGaussian(w0, m, n, λ, z2; kind = :odd)(x_vec, y_vec)
+u0_th = ScalarField(LaguerreGaussian(w0, m, n; kind = :odd)(x_vec, y_vec), ds, λ)
+u1_th = ScalarField(LaguerreGaussian(w0, m, n, λ, z1; kind = :odd)(x_vec, y_vec), ds, λ)
+u2_th = ScalarField(LaguerreGaussian(w0, m, n, λ, z2; kind = :odd)(x_vec, y_vec), ds, λ)
+
+u0_th = cu(u0_th)  #src
+u1_th = cu(u1_th)  #src
+u2_th = cu(u2_th)  #src
+#nb u0_th = cu(u0_th)  # Comment if you don't have CUDA
+#nb u1_th = cu(u1_th)  # Comment if you don't have CUDA
+#nb u2_th = cu(u2_th)  # Comment if you don't have CUDA
 
 fig_ground_truth = visualize(((u0_th, u1_th, u2_th),), intensity;  #src
                              colormap = :inferno, height = 120)  #src
@@ -52,8 +59,8 @@ save("docs/src/assets/$(prefix)_ground_truth.png", fig_ground_truth)  #src
 # In a real experiment, we would measure only the intensity at two planes.
 # Here we simulate these measurements from our known ground truth.
 
-I1 = abs.(u1_th) .^ 2
-I2 = abs.(u2_th) .^ 2
+I1 = intensity(u1_th)
+I2 = intensity(u2_th)
 
 @assert isapprox(sum(I1)*prod(ds), 1; atol = 1e-7)  # Power normalized to unity
 @assert isapprox(sum(I2)*prod(ds), 1; atol = 1e-7)  # Power normalized to unity
@@ -137,9 +144,9 @@ FluxOptics.update!(opt, system, g[1])  # Warm-up  #src
 fill!(s, u0)
 losses = Float64[]
 
-#nb @time for i in 1:1000
-#md for i in 1:1000
-for i in 1:1000  #src
+#nb @time for i in 1:1500
+#md for i in 1:1500
+for i in 1:1500  #src
     val, grads = Zygote.withgradient(f_opt, system)  #src
     FluxOptics.update!(opt, system, grads[1])  #src
     normalize_power!(get_source(s), 1)  # Power normalization to avoid divergence  #src
@@ -196,15 +203,15 @@ save("docs/src/assets/$(prefix)_result.png", fig_result)  #src
 
 coupling_effs = [coupling_efficiency(u, v)  #src
                  for (u, v) in  #src
-                     zip(collect.((s, u1, u2)), (u0_th, u1_th, u2_th))]  #src
+                     zip((get_source(s), u1, u2), (u0_th, u1_th, u2_th))]  #src
 println("Coupling efficiencies: ", coupling_effs)  #src
 #nb coupling_effs = [coupling_efficiency(u, v) for (u, v) in 
-#nb                  zip(collect.((s, u1, u2)), (u0_th, u1_th, u2_th))]
+#nb                  zip((get_source(s), u1, u2), (u0_th, u1_th, u2_th))]
 #md # | Plane | Coupling Efficiency |
 #md # |-------|---------------------|
-#md # | z = 0 | 99.995% |
-#md # | z₁ = 5 mm | 99.995% |
-#md # | z₂ = 15 mm | 99.995% |
+#md # | z = 0 | 99.996% |
+#md # | z₁ = 5 mm | 99.996% |
+#md # | z₂ = 15 mm | 99.996% |
 #md # 
 #md # The reconstruction achieves >99.99% coupling efficiency, demonstrating accurate
 #md # recovery of both amplitude and phase from intensity measurements alone.

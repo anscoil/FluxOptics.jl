@@ -223,7 +223,7 @@ save("docs/src/assets/$(prefix)_masks.png", fig_masks)  #src
 # Finally, we compute the coupling efficiency between the output and target modes
 # to quantify the performance of our mode sorter:
 
-η = coupling_efficiency(uf, vf)
+η = collect(coupling_efficiency(uf, vf))
 η_mean = sum(η) / n_modes
 
 fig = Figure(size = (380, 280))  #src

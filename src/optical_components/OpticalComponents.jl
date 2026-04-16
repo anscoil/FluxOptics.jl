@@ -544,6 +544,12 @@ See also: [`propagate`](@ref)
 """
 propagate!(u, p::AbstractPureComponent) = propagate(u, p)
 
+function backpropagate!(∂v, p::AbstractPureComponent)
+    error("Not implemented")
+end
+
+backpropagate(∂v, p::AbstractPureComponent) = backpropagate!(copy(∂v), p)
+
 """
     AbstractCustomComponent{M} <: AbstractPipeComponent{M}
 

@@ -192,16 +192,96 @@ function propagate_and_save!(u::ScalarField,
     u
 end
 
+@kernel function backpropagate_slice_kernel!(∂u1, ∂u2, u1, u2,
+                                             indexmap, ∂S, S, k_dn_dz, ε, z, nz,
+                                             ::Val{ComputeGrad}) where ComputeGrad
+    I = @index(Global, Cartesian)
+    m = smoothstep_partition(S[I], ε, z)
+    phase1 = cis(-k_dn_dz * (1 - m))
+    phase2 = cis(k_dn_dz * m)
+
+    if ComputeGrad
+        idx = indexmap[I]
+    end
+    
+    for J in CartesianIndices(axes(∂u1)[(ndims(S)+1):end])
+        a1 = ∂u1[I, J] * m
+        a2 = ∂u2[I, J] * (1-m)
+        if ComputeGrad && 1 <= idx <= nz
+            # u1[I, J, idx]
+            # u2[I, J, idx]
+        end
+        ∂u1[I, J] = a1 * phase1
+        ∂u2[I, J] = a2 * phase2
+    end
+
+    if ComputeGrad
+        idx -= m < 1 ? 1 : 0
+        indexmap[I] = idx
+    end
+end
+
+function backpropagate_slice!(∂u1, ∂u2, p, z)
+    kernel = backpropagate_slice_kernel!(get_backend(∂u1))
+    kernel(∂u1, ∂u2, nothing, nothing, nothing,
+           nothing, p.S, p.k_dn_dz, p.nz * p.dz, z, p.nz, Val(false),
+           ndrange=size(p.S))
+end
+
+function backpropagate_slice!(u1::ScalarField, u2::ScalarField, p::FS_WPM, z::Real)
+    u1_e = u1.electric
+    u2_e = u2.electric
+    backpropagate_slice!(u1_e, u2_e, p, z)
+    backpropagate!(u1, p.p_n1)
+    backpropagate!(u2, p.p_n2)
+    @. u1_e = u1_e + u2_e
+    u1
+end
+
 function backpropagate!(u::ScalarField, p::FS_WPM)
-    # TODO: compute u backpropagated
+    u2 = similar(u)
+    zv, = spatial_vectors(p.n_slices, p.dz)
+    for z in reverse(zv)
+        copyto!(u2, u)
+        backpropagate_slice!(u, u2, p, z)
+    end
     u
+end
+
+function backpropagate_with_gradient_slice!(∂S, ∂u1, ∂u2, u1, u2, indexmap, p, z)
+    kernel = backpropagate_slice_kernel!(get_backend(∂u1))
+    kernel(∂u1, ∂u2, u1, u2, indexmap,
+           ∂S, p.S, p.k_dn_dz, p.nz * p.dz, z, p.nz, Val(true),
+           ndrange=size(p.S))
+end
+
+function backpropagate_with_gradient_slice!(∂S::AbstractArray,
+                                            u1::ScalarField, u2::ScalarField,
+                                            u_interface::AbstractArray,
+                                            indexmap::AbstractArray,
+                                            p::FS_WPM, z::Real)
+    u1_e = u1.electric
+    u2_e = u2.electric
+    u1_s = selectdim(u_interface, ndims(u_interface), 1)
+    u2_s = selectdim(u_interface, ndims(u_interface), 2)
+    backpropagate_with_gradient_slice!(∂S, u1_e, u2_e, u1_s, u2_s, indexmap, p, z)
+    backpropagate!(u1, p.p_n1)
+    backpropagate!(u2, p.p_n2)
+    @. u1_e = u1_e + u2_e
+    u1, ∂S
 end
 
 function backpropagate_with_gradient!(∂v::ScalarField,
                                       u_saved::Tuple{AbstractArray, AbstractArray},
                                       ∂p::NamedTuple,
                                       p::FS_WPM{<:Trainable})
-    # ∂p.S contains the gradient of p.S
-    # TODO: compute ∂u 
-    (∂u, ∂p)
+    u_interface, indexmap = u_saved
+    ∂p.S .= 0
+    u2 = similar(u)
+    zv, = spatial_vectors(p.n_slices, p.dz)
+    for z in reverse(zv)
+        copyto!(∂v2, ∂v)
+        backpropagate_with_gradient_slice!(∂p.S, ∂v, ∂v2, u_interface, indexmap, p, z)
+    end
+    (∂v, ∂p)
 end
