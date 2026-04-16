@@ -3,9 +3,8 @@ struct FS_WPM{M, A, U, T, P} <: AbstractCustomComponent{M}
     n_slices::Int
     nz::Int
     dz::T
-    n1::T
-    n2::T
-    k_dn_dz::T
+    dn::T
+    k_dz::T
     p_n1::P
     p_n2::P
     ∂p::Union{Nothing, @NamedTuple{S::A}}
@@ -30,13 +29,14 @@ struct FS_WPM{M, A, U, T, P} <: AbstractCustomComponent{M}
         S = isa(f, Function) ? A(function_to_array(f, ns, ds)) : A(f)
         p_n1 = ASProp(u, dz; use_cache, n0 = n1)
         p_n2 = ASProp(u, dz; use_cache, n0 = n2)
-        k_dn_dz = T(2π*(n2-n1)*dz) ./ get_lambdas(u)
+        k_dz = T(2π*dz) ./ get_lambdas(u)
+        dn = T(n1-n2)
         ∂p = (trainable && buffered) ? (; S = similar(S)) : nothing
         u_saved = (trainable && buffered) ?
             (similar(u.electric, (size(u)..., nz, 2)), similar(S, Int)) : nothing
         Us = typeof(u_saved)
         P = typeof(p_n1)
-        new{M, A, Us, T, P}(S, n_slices, nz, dz, n1, n2, k_dn_dz, p_n1, p_n2, ∂p, u_saved)
+        new{M, A, Us, T, P}(S, n_slices, nz, dz, dn, k_dz, p_n1, p_n2, ∂p, u_saved)
     end
 
     function FS_WPM(u::ScalarField{U, Nd},
@@ -108,12 +108,12 @@ function smoothstep_partition(p::FS_WPM; derivative::Bool = false)
 end
 
 @kernel function propagate_slice_kernel!(u1_e, u2_e, u1_s, u2_s,
-                                         indexmap, S, k_dn_dz, ε, z, nz,
+                                         indexmap, S, k_dz, dn, ε, z, nz,
                                          ::Val{Save}) where Save
     I = @index(Global, Cartesian)
     m = smoothstep_partition(S[I], ε, z)
-    phase1 = cis(k_dn_dz * (1 - m))
-    phase2 = cis(-k_dn_dz * m)
+    phase1 = cis(-k_dz * dn * (1 - m))
+    phase2 = cis(k_dz * dn * m)
 
     if Save
         idx = indexmap[I]
@@ -135,7 +135,7 @@ end
 function propagate_slice!(u1_e, u2_e, p, z)
     kernel = propagate_slice_kernel!(get_backend(u1_e))
     kernel(u1_e, u2_e, nothing, nothing, nothing,
-           p.S, p.k_dn_dz, p.nz * p.dz, z, p.nz, Val(false),
+           p.S, p.k_dz, p.dn, p.nz * p.dz, z, p.nz, Val(false),
            ndrange=size(p.S))
 end
 
@@ -161,7 +161,7 @@ end
 function propagate_and_save_slice!(u1_e, u2_e, u1_s, u2_s, indexmap, p, z)
     kernel = propagate_slice_kernel!(get_backend(u1_e))
     kernel(u1_e, u2_e, u1_s, u2_s, indexmap,
-           p.S, p.k_dn_dz, p.nz * p.dz, z, p.nz, Val(true),
+           p.S, p.k_dz, p.dn, p.nz * p.dz, z, p.nz, Val(true),
            ndrange=size(p.S))
 end
 
@@ -193,26 +193,33 @@ function propagate_and_save!(u::ScalarField,
 end
 
 @kernel function backpropagate_slice_kernel!(∂u1, ∂u2, u1, u2,
-                                             indexmap, ∂S, S, k_dn_dz, ε, z, nz,
+                                             indexmap, ∂S, S, k_dz, dn, ϵ, z, nz,
                                              ::Val{ComputeGrad}) where ComputeGrad
     I = @index(Global, Cartesian)
-    m = smoothstep_partition(S[I], ε, z)
-    phase1 = cis(-k_dn_dz * (1 - m))
-    phase2 = cis(k_dn_dz * m)
+    s = S[I]
+    m = smoothstep_partition(s, ϵ, z)
+    phase1 = cis(k_dz * dn * (1 - m))
+    phase2 = cis(-k_dz * dn * m)
 
     if ComputeGrad
         idx = indexmap[I]
     end
     
     for J in CartesianIndices(axes(∂u1)[(ndims(S)+1):end])
-        a1 = ∂u1[I, J] * m
-        a2 = ∂u2[I, J] * (1-m)
+        ∂a = ∂u1[I, J]  # also equal to ∂u2[I, J]
+        ∂a1 = ∂a * m * phase1
+        ∂a2 = ∂a * (1-m) * phase2
         if ComputeGrad && 1 <= idx <= nz
-            # u1[I, J, idx]
-            # u2[I, J, idx]
+            a1 = u1[I, J, idx]
+            a2 = u2[I, J, idx]
+            ∂m1 = real(conj(a1 - a2) * ∂a)
+            ∂m2 = k_dz * dn * imag(conj(a1)*∂a1 + conj(a2)*∂a2)
+            Dm = smoothstep_derivative_partition(s, ϵ, z)
+            ∂s = ∂S[I]
+            ∂S[I] = ∂s + Dm * (∂m1 + ∂m2)
         end
-        ∂u1[I, J] = a1 * phase1
-        ∂u2[I, J] = a2 * phase2
+        ∂u1[I, J] = ∂a1
+        ∂u2[I, J] = ∂a2
     end
 
     if ComputeGrad
@@ -224,7 +231,7 @@ end
 function backpropagate_slice!(∂u1, ∂u2, p, z)
     kernel = backpropagate_slice_kernel!(get_backend(∂u1))
     kernel(∂u1, ∂u2, nothing, nothing, nothing,
-           nothing, p.S, p.k_dn_dz, p.nz * p.dz, z, p.nz, Val(false),
+           nothing, p.S, p.k_dz, p.dn, p.nz * p.dz, z, p.nz, Val(false),
            ndrange=size(p.S))
 end
 
@@ -251,7 +258,7 @@ end
 function backpropagate_with_gradient_slice!(∂S, ∂u1, ∂u2, u1, u2, indexmap, p, z)
     kernel = backpropagate_slice_kernel!(get_backend(∂u1))
     kernel(∂u1, ∂u2, u1, u2, indexmap,
-           ∂S, p.S, p.k_dn_dz, p.nz * p.dz, z, p.nz, Val(true),
+           ∂S, p.S, p.k_dz, p.dn, p.nz * p.dz, z, p.nz, Val(true),
            ndrange=size(p.S))
 end
 
@@ -277,7 +284,7 @@ function backpropagate_with_gradient!(∂v::ScalarField,
                                       p::FS_WPM{<:Trainable})
     u_interface, indexmap = u_saved
     ∂p.S .= 0
-    u2 = similar(u)
+    ∂v2 = similar(∂v)
     zv, = spatial_vectors(p.n_slices, p.dz)
     for z in reverse(zv)
         copyto!(∂v2, ∂v)
