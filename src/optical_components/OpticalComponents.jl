@@ -363,12 +363,26 @@ end
 
 function Base.fill!(p::AbstractOpticalComponent, v::AbstractArray)
     data = get_data(p)
-    if isa(data, Tuple)
-        foreach(data -> isa(data, AbstractArray) ? copyto!(data, v) : nothing, get_data(p))
-    else
-        copyto!(data, v)
-    end
+    isa(data, Tuple) && error("fill! with an array is ambiguous for multi-data components")
+    copyto!(data, v)
     data
+end
+
+function function_to_array(f::Function, ns::NTuple{Nd, Integer}, ds::NTuple{Nd, Real},
+                           isfourier = false) where {Nd}
+    if isfourier
+        xs = [fftfreq(nx, 1/dx) for (nx, dx) in zip(ns, ds)]
+    else
+        xs = spatial_vectors(ns, ds)
+    end
+    Nd == 2 ? f.(xs[1], xs[2]') : f.(xs[1])
+end
+
+function Base.fill!(p::AbstractOpticalComponent, f::Function, ds::NTuple{Nd, Real};
+                    isfourier=false) where {Nd}
+    data = get_data(p)
+    isa(data, Tuple) && error("fill! with a function is ambiguous for multi-data components")
+    copyto!(data, function_to_array(f, size(data), ds, isfourier))
 end
 
 """
@@ -752,16 +766,6 @@ end
 
 function conj_direction(mask, ::Type{Backward})
     conj(mask)
-end
-
-function function_to_array(f::Function, ns::NTuple{Nd, Integer}, ds::NTuple{Nd, Real},
-                           isfourier = false) where {Nd}
-    if isfourier
-        xs = [fftfreq(nx, 1/dx) for (nx, dx) in zip(ns, ds)]
-    else
-        xs = spatial_vectors(ns, ds)
-    end
-    Nd == 2 ? f.(xs[1], xs[2]') : f.(xs[1])
 end
 
 include("sources/scalar_source.jl")

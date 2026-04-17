@@ -11,11 +11,6 @@ using LinearAlgebra
 Base.copyto!(::Nothing, u) = nothing
 Base.getindex(x::Real, ::CartesianIndex{0}) = x
 Base.getindex(x::Real, ::CartesianIndex) = x
-# Base.getindex(::Iterators.Cycle{Nothing}, ::Integer) = nothing
-# Base.lastindex(::Iterators.Cycle{Nothing}) = 1
-# Base.iterate(::Nothing) = (nothing, nothing)
-# Base.iterate(::Nothing, ::Nothing) = nothing
-# Iterators.reverse(::Iterators.Cycle{Nothing}) = Iterators.cycle(nothing)
 
 struct NothingIterator end
 Base.iterate(::NothingIterator) = (nothing, nothing)

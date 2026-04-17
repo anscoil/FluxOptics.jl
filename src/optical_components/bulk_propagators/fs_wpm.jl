@@ -10,6 +10,13 @@ struct FS_WPM{M, A, U, K, T, P} <: AbstractCustomComponent{M}
     ∂p::Union{Nothing, @NamedTuple{S::A}}
     u::Union{Nothing, U}
 
+    function FS_WPM(S::A, n_slices::Integer, nz::Integer, dz::T, dn::T, k_dz::K,
+                    p_n1::P, p_n2::P, ∂p, u) where {A, T, K, P}
+        M = isnothing(u) ? Trainable{Unbuffered} : Trainable{Buffered}
+        U = typeof(u)
+        new{M, A, U, K, T, P}(S, n_slices, nz, dz, dn, k_dz, p_n1, p_n2, ∂p, u)
+    end
+    
     function FS_WPM(u::ScalarField{U, Nd},
                     ds::NTuple{Nd, Real},
                     thickness::Real, dz::Real,
@@ -27,6 +34,7 @@ struct FS_WPM{M, A, U, K, T, P} <: AbstractCustomComponent{M}
         A = similar(U, real, Nd)
         ns = size(u)[1:Nd]
         S = isa(f, Function) ? A(function_to_array(f, ns, ds)) : A(f)
+        @assert isbroadcastable(S, u)
         p_n1 = ASProp(u, dz; use_cache, n0 = n1)
         p_n2 = ASProp(u, dz; use_cache, n0 = n2)
         k_dz = T(2π*dz) ./ get_lambdas(u)

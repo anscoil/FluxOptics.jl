@@ -1,4 +1,4 @@
-function rs_kernel(x::T, y::T, λ::T, z::Tp, nrm_f::Tp) where {T <: Real, Tp <: Real}
+function rs_kernel(x::T, y::T, λ::T, n0::Tp, z::Tp, nrm_f::Tp) where {T <: Real, Tp <: Real}
     x, y = Tp(x), Tp(y)
     k = Tp(2π/λ)
     r = sqrt(x^2 + y^2 + z^2)
@@ -7,7 +7,7 @@ function rs_kernel(x::T, y::T, λ::T, z::Tp, nrm_f::Tp) where {T <: Real, Tp <: 
     Complex{T}(kernel * nrm_f)
 end
 
-function rs_tilted_kernel(x::T, y::T, λ::T, θx::T, θy::T, track_tilts::Bool, z::Tp,
+function rs_tilted_kernel(x::T, y::T, λ::T, θx::T, θy::T, track_tilts::Bool, n0::Tp, z::Tp,
                           nrm_f::Tp) where {T <: Real, Tp <: Real}
     x, y = Tp(x), Tp(y)
     f0x, f0y = sin(θx)/λ, sin(θy)/λ
@@ -31,6 +31,7 @@ end
 struct RSKernelProp{M, K, T, Tp} <: AbstractPropagator{M, K, T}
     kernel::K
     track_tilts::Bool
+    n0::Tp
     z::Tp
     nrm_f::Tp
 
@@ -39,6 +40,7 @@ struct RSKernelProp{M, K, T, Tp} <: AbstractPropagator{M, K, T}
                           z::Real;
                           use_cache::Bool = true,
                           track_tilts::Bool = false,
+                          n0::Real = 1,
                           double_precision_kernel::Bool
                           = use_cache) where {T, U <: AbstractArray{Complex{T}}, Nd}
         ns = size(u)[1:Nd]
@@ -47,7 +49,7 @@ struct RSKernelProp{M, K, T, Tp} <: AbstractPropagator{M, K, T}
         kernel = ConvolutionKernel(u.electric, ns, ds, cache_size; normalize = false)
         Tp = double_precision_kernel ? Float64 : T
         nrm_f = Tp(prod(ds)/2π/prod(ns′))
-        new{Static, typeof(kernel), T, Tp}(kernel, track_tilts, Tp(z), nrm_f)
+        new{Static, typeof(kernel), T, Tp}(kernel, track_tilts, Tp(n0), Tp(z), nrm_f)
     end
 end
 
@@ -65,9 +67,9 @@ end
 
 function build_kernel_args(p::RSKernelProp, u::ScalarField)
     if is_on_axis(u)
-        (p.z, p.nrm_f)
+        (p.n0, p.z, p.nrm_f)
     else
-        (p.track_tilts, p.z, p.nrm_f)
+        (p.track_tilts, p.n0, p.z, p.nrm_f)
     end
 end
 
@@ -98,6 +100,7 @@ Prevents aliasing for large propagation distances but requires finer sampling fo
 - `z::Real`: Propagation distance
 - `ds::NTuple`: Custom spatial sampling (defaults to `u.ds`)
 - `use_cache::Bool`: Cache kernels (default: true)
+- `n0::Real`: Refractive index (default: 1)
 - `track_tilts::Bool`: Track tilt evolution (default: false)
 - `double_precision_kernel::Bool`: Use Float64 kernels (default: use_cache)
 
@@ -131,15 +134,16 @@ struct RSProp{M, C} <: AbstractSequence{M}
                     z::Real;
                     use_cache::Bool = true,
                     track_tilts::Bool = false,
+                    n0::Real = 1,
                     double_precision_kernel::Bool
                     = use_cache) where {T, U <: AbstractArray{Complex{T}}, Nd}
         ns = size(u)[1:Nd]
-        zc = rs_valid_distance(ns..., ds..., minimum(u.lambdas.collection))
+        zc = rs_valid_distance(ns..., ds..., minimum(u.lambdas.collection)/n0)
         if abs(z) < zc
             @warn """RSProp: propagation distance z=$z is below critical distance zc=$zc.
              Numerical artifacts expected. Consider using ASProp or finer sampling (dx < λ/2)."""
         end
-        rs = RSKernelProp(u, ds, z; use_cache, track_tilts, double_precision_kernel)
+        rs = RSKernelProp(u, ds, z; use_cache, track_tilts, n0, double_precision_kernel)
         wrapper = FourierWrapper(rs.kernel.p_f, rs)
         pad_op = PadCropOperator(u, rs.kernel.u_plan; store_ref = true)
         crop_op = adjoint(pad_op)
@@ -153,8 +157,9 @@ struct RSProp{M, C} <: AbstractSequence{M}
                     z::Real;
                     use_cache::Bool = true,
                     track_tilts::Bool = false,
+                    n0::Real = 1,
                     double_precision_kernel::Bool = use_cache)
-        RSProp(u, Tuple(u.ds), z; use_cache, track_tilts, double_precision_kernel)
+        RSProp(u, Tuple(u.ds), z; use_cache, track_tilts, n0, double_precision_kernel)
     end
 end
 
