@@ -1,10 +1,10 @@
-struct FS_WPM{M, A, U, T, P} <: AbstractCustomComponent{M}
+struct FS_WPM{M, A, U, K, T, P} <: AbstractCustomComponent{M}
     S::A
     n_slices::Int
     nz::Int
     dz::T
     dn::T
-    k_dz::T
+    k_dz::K
     p_n1::P
     p_n2::P
     ∂p::Union{Nothing, @NamedTuple{S::A}}
@@ -35,8 +35,9 @@ struct FS_WPM{M, A, U, T, P} <: AbstractCustomComponent{M}
         u_saved = (trainable && buffered) ?
             (similar(u.electric, (size(u)..., nz, 2)), similar(S, Int)) : nothing
         Us = typeof(u_saved)
+        K = typeof(k_dz)
         P = typeof(p_n1)
-        new{M, A, Us, T, P}(S, n_slices, nz, dz, dn, k_dz, p_n1, p_n2, ∂p, u_saved)
+        new{M, A, Us, K, T, P}(S, n_slices, nz, dz, dn, k_dz, p_n1, p_n2, ∂p, u_saved)
     end
 
     function FS_WPM(u::ScalarField{U, Nd},

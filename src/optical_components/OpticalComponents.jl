@@ -7,7 +7,7 @@ using AbstractFFTs
 using FINUFFT
 using EllipsisNotation
 using LRUCache
-using ..FluxOptics: isbroadcastable, bzip
+using ..FluxOptics: isbroadcastable, bzip, NothingIterator
 using ..GridUtils
 using ..Fields
 using ..FFTutils

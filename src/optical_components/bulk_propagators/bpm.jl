@@ -246,7 +246,7 @@ function propagate!(u::ScalarField, p::BPM; u_saved = nothing)
     Nv = ndims(p.dn)
     n_slices = size(p.dn, Nv)
     dn_slices = eachslice(p.dn, dims = Nv)
-    u_saved_slices = isnothing(u_saved) ? Iterators.cycle(nothing) :
+    u_saved_slices = isnothing(u_saved) ? NothingIterator() :
                      eachslice(u_saved, dims = ndims(u_saved))
     propagate!(u, p.p_bpm_half)
     for (dn, u_saved) in zip(@view(dn_slices[1:(end - 1)]), u_saved_slices)
@@ -291,8 +291,8 @@ function backpropagate!(u::ScalarField,
     Nv = ndims(p.dn)
     n_slices = size(p.dn, Nv)
     dn_slices = eachslice(p.dn, dims = Nv)
-    ∂dn_slices = isnothing(∂p) ? Iterators.cycle(nothing) : eachslice(∂p.dn, dims = Nv)
-    u_saved_slices = isnothing(u_saved) ? Iterators.cycle(nothing) :
+    ∂dn_slices = isnothing(∂p) ? NothingIterator() : eachslice(∂p.dn, dims = Nv)
+    u_saved_slices = isnothing(u_saved) ? NothingIterator() :
                      eachslice(u_saved, dims = ndims(u_saved))
     backpropagate!(u, p.p_bpm_half)
     for (dn, ∂dn, u_saved) in zip(@view(dn_slices[end:-1:2]),
