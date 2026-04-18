@@ -81,11 +81,29 @@ params = trainable(wrapper)
 length(params.proj_coeffs)
 ```
 
+### Fourier Smoothing
+```@example utilities
+u = ScalarField(ones(ComplexF64, 256, 256), (2.0, 2.0), 1.55)
+
+# Trainable freeform surface
+surface = FS_WPM(u, 10.0, 0.5, 1.5, 1.0; trainable=true, buffered=true)
+
+# Biharmonic filter — suppresses high-frequency instabilities
+α = 1e-4  # µm⁴
+biharmonic = (kx, ky) -> 1 / (1 + 2α * (kx^2 + ky^2)^2)
+wrapper = FourierSmoothingWrapper(surface, (256, 256), (2.0, 2.0), biharmonic)
+
+# buffer holds the unfiltered surface parameters to optimize
+params = trainable(wrapper)
+size(params.buffer)
+```
+
 ## Key Types
 
 - [`PadCropOperator`](@ref): Reversible pad/crop component
 - [`TiltAnchor`](@ref): Tilt reference anchor
 - [`BasisProjectionWrapper`](@ref): Basis coefficient optimization
+- [`FourierSmoothingWrapper`](@ref): Fourier smoothing wrapper for regularized optimization
 
 ## Key Functions
 

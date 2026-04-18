@@ -10,6 +10,7 @@ CurrentModule = FluxOptics.OpticalComponents
 PadCropOperator
 TiltAnchor
 BasisProjectionWrapper
+FourierSmoothingWrapper
 ```
 
 ## Functions
@@ -20,35 +21,6 @@ crop
 make_spatial_basis
 make_fourier_basis
 ```
-
-## Technical Notes
-
-### PadCropOperator
-
-**Adjoint behavior:**
-- `adjoint(pad_op)` swaps pad and crop
-- Enables symmetric operations: `source |> pad |> processing |> crop`
-
-**Store reference mode:**
-- `store_ref=true`: Reuses original array during crop (zero allocation)
-- Only valid for symmetric operations
-- Requires pad and crop to use same offset/sizes
-
-### BasisProjectionWrapper
-
-**Use cases:**
-- Inverse problems with ill-posed pixel-wise optimization
-- Enforcing smoothness constraints
-
-**Basis selection:**
-- Polynomials: smooth, global features
-- Zernike: optical aberrations
-- Fourier: periodic structures
-- Custom: problem-specific functions
-
-**Performance:**
-- Optimization on N_basis coefficients vs N_pixels
-- Typical: N_basis ≪ N_pixels (10-100 vs 10⁴-10⁶)
 
 ## See Also
 

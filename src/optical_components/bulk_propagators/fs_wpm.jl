@@ -1,3 +1,70 @@
+"""
+    FS_WPM(u, ds, thickness, dz, n1, n2, f; nz=4, use_cache=true, trainable=false, buffered=false)
+    FS_WPM(u, thickness, dz, n1, n2, f; kwargs...)
+
+Freeform Surface Wave Propagation Method (FS-WPM).
+
+Propagates scalar fields through a freeform refractive interface separating two
+homogeneous media with refractive indices `n1` and `n2`. The interface is defined
+by a height map `S(x,y)` and represented as a smooth transition using a smoothstep
+function, enabling gradient-based shape optimization via a custom adjoint.
+
+Goes beyond the paraxial approximation and thin-element approximation (TEA) by
+accounting for the volumetric nature of the interface during propagation.
+
+# Arguments
+- `u::ScalarField`: Field template defining grid size, sampling and wavelength(s)
+- `ds::NTuple`: Custom spatial sampling (defaults to `u.ds`)
+- `thickness::Real`: Total thickness of the propagation volume (µm)
+- `dz::Real`: Longitudinal step size (µm)
+- `n1::Real`: Refractive index of the input medium
+- `n2::Real`: Refractive index of the output medium
+- `f`: Interface height map, either a `Function` `(x, y) -> z` or an `AbstractArray`
+  (default: flat interface at z=0)
+- `nz::Integer`: Number of slices stored around the interface for the adjoint (default: 4)
+- `use_cache::Bool`: Cache Angular Spectrum propagation kernels (default: true)
+- `trainable::Bool`: Enable gradient-based optimization of the surface `S` (default: false)
+- `buffered::Bool`: Pre-allocate gradient buffers for the custom adjoint (default: false)
+
+# Physics
+
+Each propagation step applies:
+1. Angular Spectrum propagation of `u1` in medium `n1`
+2. Angular Spectrum propagation of `u2` in medium `n2`
+3. Phase accumulation:
+   - `u1 ← u1 · exp(i 2π Δn dz (1 - m(x,y,z)) / λ)`
+   - `u2 ← u2 · exp(-i 2π Δn dz m(x,y,z) / λ)`
+
+where `Δn = n2 - n1` and `λ` is the wavelength (broadcastable over multiple wavelengths).
+4. Field stitching: `u_out = m·u1 + (1-m)·u2`
+
+where `m(x,y,z) ∈ [0,1]` is the smoothstep partition function centered on `S(x,y)`,
+`u1` carries the field as if propagating entirely in `n1`, and `u2` as if entirely
+in `n2`. The stitching recombines them weighted by the local fraction of each medium.
+
+# Examples
+```julia
+u = ScalarField(ones(ComplexF32, 256, 256), (2.0, 2.0), 1.55)
+
+# Flat glass/air interface
+prop = FS_WPM(u, 10.0, 0.5, 1.5, 1.0)
+
+# Spherical freeform surface
+spherical = (x, y) -> sqrt(max(0, 200^2 - x^2 - y^2)) - 200
+prop_sphere = FS_WPM(u, 10.0, 0.5, 1.5, 1.0, spherical)
+
+# Trainable surface for inverse design
+prop_opt = FS_WPM(u, 10.0, 0.5, 1.5, 1.0; trainable=true, buffered=true)
+
+# Wrap with Fourier smoothing for stable optimization
+α = 1e-4
+biharmonic = (kx, ky) -> 1 / (1 + 2α * (kx^2 + ky^2)^2)
+wrapper = FourierSmoothingWrapper(prop_opt, (256, 256), (2.0, 2.0), biharmonic)
+```
+
+See also: [`FourierSmoothingWrapper`](@ref), [`BasisProjectionWrapper`](@ref),
+[`ASProp`](@ref), [`AS_BPM`](@ref)
+"""
 struct FS_WPM{M, A, U, K, T, P} <: AbstractCustomComponent{M}
     S::A
     n_slices::Int
