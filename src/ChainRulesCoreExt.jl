@@ -10,6 +10,7 @@ using ..OpticalComponents: alloc_gradient, alloc_saved_buffer
 using ..OpticalComponents: backpropagate!, backpropagate
 using ..OpticalComponents: propagate_and_save, backpropagate_with_gradient
 using ..OpticalComponents: propagate_and_save!, backpropagate_with_gradient!
+using ..OpticalComponents: set_basis_projection!, apply_smoothing!
 
 using ChainRulesCore
 using Functors: fleaves
@@ -252,6 +253,29 @@ function ChainRulesCore.rrule(::typeof(set_basis_projection!),
         else
             ∂p = (; proj_coeffs = p.basis' * reshape(∂mapped_data, :))
         end
+        return (NoTangent(), Tangent{P}(; ∂p...))
+    end
+
+    return wrapped_component, pullback
+end
+
+function ChainRulesCore.rrule(::typeof(apply_smoothing!),
+                              p::P) where {P <: FourierSmoothingWrapper}
+    wrapped_component = apply_smoothing!(p)
+
+    function pullback(∂c)
+        ∂mapped_data = filter(x -> !(x isa ChainRulesCore.ZeroTangent) &&
+                                   !(x isa ChainRulesCore.NoTangent) &&
+                                   (x isa AbstractArray) &&
+                                   (x isa AbstractArray),
+                              fleaves(∂c))[1]
+
+        ∂p = isbuffered(p) ? p.∂p : (; buffer = similar(p.buffer))
+        copyto!(∂p.buffer, ∂mapped_data)
+        p.p_f.ft * ∂p.buffer
+        ∂p.buffer .*= conj(p.filter)
+        p.p_f.ift * ∂p.buffer
+        
         return (NoTangent(), Tangent{P}(; ∂p...))
     end
 
