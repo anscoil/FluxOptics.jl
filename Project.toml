@@ -1,6 +1,6 @@
 name = "FluxOptics"
 uuid = "5d1b044d-dcff-404c-be27-e1944ce84415"
-version = "0.1.4"
+version = "0.1.5"
 authors = ["Nicolas Barré"]
 
 [deps]
