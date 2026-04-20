@@ -94,38 +94,25 @@ function _propagate!(u::ScalarField, p::Phase, direction::Type{<:Direction})
 end
 
 function propagate_and_save!(u::ScalarField,
-                             p::Phase{Trainable{Buffered}})
-    copyto!(p.u, u.electric)
-    propagate!(u, p)
-end
-
-function propagate_and_save!(u::ScalarField,
                              u_saved::AbstractArray,
-                             p::Phase{Trainable{Unbuffered}})
+                             p::Phase{<:Trainable})
     copyto!(u_saved, u.electric)
     propagate!(u, p)
 end
 
-function compute_phase_gradient!(∂ϕ::AbstractArray{<:Real, Nd},
-                                 u_saved,
-                                 ∂u::ScalarField) where {Nd}
-    sdims = (Nd + 1):ndims(∂u.electric)
-    g = @. imag(∂u.electric*conj(u_saved))
-    copyto!(∂ϕ, sum(g; dims = sdims))
+@kernel function phase_gradient_kernel!(∂ϕ, ∂u, u)
+    I = @index(Global, Cartesian)
+    acc = zero(eltype(∂ϕ))
+    for J in CartesianIndices(axes(∂u)[(ndims(∂ϕ)+1):end])
+        acc += imag(∂u[I, J] * conj(u[I, J]))
+    end
+    ∂ϕ[I] = acc
 end
 
-function compute_phase_gradient!(∂ϕ::Array{<:Real, Nd},
-                                 u_saved,
-                                 ∂u::ScalarField) where {Nd}
-    sdims = 3:ndims(∂u)
-    ∂ϕ .= 0
-    @inbounds for idx in CartesianIndices(size(∂u)[sdims])
-        @inbounds for j in axes(∂ϕ, 2), i in axes(∂ϕ, 1)
-            full_idx = (i, j, Tuple(idx)...)
-            val = imag(∂u.electric[full_idx...] * conj(u_saved[full_idx...]))
-            ∂ϕ[i, j] += val
-        end
-    end
+function compute_phase_gradient!(∂ϕ, u_saved, ∂u)
+    backend = get_backend(∂ϕ)
+    phase_gradient_kernel!(backend)(∂ϕ, ∂u.electric, u_saved,
+                                    ndrange=size(∂ϕ))
     ∂ϕ
 end
 

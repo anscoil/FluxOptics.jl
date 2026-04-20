@@ -58,13 +58,7 @@ function _propagate!(u, p::TiltAnchor, ::Type{<:Direction})
     offset_tilts!(u, p.tilts)
 end
 
-function propagate_and_save!(u, p::TiltAnchor{Trainable{Buffered}},
-                             direction::Type{<:Direction})
-    foreach(((y, x),) -> copyto!(y, x), zip(p.tilts_saved, u.tilts.collection))
-    u
-end
-
-function propagate_and_save!(u, tilts_saved, p::TiltAnchor{Trainable{Unbuffered}},
+function propagate_and_save!(u, tilts_saved, p::TiltAnchor{<:Trainable},
                              ::Type{<:Direction})
     foreach(((y, x),) -> copyto!(y, x), zip(tilts_saved, u.tilts.collection))
     u

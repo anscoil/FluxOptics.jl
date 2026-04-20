@@ -50,7 +50,7 @@ struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
     function TeaDOE(u::ScalarField{U, Nd},
                     ds::NTuple{Nd, Real},
                     dn::Union{Real, Function},
-                    f::Function = (_...) -> 0;
+                    f::Union{Function, AbstractArray{<:Real}} = (_...) -> 0;
                     r::Union{Number, Function} = 1,
                     trainable::Bool = false,
                     buffered::Bool = false) where {N, Nd, T,
@@ -60,7 +60,8 @@ struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
         M = trainability(trainable, buffered)
         P = similar(U, real, Nd)
         ns = size(u)[1:Nd]
-        h = P(function_to_array(f, ns, ds))
+        h = isa(f, Function) ? P(function_to_array(f, ns, ds)) : P(f)
+        @assert isbroadcastable(h, u)
         ∂p = (trainable && buffered) ? (; h = similar(h)) : nothing
         u = (trainable && buffered) ? similar(u.electric) : nothing
         dn_f = isa(dn, Real) ? (λ -> T(dn)) : (λ -> T(dn(λ)))
@@ -73,7 +74,7 @@ struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
 
     function TeaDOE(u::ScalarField{U, Nd},
                     dn::Union{Real, Function},
-                    f::Function = (_...) -> 0;
+                    f::Union{Function, AbstractArray{<:Real}} = (_...) -> 0;
                     r::Union{Number, Function} = 1,
                     trainable::Bool = false,
                     buffered::Bool = false) where {U <: AbstractArray{<:Complex}, Nd}
@@ -115,7 +116,7 @@ See also: [`TeaDOE`](@ref), [`Phase`](@ref)
 """
 function TeaReflector(u::ScalarField{U, Nd},
                       ds::NTuple{Nd, Real},
-                      f::Function = (_...) -> 0;
+                      f::Union{Function, AbstractArray{<:Real}} = (_...) -> 0;
                       r::Union{Number, Function} = 1,
                       trainable::Bool = false,
                       buffered::Bool = false) where {U <: AbstractArray{<:Complex}, Nd}
@@ -123,7 +124,7 @@ function TeaReflector(u::ScalarField{U, Nd},
 end
 
 function TeaReflector(u::ScalarField{U, Nd},
-                      f::Function = (_...) -> 0;
+                      f::Union{Function, AbstractArray{<:Real}} = (_...) -> 0;
                       r::Union{Number, Function} = 1,
                       trainable::Bool = false,
                       buffered::Bool = false) where {U <: AbstractArray{<:Complex}, Nd}
@@ -156,28 +157,28 @@ function _propagate!(u::ScalarField, p::TeaDOE, direction::Type{<:Direction})
 end
 
 function propagate_and_save!(u::ScalarField,
-                             p::TeaDOE{Trainable{Buffered}})
-    copyto!(p.u, u.electric)
-    propagate!(u, p)
-end
-
-function propagate_and_save!(u::ScalarField,
-                             u_saved,
-                             p::TeaDOE{Trainable{Unbuffered}})
+                             u_saved::AbstractArray,
+                             p::TeaDOE{<:Trainable})
     copyto!(u_saved, u.electric)
     propagate!(u, p)
 end
 
-function compute_surface_gradient!(∂h::P,
-                                   u_saved,
-                                   ∂u::ScalarField,
-                                   dn,
-                                   r) where {T <: Real, Nd,
-                                             P <: AbstractArray{T, Nd}}
-    sdims = (Nd + 1):ndims(∂u)
+@kernel function surface_gradient_kernel!(∂h, ∂u, u, lambdas, dn)
+    I = @index(Global, Cartesian)
+    acc = zero(eltype(∂h))
+    for J in CartesianIndices(axes(∂u)[(ndims(∂h)+1):end])
+        k_dn = 2 * π * dn(lambdas[J]) / lambdas[J]
+        acc += k_dn * imag(∂u[I, J] * conj(u[I, J]))
+    end
+    ∂h[I] = acc
+end
+
+function compute_surface_gradient!(∂h, u_saved, ∂u, dn, r)
     lambdas = get_lambdas(∂u)
-    g = @. (T(2)*π*dn(lambdas)/lambdas)*imag(∂u.electric*conj(u_saved))
-    copyto!(∂h, sum(g; dims = sdims))
+    backend = get_backend(∂h)
+    surface_gradient_kernel!(backend)(∂h, ∂u.electric, u_saved,
+                                      lambdas, dn,
+                                      ndrange=size(∂h))
 end
 
 function backpropagate_with_gradient!(∂v::ScalarField,

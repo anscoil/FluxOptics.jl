@@ -9,11 +9,15 @@ __precompile__()
 using LinearAlgebra
 
 Base.copyto!(::Nothing, u) = nothing
-Base.getindex(::Iterators.Cycle{Nothing}, ::Integer) = nothing
-Base.lastindex(::Iterators.Cycle{Nothing}) = 1
-Base.iterate(::Nothing) = (nothing, nothing)
-Base.iterate(::Nothing, ::Nothing) = nothing
-Iterators.reverse(::Iterators.Cycle{Nothing}) = Iterators.cycle(nothing)
+Base.getindex(x::Real, ::CartesianIndex{0}) = x
+Base.getindex(x::Real, ::CartesianIndex) = x
+
+struct NothingIterator end
+Base.iterate(::NothingIterator) = (nothing, nothing)
+Base.iterate(::NothingIterator, ::Any) = (nothing, nothing)
+Base.getindex(::NothingIterator, ::Any) = nothing
+Base.lastindex(::NothingIterator) = 1
+Iterators.reverse(::NothingIterator) = NothingIterator()
 
 isbroadcastable(a, b) = all(((m, n),) -> m == n || m == 1 || n == 1, zip(size(a), size(b)))
 bzip(x...) = Base.broadcasted(tuple, x...)
@@ -75,10 +79,12 @@ export TiltAnchor, ASProp, ASPropZ, ShiftProp
 export RSProp, CollinsProp, FourierLens, ParaxialProp
 export as_rotation!, as_rotation, field_rotation_matrix
 export AS_BPM, Shift_BPM
+export FS_WPM, smoothstep_partition
 export ScalarSource, get_source, Phase, Mask, FourierMask, FourierPhase
 export TeaDOE, TeaReflector
 export FieldProbe
 export BasisProjectionWrapper, make_spatial_basis, make_fourier_basis
+export FourierSmoothingWrapper
 export GainSheet
 export AbstractSequence, OpticalSequence, FourierOperator, FourierWrapper, get_sequence
 export OpticalSystem, get_source, get_components

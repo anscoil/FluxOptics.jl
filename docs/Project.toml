@@ -1,12 +1,12 @@
 [deps]
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 FluxOptics = "5d1b044d-dcff-404c-be27-e1944ce84415"
+Glib_jll = "7746bdde-850d-59dc-9ae8-88ece973131d"
 Images = "916415d5-f1e6-5110-898d-aaa5f9f070e0"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
 Optimisers = "3bd65402-5787-11e9-1adc-39752487f4e2"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
-Glib_jll = "7746bdde-850d-59dc-9ae8-88ece973131d"
-CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 
 [compat]
 Glib_jll = "~2.80"

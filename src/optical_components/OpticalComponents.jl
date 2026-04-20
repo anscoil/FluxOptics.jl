@@ -2,11 +2,12 @@ module OpticalComponents
 
 using Functors
 using LinearAlgebra
+using KernelAbstractions
 using AbstractFFTs
 using FINUFFT
 using EllipsisNotation
 using LRUCache
-using ..FluxOptics: isbroadcastable, bzip
+using ..FluxOptics: isbroadcastable, bzip, NothingIterator
 using ..GridUtils
 using ..Fields
 using ..FFTutils
@@ -362,12 +363,26 @@ end
 
 function Base.fill!(p::AbstractOpticalComponent, v::AbstractArray)
     data = get_data(p)
-    if isa(data, Tuple)
-        foreach(data -> isa(data, AbstractArray) ? copyto!(data, v) : nothing, get_data(p))
-    else
-        copyto!(data, v)
-    end
+    isa(data, Tuple) && error("fill! with an array is ambiguous for multi-data components")
+    copyto!(data, v)
     data
+end
+
+function function_to_array(f::Function, ns::NTuple{Nd, Integer}, ds::NTuple{Nd, Real},
+                           isfourier = false) where {Nd}
+    if isfourier
+        xs = [fftfreq(nx, 1/dx) for (nx, dx) in zip(ns, ds)]
+    else
+        xs = spatial_vectors(ns, ds)
+    end
+    Nd == 2 ? f.(xs[1], xs[2]') : f.(xs[1])
+end
+
+function Base.fill!(p::AbstractOpticalComponent, f::Function, ds::NTuple{Nd, Real};
+                    isfourier=false) where {Nd}
+    data = get_data(p)
+    isa(data, Tuple) && error("fill! with a function is ambiguous for multi-data components")
+    copyto!(data, function_to_array(f, size(data), ds, isfourier))
 end
 
 """
@@ -543,6 +558,12 @@ See also: [`propagate`](@ref)
 """
 propagate!(u, p::AbstractPureComponent) = propagate(u, p)
 
+function backpropagate!(∂v, p::AbstractPureComponent)
+    error("Not implemented")
+end
+
+backpropagate(∂v, p::AbstractPureComponent) = backpropagate!(copy(∂v), p)
+
 """
     AbstractCustomComponent{M} <: AbstractPipeComponent{M}
 
@@ -604,17 +625,18 @@ end
 
 propagate!(u, p::AbstractCustomComponent) = _propagate!(u, p, Forward)
 
-function propagate_and_save!(u, p::AbstractCustomComponent{Trainable{Buffered}})
+function propagate_and_save!(u, u_saved, p::AbstractCustomComponent{<:Trainable})
     error("Not implemented")
 end
 
-function propagate_and_save!(u, u_saved, p::AbstractCustomComponent{Trainable{Unbuffered}})
-    error("Not implemented")
+function propagate_and_save!(u, p::AbstractCustomComponent{Trainable{Buffered}})
+    u_saved = get_saved_buffer(p)
+    propagate_and_save!(u, u_saved, p)
 end
 
 backpropagate!(∂v, p::AbstractCustomComponent) = _propagate!(∂v, p, Backward)
 
-backpropagate(∂v, p::AbstractCustomComponent) = _propagate!(copy(∂v), p, Backward)
+backpropagate(∂v, p::AbstractCustomComponent) = backpropagate!(copy(∂v), p)
 
 function backpropagate_with_gradient!(∂v, u_saved, ∂p::NamedTuple,
                                       p::AbstractCustomComponent{<:Trainable})
@@ -746,16 +768,6 @@ function conj_direction(mask, ::Type{Backward})
     conj(mask)
 end
 
-function function_to_array(f::Function, ns::NTuple{Nd, Integer}, ds::NTuple{Nd, Real},
-                           isfourier = false) where {Nd}
-    if isfourier
-        xs = [fftfreq(nx, 1/dx) for (nx, dx) in zip(ns, ds)]
-    else
-        xs = spatial_vectors(ns, ds)
-    end
-    Nd == 2 ? f.(xs[1], xs[2]') : f.(xs[1])
-end
-
 include("sources/scalar_source.jl")
 export ScalarSource, get_source
 
@@ -790,9 +802,13 @@ export as_rotation!, as_rotation, field_rotation_matrix
 
 include("bulk_propagators/bulk_propagators.jl")
 export BPM, AS_BPM, TiltedAS_BPM, Shift_BPM
+export FS_WPM, smoothstep_partition
 
 include("utilities/basis_projection_wrapper.jl")
-export BasisProjectionWrapper, set_basis_projection!, make_spatial_basis, make_fourier_basis
+export BasisProjectionWrapper, make_spatial_basis, make_fourier_basis
+
+include("utilities/fourier_smoothing_wrapper.jl")
+export FourierSmoothingWrapper
 
 include("active_media/active_media.jl")
 export GainSheet

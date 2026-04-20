@@ -67,7 +67,8 @@ struct BPM{M, A, U, D, P, K} <: AbstractCustomComponent{M}
         p_bpm = Prop(u, dz; use_cache, double_precision_kernel, kwargs...)
         p_bpm_half = Prop(u, dz/2; use_cache, double_precision_kernel, kwargs...)
         P = typeof(p_bpm)
-        kdz = (2π*dz) ./ compute_cos_correction(u)
+        T = real(eltype(u))
+        kdz = T(2π*dz) ./ compute_cos_correction(u)
         K = typeof(kdz)
         new{M, A, U, D, P, K}(dn, kdz, aperture_mask, p_bpm, p_bpm_half, ∂p, u_saved)
     end
@@ -245,7 +246,7 @@ function propagate!(u::ScalarField, p::BPM; u_saved = nothing)
     Nv = ndims(p.dn)
     n_slices = size(p.dn, Nv)
     dn_slices = eachslice(p.dn, dims = Nv)
-    u_saved_slices = isnothing(u_saved) ? Iterators.cycle(nothing) :
+    u_saved_slices = isnothing(u_saved) ? NothingIterator() :
                      eachslice(u_saved, dims = ndims(u_saved))
     propagate!(u, p.p_bpm_half)
     for (dn, u_saved) in zip(@view(dn_slices[1:(end - 1)]), u_saved_slices)
@@ -260,24 +261,25 @@ function propagate!(u::ScalarField, p::BPM; u_saved = nothing)
 end
 
 function propagate_and_save!(u::ScalarField,
-                             p::BPM{Trainable{Buffered}})
-    propagate!(u, p; u_saved = p.u)
-end
-
-function propagate_and_save!(u::ScalarField,
                              u_saved::AbstractArray,
-                             p::BPM{Trainable{Unbuffered}})
+                             p::BPM{<:Trainable})
     propagate!(u, p; u_saved)
 end
 
-function compute_dn_gradient!(∂dn::AbstractArray{T, Nd},
-                              u_saved,
-                              ∂u::ScalarField,
-                              kdz) where {T <: Real, Nd}
-    sdims = (Nd + 1):ndims(∂u)
+@kernel function dn_gradient_kernel!(∂dn, ∂u, u, lambdas, kdz)
+    I = @index(Global, Cartesian)
+    acc = zero(eltype(∂dn))
+    for J in CartesianIndices(axes(∂u)[(ndims(∂dn)+1):end])
+        acc += kdz[J] / lambdas[J] * imag(∂u[I, J] * conj(u[I, J]))
+    end
+    ∂dn[I] = acc
+end
+
+function compute_dn_gradient!(∂dn, u_saved, ∂u, kdz)
     lambdas = get_lambdas(∂u)
-    g = @. kdz/lambdas*imag(∂u.electric*conj(u_saved))
-    copyto!(∂dn, sum(g; dims = sdims))
+    backend = get_backend(∂dn)
+    dn_gradient_kernel!(backend)(∂dn, ∂u.electric, u_saved, lambdas, kdz,
+                                 ndrange=size(∂dn))
 end
 
 compute_dn_gradient!(::Nothing, ::Nothing, ∂u, kdz) = nothing
@@ -289,8 +291,8 @@ function backpropagate!(u::ScalarField,
     Nv = ndims(p.dn)
     n_slices = size(p.dn, Nv)
     dn_slices = eachslice(p.dn, dims = Nv)
-    ∂dn_slices = isnothing(∂p) ? Iterators.cycle(nothing) : eachslice(∂p.dn, dims = Nv)
-    u_saved_slices = isnothing(u_saved) ? Iterators.cycle(nothing) :
+    ∂dn_slices = isnothing(∂p) ? NothingIterator() : eachslice(∂p.dn, dims = Nv)
+    u_saved_slices = isnothing(u_saved) ? NothingIterator() :
                      eachslice(u_saved, dims = ndims(u_saved))
     backpropagate!(u, p.p_bpm_half)
     for (dn, ∂dn, u_saved) in zip(@view(dn_slices[end:-1:2]),

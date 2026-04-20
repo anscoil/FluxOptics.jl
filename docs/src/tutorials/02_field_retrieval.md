@@ -35,9 +35,10 @@ z2 = 15000.0
 w0 = 50.0
 m, n = 2, 3
 
-u0_th = LaguerreGaussian(w0, m, n; kind = :odd)(x_vec, y_vec)
-u1_th = LaguerreGaussian(w0, m, n, λ, z1; kind = :odd)(x_vec, y_vec)
-u2_th = LaguerreGaussian(w0, m, n, λ, z2; kind = :odd)(x_vec, y_vec)
+u0_th = ScalarField(LaguerreGaussian(w0, m, n; kind = :odd)(x_vec, y_vec), ds, λ)
+u1_th = ScalarField(LaguerreGaussian(w0, m, n, λ, z1; kind = :odd)(x_vec, y_vec), ds, λ)
+u2_th = ScalarField(LaguerreGaussian(w0, m, n, λ, z2; kind = :odd)(x_vec, y_vec), ds, λ)
+
 
 visualize(((u0_th, u1_th, u2_th),), intensity; colormap=:inferno, height=120)
 ````
@@ -50,8 +51,8 @@ In a real experiment, we would measure only the intensity at two planes.
 Here we simulate these measurements from our known ground truth.
 
 ````julia
-I1 = abs.(u1_th) .^ 2
-I2 = abs.(u2_th) .^ 2
+I1 = intensity(u1_th)
+I2 = intensity(u2_th)
 
 @assert isapprox(sum(I1)*prod(ds), 1; atol = 1e-7)  # Power normalized to unity
 @assert isapprox(sum(I2)*prod(ds), 1; atol = 1e-7)  # Power normalized to unity
@@ -127,7 +128,7 @@ opt = setup(Fista(1), system)
 fill!(s, u0)
 losses = Float64[]
 
-for i in 1:1000
+for i in 1:1500
     val, grads = Zygote.withgradient(f_opt, system)
     FluxOptics.update!(opt, system, grads[1])
     normalize_power!(get_source(s), 1)  # Power normalization to avoid divergence
@@ -165,9 +166,9 @@ excellent reconstruction.
 
 | Plane | Coupling Efficiency |
 |-------|---------------------|
-| z = 0 | 99.995% |
-| z₁ = 5 mm | 99.995% |
-| z₂ = 15 mm | 99.995% |
+| z = 0 | 99.996% |
+| z₁ = 5 mm | 99.996% |
+| z₂ = 15 mm | 99.996% |
 
 The reconstruction achieves >99.99% coupling efficiency, demonstrating accurate
 recovery of both amplitude and phase from intensity measurements alone.

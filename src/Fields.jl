@@ -345,12 +345,17 @@ Access elements of the electric field. Returns a view into the field data.
 Base.getindex(u::ScalarField, i...) = view(u.electric, i...)
 
 """
-    size(u::ScalarField) -> Tuple
+    size(u::ScalarField; spatial=false) -> Tuple
     size(u::ScalarField, k::Integer) -> Int
 
-Return the size of the electric field array.
+Return the size of the electric field array. If `spatial=true`, return only the
+spatial dimensions (first `Nd` dimensions).
 """
-Base.size(u::ScalarField) = size(u.electric)
+function Base.size(u::ScalarField{U, Nd}; spatial::Bool = false) where {U, Nd}
+    s = size(u.electric)
+    spatial ? s[1:Nd] : s
+end
+
 Base.size(u::ScalarField, k::Integer) = size(u.electric, k)
 
 """
