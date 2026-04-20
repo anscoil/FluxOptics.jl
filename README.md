@@ -191,3 +191,4 @@ Built on the Julia ecosystem:
 - [Zygote.jl](https://github.com/FluxML/Zygote.jl) / [ChainRulesCore.jl](https://github.com/JuliaDiff/ChainRulesCore.jl) for automatic differentiation
 - [Optimisers.jl](https://github.com/FluxML/Optimisers.jl) for optimization algorithms
 - [CUDA.jl](https://github.com/JuliaGPU/CUDA.jl) for GPU acceleration
+- [KernelAbstractions.jl](https://github.com/JuliaGPU/KernelAbstractions.jl) for portable CPU/GPU kernels
