@@ -15,8 +15,8 @@ accounting for the volumetric nature of the interface during propagation.
 # Arguments
 - `u::ScalarField`: Field template defining grid size, sampling and wavelength(s)
 - `ds::NTuple`: Custom spatial sampling (defaults to `u.ds`)
-- `thickness::Real`: Total thickness of the propagation volume (µm)
-- `dz::Real`: Longitudinal step size (µm)
+- `thickness::Real`: Total thickness of the propagation volume
+- `dz::Real`: Longitudinal step size
 - `n1::Real`: Refractive index of the input medium
 - `n2::Real`: Refractive index of the output medium
 - `f`: Interface height map, either a `Function` `(x, y) -> z` or an `AbstractArray`
@@ -58,7 +58,7 @@ prop_opt = FS_WPM(u, 10.0, 0.5, 1.5, 1.0; trainable=true, buffered=true)
 
 # Wrap with Fourier smoothing for stable optimization
 α = 1e-4
-biharmonic = (kx, ky) -> 1 / (1 + 2α * (kx^2 + ky^2)^2)
+biharmonic = (fx, fy) -> 1 / (1 + 2α * (fx^2 + fy^2)^2)
 wrapper = FourierSmoothingWrapper(prop_opt, (256, 256), (2.0, 2.0), biharmonic)
 ```
 
@@ -169,6 +169,30 @@ function smoothstep_derivative_partition(sz::T, ϵ::Real, z::Real) where {T <: R
     T(1/ϵ)*smoothstep_derivative((sz - T(z))/T(ϵ) + T(0.5))
 end
 
+"""
+    smoothstep_partition(p::FS_WPM; derivative=false)
+
+Evaluate the smoothstep partition function over the full propagation volume of `p`.
+
+Returns a `(spatial..., n_slices)` array representing the local fraction of medium
+`n1` at each point of the discretized volume. Values range from 1 (fully in `n1`,
+before the interface) to 0 (fully in `n2`, after the interface), with a smooth
+transition of width `nz * dz` centered on `S(x,y)`.
+
+If `derivative=true`, returns the derivative of the partition with respect to `z`,
+which is non-zero only within the transition region. Useful for visualizing where
+the interface is effectively located and how sharply it is resolved.
+
+# Examples
+```julia
+u = ScalarField(ones(ComplexF32, 256, 256), (2.0, 2.0), 1.55)
+p = FS_WPM(u, 10.0, 0.5, 1.5, 1.0; nz=4)
+V = smoothstep_partition(p)        # (256, 256, n_slices)
+Vd = smoothstep_partition(p; derivative=true)  # transition region
+```
+
+See also: [`FS_WPM`](@ref)
+"""
 function smoothstep_partition(p::FS_WPM; derivative::Bool = false)
     V = similar(p.S, (size(p.S)..., p.n_slices))
     zv, = spatial_vectors(p.n_slices, p.dz)

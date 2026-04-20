@@ -10,11 +10,11 @@ is evaluated once at construction time and applied in-place at each forward pass
 
 # Arguments
 - `component`: Trainable component to wrap (e.g. `FS_WPM`, `Phase`, etc.)
-- `ns`: Spatial dimensions of the trainable data, e.g. `(256, 256)`
-- `ds`: Spatial sampling intervals, e.g. `(2.0, 2.0)` in µm
-- `f`: Filter function in Fourier space, taking frequency coordinates as arguments.
-  For a 2D filter: `f(kx, ky) -> value`. Evaluated on the physical frequency grid
-  defined by `ns` and `ds`.
+- `ns`: Spatial dimensions of the trainable data
+- `ds`: Spatial sampling intervals
+- `f`: Filter function in Fourier space. For a 2D filter, signature is `f(fx, fy)`
+  where `fx`, `fy` are spatial frequencies in cycles per unit of length.
+  Evaluated on the physical frequency grid defined by `ns` and `ds`.
 
 # Use Case
 Pixel-wise optimization of surface height maps or phase masks can be unstable,
@@ -28,18 +28,14 @@ u = ScalarField(ones(ComplexF32, 256, 256), (2.0, 2.0), 1.55)
 surface = FS_WPM(u, 10.0, 0.5, 1.0, 1.5; trainable=true, buffered=true)
 
 # Biharmonic smoothing filter — suppresses high spatial frequencies
-α = 1e-4  # in µm⁴
-biharmonic = (kx, ky) -> 1 / (1 + 2α * (kx^2 + ky^2)^2)
+α = 1e-4
+biharmonic = (fx, fy) -> 1 / (1 + 2α * (fx^2 + fy^2)^2)
 wrapper = FourierSmoothingWrapper(surface, (256, 256), (2.0, 2.0), biharmonic)
 
-# Gaussian smoothing filter with σ = 0.1 µm⁻¹ in frequency space
-gaussian = (kx, ky) -> exp(-(kx^2 + ky^2) / (2 * 0.1^2))
+# Gaussian smoothing filter
+gaussian = (fx, fy) -> exp(-(fx^2 + fy^2) / (2 * 0.1^2))
 wrapper = FourierSmoothingWrapper(surface, (256, 256), (2.0, 2.0), gaussian)
 ```
-
-**Note:** The filter function operates on physical frequencies (cycles/µm), not
-normalized frequencies. The `1/prod(ns)` normalization factor is baked into the
-stored filter to avoid an extra scaling pass at runtime.
 
 See also: [`BasisProjectionWrapper`](@ref), [`FS_WPM`](@ref)
 """
