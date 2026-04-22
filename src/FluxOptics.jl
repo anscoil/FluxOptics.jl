@@ -84,7 +84,7 @@ export ScalarSource, get_source, Phase, Mask, FourierMask, FourierPhase
 export TeaDOE, TeaReflector
 export FieldProbe
 export BasisProjectionWrapper, make_spatial_basis, make_fourier_basis
-export FourierSmoothingWrapper
+export FourierSmoothingWrapper, DensityWrapper, set_sharpness!
 export GainSheet
 export AbstractSequence, OpticalSequence, FourierOperator, FourierWrapper, get_sequence
 export OpticalSystem, get_source, get_components

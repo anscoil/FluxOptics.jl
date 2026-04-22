@@ -810,6 +810,9 @@ export BasisProjectionWrapper, make_spatial_basis, make_fourier_basis
 include("utilities/fourier_smoothing_wrapper.jl")
 export FourierSmoothingWrapper
 
+include("utilities/density_wrapper.jl")
+export DensityWrapper, set_sharpness!
+
 include("active_media/active_media.jl")
 export GainSheet
 

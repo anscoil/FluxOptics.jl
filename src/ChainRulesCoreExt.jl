@@ -10,7 +10,7 @@ using ..OpticalComponents: alloc_gradient, alloc_saved_buffer
 using ..OpticalComponents: backpropagate!, backpropagate
 using ..OpticalComponents: propagate_and_save, backpropagate_with_gradient
 using ..OpticalComponents: propagate_and_save!, backpropagate_with_gradient!
-using ..OpticalComponents: set_basis_projection!, apply_smoothing!
+using ..OpticalComponents: set_basis_projection!, apply_smoothing!, apply_projection!
 
 using ChainRulesCore
 using Functors: fleaves
@@ -244,7 +244,6 @@ function ChainRulesCore.rrule(::typeof(set_basis_projection!),
     function pullback(∂c)
         ∂mapped_data = filter(x -> !(x isa ChainRulesCore.ZeroTangent) &&
                                    !(x isa ChainRulesCore.NoTangent) &&
-                                   (x isa AbstractArray) &&
                                    (x isa AbstractArray),
                               fleaves(∂c))[1]
         if isbuffered(p)
@@ -266,7 +265,6 @@ function ChainRulesCore.rrule(::typeof(apply_smoothing!),
     function pullback(∂c)
         ∂mapped_data = filter(x -> !(x isa ChainRulesCore.ZeroTangent) &&
                                    !(x isa ChainRulesCore.NoTangent) &&
-                                   (x isa AbstractArray) &&
                                    (x isa AbstractArray),
                               fleaves(∂c))[1]
 
@@ -279,6 +277,27 @@ function ChainRulesCore.rrule(::typeof(apply_smoothing!),
         return (NoTangent(), Tangent{P}(; ∂p...))
     end
 
+    return wrapped_component, pullback
+end
+
+function ChainRulesCore.rrule(::typeof(apply_projection!),
+                              p::P) where {P <: DensityWrapper}
+    wrapped_component = apply_projection!(p)
+    
+    function pullback(∂c)
+        ∂mapped_data = filter(x -> !(x isa ChainRulesCore.ZeroTangent) &&
+                                   !(x isa ChainRulesCore.NoTangent) &&
+                                   (x isa AbstractArray),
+                              fleaves(∂c))[1]
+        ∂p = isbuffered(p) ? p.∂p : (; D = similar(p.D), h = similar(p.h))
+        σ_val = @. (p.mapped_data - p.offset) / p.h
+        @. ∂p.D = ∂mapped_data * σ_val
+        sum!(∂p.h, ∂p.D)
+        @. ∂p.D *= p.h * p.β[] * (1 - σ_val)
+        
+        return (NoTangent(), Tangent{P}(; ∂p...))
+    end
+    
     return wrapped_component, pullback
 end
 
