@@ -8,6 +8,7 @@ using ..OpticalComponents
 using ..OpticalComponents: get_preallocated_gradient, get_saved_buffer
 using ..OpticalComponents: alloc_gradient, alloc_saved_buffer
 using ..OpticalComponents: backpropagate!, backpropagate
+using ..OpticalComponents: data_symbol, auxiliary_trainable
 using ..OpticalComponents: propagate_and_save, backpropagate_with_gradient
 using ..OpticalComponents: propagate_and_save!, backpropagate_with_gradient!
 using ..OpticalComponents: set_basis_projection!, apply_smoothing!, apply_projection!
@@ -20,6 +21,12 @@ ACTB = AbstractCustomComponent{Trainable{Buffered}}
 ACTU = AbstractCustomComponent{Trainable{Unbuffered}}
 ASTB = AbstractCustomSource{Trainable{Buffered}}
 ASTU = AbstractCustomSource{Trainable{Unbuffered}}
+
+function auxiliary_tangent(p, ∂c)
+    inner = trainable(p)
+    skip = data_symbol(p)
+    NamedTuple(k => getproperty(∂c, k) for (k, _) in pairs(inner) if k !== skip)
+end
 
 function ChainRulesCore.rrule(::typeof(spatial_vectors),
                               ns::NTuple{Nd, Real},
@@ -242,17 +249,15 @@ function ChainRulesCore.rrule(::typeof(set_basis_projection!),
     wrapped_component = set_basis_projection!(p)
 
     function pullback(∂c)
-        ∂mapped_data = filter(x -> !(x isa ChainRulesCore.ZeroTangent) &&
-                                   !(x isa ChainRulesCore.NoTangent) &&
-                                   (x isa AbstractArray),
-                              fleaves(∂c))[1]
+        ∂mapped_data = getproperty(∂c, data_symbol(wrapped_component))
+        aux_data = auxiliary_tangent(wrapped_component, ∂c)
         if isbuffered(p)
             ∂p = p.∂p
             mul!(∂p.proj_coeffs, p.basis', reshape(∂mapped_data, :))
         else
             ∂p = (; proj_coeffs = p.basis' * reshape(∂mapped_data, :))
         end
-        return (NoTangent(), Tangent{P}(; ∂p...))
+        return (NoTangent(), Tangent{P}(; ∂p..., aux_data))
     end
 
     return wrapped_component, pullback
@@ -263,18 +268,15 @@ function ChainRulesCore.rrule(::typeof(apply_smoothing!),
     wrapped_component = apply_smoothing!(p)
 
     function pullback(∂c)
-        ∂mapped_data = filter(x -> !(x isa ChainRulesCore.ZeroTangent) &&
-                                   !(x isa ChainRulesCore.NoTangent) &&
-                                   (x isa AbstractArray),
-                              fleaves(∂c))[1]
-
+        ∂mapped_data = getproperty(∂c, data_symbol(wrapped_component))
+        aux_data = auxiliary_tangent(wrapped_component, ∂c)
         ∂p = isbuffered(p) ? p.∂p : (; buffer = similar(p.buffer))
         copyto!(∂p.buffer, ∂mapped_data)
         p.p_f.ft * ∂p.buffer
         ∂p.buffer .*= conj(p.filter)
         p.p_f.ift * ∂p.buffer
         
-        return (NoTangent(), Tangent{P}(; ∂p...))
+        return (NoTangent(), Tangent{P}(; ∂p..., aux_data))
     end
 
     return wrapped_component, pullback
@@ -285,17 +287,15 @@ function ChainRulesCore.rrule(::typeof(apply_projection!),
     wrapped_component = apply_projection!(p)
     
     function pullback(∂c)
-        ∂mapped_data = filter(x -> !(x isa ChainRulesCore.ZeroTangent) &&
-                                   !(x isa ChainRulesCore.NoTangent) &&
-                                   (x isa AbstractArray),
-                              fleaves(∂c))[1]
+        ∂mapped_data = getproperty(∂c, data_symbol(wrapped_component))
+        aux_data = auxiliary_tangent(wrapped_component, ∂c)
         ∂p = isbuffered(p) ? p.∂p : (; D = similar(p.D), h = similar(p.h))
         σ_val = @. (p.mapped_data - p.offset) / p.h
         @. ∂p.D = ∂mapped_data * σ_val
         sum!(∂p.h, ∂p.D)
         @. ∂p.D *= p.h * p.β[] * (1 - σ_val)
         
-        return (NoTangent(), Tangent{P}(; ∂p...))
+        return (NoTangent(), Tangent{P}(; ∂p..., aux_data))
     end
     
     return wrapped_component, pullback

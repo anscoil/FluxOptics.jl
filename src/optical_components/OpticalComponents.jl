@@ -251,6 +251,10 @@ See also: [`istrainable`](@ref), [`Buffered`](@ref), [`Unbuffered`](@ref)
 isbuffered(p::AbstractOpticalComponent) = false
 isbuffered(p::AbstractOpticalComponent{Trainable{Buffered}}) = true
 
+function data_symbol(p::AbstractOpticalComponent)
+    error("Not implemented")
+end
+
 """
     get_data(component::AbstractOpticalComponent)
 
@@ -271,7 +275,13 @@ phase = Phase(u, (x, y) -> x^2; trainable=true)
 ```
 """
 function get_data(p::AbstractOpticalComponent)
-    error("Not implemented")
+    getproperty(p, data_symbol(p))
+end
+
+function auxiliary_trainable(p::AbstractOpticalComponent)
+    inner = trainable(p)
+    skip = data_symbol(p)
+    NamedTuple(k => v for (k, v) in pairs(inner) if k !== skip)
 end
 
 """

@@ -39,9 +39,10 @@ wrapper = FourierSmoothingWrapper(surface, (256, 256), (2.0, 2.0), gaussian)
 
 See also: [`BasisProjectionWrapper`](@ref), [`FS_WPM`](@ref)
 """
-struct FourierSmoothingWrapper{M, C, D, B, F, P} <: AbstractPureComponent{M}
+struct FourierSmoothingWrapper{M, C, D, AD, B, F, P} <: AbstractPureComponent{M}
     wrapped_component::C
     mapped_data::D
+    aux_data::AD
     buffer::B
     filter::F
     p_f::P
@@ -49,20 +50,20 @@ struct FourierSmoothingWrapper{M, C, D, B, F, P} <: AbstractPureComponent{M}
     
     function FourierSmoothingWrapper(wrapped_component::C,
                                      mapped_data::D,
+                                     aux_data::AD,
                                      buffer::B,
                                      filter::F,
                                      p_f::P,
-                                     ∂p::Union{Nothing, @NamedTuple{buffer::B}}) where {C, D, B, F, P}
+                                     ∂p::Union{Nothing, @NamedTuple{buffer::B}}) where {C, D, AD, B, F, P}
         M = isnothing(∂p) ? Trainable{Unbuffered} : Trainable{Buffered}
-        new{M, C, D, B, F, P}(wrapped_component, mapped_data, buffer, filter, p_f, ∂p)
+        new{M, C, D, AD, B, F, P}(wrapped_component, mapped_data, aux_data, buffer, filter, p_f, ∂p)
     end
 
     function FourierSmoothingWrapper(wrapped_component::C,
                                      ns::NTuple{Nd, Integer},
                                      ds::NTuple{Nd, Real},
                                      f::Function) where {M <: Trainability,
-                                                         C <: AbstractPipeComponent{M},
-                                                         Nd}
+                                                         C <: AbstractPipeComponent{M}, Nd}
         mapped_data = get_data(wrapped_component)
         @assert size(mapped_data)[1:Nd] == ns "Spatial dimensions $(size(data)[1:Nd]) don't match ns=$ns"
         D = typeof(mapped_data)
@@ -73,16 +74,20 @@ struct FourierSmoothingWrapper{M, C, D, B, F, P} <: AbstractPureComponent{M}
         B = typeof(buffer)
         p_f = make_fft_plans(buffer, Tuple(1:Nd); normalize=false)
         P = typeof(p_f)
+        aux_data = auxiliary_trainable(wrapped_component)
+        AD = typeof(aux_data)
         ∂p = M == Trainable{Buffered} ? (; buffer = similar(buffer)) : nothing
-        new{M, C, D, B, F, P}(wrapped_component, mapped_data, buffer, filter, p_f, ∂p)
+        new{M, C, D, AD, B, F, P}(wrapped_component, mapped_data, aux_data, buffer, filter, p_f, ∂p)
     end
 end
 
-Functors.@functor FourierSmoothingWrapper (buffer,)
+Functors.@functor FourierSmoothingWrapper (buffer, aux_data)
 
-get_data(p::FourierSmoothingWrapper) = p.buffer
+data_symbol(p::FourierSmoothingWrapper) = :buffer
 
-trainable(p::FourierSmoothingWrapper{<:Trainable}) = (; buffer = p.buffer)
+function trainable(p::FourierSmoothingWrapper{<:Trainable})
+    (; buffer = p.buffer, aux_data = p.aux_data)
+end
 
 function apply_smoothing!(p::FourierSmoothingWrapper)
     p.p_f.ft * p.buffer
