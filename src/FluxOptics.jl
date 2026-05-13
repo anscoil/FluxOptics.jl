@@ -37,12 +37,13 @@ function Base.similar(A::Type{<: AbstractArray}, f::Function, ndims::Integer)
     A.name.wrapper{f(A.parameters[1]), ndims, A.parameters[3:end]...}
 end
 
-include("Fields.jl")
+include("fields/Fields.jl")
 using .Fields
-export ScalarField
+export ScalarField, HelmholtzField
 export set_field_data, set_field_tilts, offset_tilts!, is_on_axis
 export dot, power, normalize_power!, coupling_efficiency, intensity, phase
 export orthonormalize, unitary_transform, spatial_moments, spatial_centroids, spatial_variance
+export forward_field, backward_field, split_field, poynting_flux
 
 include("metrics/Metrics.jl")
 using .Metrics
