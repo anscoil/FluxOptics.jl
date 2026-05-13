@@ -78,7 +78,7 @@ end
 
 Functors.@functor Mask (m,)
 
-get_data(p::Mask) = p.m
+data_symbol(p::Mask) = :m
 
 trainable(p::Mask{<:Trainable}) = (; m = p.m)
 

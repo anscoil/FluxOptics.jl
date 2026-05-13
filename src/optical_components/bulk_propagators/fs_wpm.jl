@@ -129,7 +129,7 @@ end
 
 Functors.@functor FS_WPM (S,)
 
-get_data(p::FS_WPM) = p.S
+data_symbol(p::FS_WPM) = :S
 
 trainable(p::FS_WPM{<:Trainable}) = (; S = p.S)
 
