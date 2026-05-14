@@ -1,4 +1,4 @@
-struct HelmholtzField{U, L}
+struct HelmholtzField{U, L} <: AbstractField{U, 2}
     electric:: U
     electric_dz:: U
     ds:: NTuple{2, Float64}
@@ -25,16 +25,19 @@ function HelmholtzField(nd::NTuple{N, Integer},
     HelmholtzField(electric, electric_dz, ds, lambdas)
 end
 
-function compute_kz(kx::Real, ky::Real, λ::T, n0::Real = 1.0) where {T <: Real}
+function compute_kz(fx::Real, fy::Real, λ::T, n0::Real = 1.0) where {T <: Real}
     k0 = 2π / λ
+    kx = 2π * fx
+    ky = 2π * fy
     Complex{T}(sqrt(Complex((k0 * n0)^2 - kx^2 - ky^2)))
 end
 
-function compute_kz(u::HelmholtzField, n0::Real = 1.0)
+function compute_kz(u::HelmholtzField{U}, n0::Real = 1.0) where {U}
     ns = size(u.electric)[1:2]
-    kx = 2π .* fftfreq(ns[1], 1/u.ds[1])
-    ky = 2π .* fftfreq(ns[2], 1/u.ds[2])
-    compute.(kx, ky', u.lambdas.val, n0)
+    K = similar(U, real, 1)
+    fx = fftfreq(ns[1], 1/u.ds[1]) |> K
+    fy = fftfreq(ns[2], 1/u.ds[2]) |> K
+    compute_kz.(fx, fy', u.lambdas.val, n0)
 end
 
 function HelmholtzField(u::U,
@@ -46,9 +49,10 @@ function HelmholtzField(u::U,
     @assert N >= 2
     lambdas = parse_lambdas(u, lambdas, 2)
     ns = size(u)[1:2]
-    kx = 2π .* fftfreq(ns[1], 1/ds[1])
-    ky = 2π .* fftfreq(ns[2], 1/ds[2])
-    kz = compute_kz.(kx, ky', lambdas.val, n0)
+    K = similar(U, real, 1)
+    fx = fftfreq(ns[1], 1/ds[1]) |> K
+    fy = fftfreq(ns[2], 1/ds[2]) |> K
+    kz = compute_kz.(fx, fy', lambdas.val, n0)
     E_f = fft(u, (1, 2))
     sgn = forward ? 1 : -1
     @. E_f *= sgn * im * kz
@@ -64,7 +68,7 @@ function forward_field(u::HelmholtzField; n0::Real = 1.0)
     kz = compute_kz(u, n0)
     E_f = fft(u.electric, (1, 2))
     dEdz_f = fft(u.electric_dz, (1, 2))
-    Eplus = ifft(@. (E_f + dEdz_f / (im * kz)) / 2, (1, 2))
+    Eplus = ifft((@. (E_f + dEdz_f / (im * kz)) / 2), (1, 2))
     ScalarField(Eplus, u.ds, u.lambdas.collection)
 end
 
@@ -72,7 +76,7 @@ function backward_field(u::HelmholtzField; n0::Real = 1.0)
     kz = compute_kz(u, n0)
     E_f = fft(u.electric, (1, 2))
     dEdz_f = fft(u.electric_dz, (1, 2))
-    Eminus = ifft(@. (E_f - dEdz_f / (im * kz)) / 2, (1, 2))
+    Eminus = ifft((@. (E_f - dEdz_f / (im * kz)) / 2), (1, 2))
     ScalarField(Eminus, u.ds, u.lambdas.collection)
 end
 
@@ -85,6 +89,10 @@ end
 get_lambdas(u::HelmholtzField) = u.lambdas.val
 
 get_lambdas_collection(u::HelmholtzField) = u.lambdas.collection
+
+function Base.ndims(u::HelmholtzField, spatial::Bool = false)
+    spatial ? 2 : ndims(u.electric)
+end
 
 Base.size(u::HelmholtzField) = size(u.electric)
 
@@ -119,9 +127,9 @@ function power(u::HelmholtzField; n0::Real = 1.0)
     Eplus_f = @. (E_f + dEdz_f / (im * kz)) / 2
     Eminus_f = @. (E_f - dEdz_f / (im * kz)) / 2
     T = real(eltype(u.electric))
-    norm = T(prod(u.ds) / (nx * ny))
-    Pplus = sum(real.(kz) .* abs2.(Eplus_f);  dims = (1, 2)) .* norm
-    Pminus = sum(real.(kz) .* abs2.(Eminus_f); dims = (1, 2)) .* norm
+    nrm = T(prod(u.ds) / (nx * ny))
+    Pplus = sum(real.(kz) .* abs2.(Eplus_f);  dims = (1, 2)) .* nrm
+    Pminus = sum(real.(kz) .* abs2.(Eminus_f); dims = (1, 2)) .* nrm
     (Pplus, Pminus)
 end
 

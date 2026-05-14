@@ -76,7 +76,7 @@ julia> v = ScalarField(data, (1.0, 1.0), 1.064; tilts=([0.01, 0.02, 0.03], 0));
 
 See also: [`set_field_data`](@ref), [`power`](@ref), [`normalize_power!`](@ref)
 """
-struct ScalarField{U, Nd, L, A}
+struct ScalarField{U, Nd, L, A} <: AbstractField{U, Nd}
     electric::U
     ds::MVector{Nd, Float64}
     lambdas::L

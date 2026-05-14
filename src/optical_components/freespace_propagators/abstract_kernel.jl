@@ -39,25 +39,16 @@ end
 function apply_kernel!(u::AbstractArray,
                        kernel::AbstractKernel{K},
                        kernel_key::UInt,
-                       direction::Type{<:Direction}) where {K <: AbstractArray}
-    kernel_cache = get_kernel_cache(kernel)
-    kernel_val = kernel_cache[kernel_key]
-    @. u *= conj_direction(kernel_val, direction)
-end
-
-function apply_kernel!(u::AbstractArray,
-                       kernel::AbstractKernel{K},
-                       kernel_key::UInt,
                        compute_kernel::F,
                        kernel_args::A,
                        direction::Type{<:Direction}) where {K <: AbstractArray, F, A}
     kernel_cache = get_kernel_cache(kernel)
     if haskey(kernel_cache, kernel_key)
-        apply_kernel!(u, kernel, kernel_key, direction)
+        kernel_val = kernel_cache[kernel_key]
     else
         kernel_val = fill_kernel_cache(kernel, kernel_key, compute_kernel, kernel_args)
-        @. u *= conj_direction(kernel_val, direction)
     end
+    @. u *= conj_direction(kernel_val, direction)
     u
 end
 

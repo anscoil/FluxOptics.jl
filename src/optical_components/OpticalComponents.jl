@@ -10,6 +10,7 @@ using LRUCache
 using ..FluxOptics: isbroadcastable, bzip, NothingIterator
 using ..GridUtils
 using ..Fields
+using ..Fields: compute_kz
 using ..FFTutils
 
 export Direction, Forward, Backward
@@ -809,6 +810,7 @@ include("freespace_propagators/freespace.jl")
 export ASProp, ASPropZ, ShiftProp
 export RSProp, CollinsProp, FourierLens, ParaxialProp
 export as_rotation!, as_rotation, field_rotation_matrix
+export HelmholtzProp
 
 include("bulk_propagators/bulk_propagators.jl")
 export BPM, AS_BPM, TiltedAS_BPM, Shift_BPM

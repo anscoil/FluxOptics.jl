@@ -78,6 +78,7 @@ export AbstractPureComponent, AbstractPureSource
 export pad, crop, PadCropOperator
 export TiltAnchor, ASProp, ASPropZ, ShiftProp
 export RSProp, CollinsProp, FourierLens, ParaxialProp
+export HelmholtzProp
 export as_rotation!, as_rotation, field_rotation_matrix
 export AS_BPM, Shift_BPM
 export FS_WPM, smoothstep_partition

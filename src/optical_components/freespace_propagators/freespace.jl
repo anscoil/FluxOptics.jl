@@ -68,3 +68,5 @@ include("rayleigh_sommerfeld.jl")
 include("collins_integral.jl")
 include("fourier_lens.jl")
 include("paraxial_propagation.jl")
+
+include("helmholtz.jl")
