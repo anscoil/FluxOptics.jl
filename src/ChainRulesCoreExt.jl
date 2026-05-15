@@ -13,6 +13,8 @@ using ..OpticalComponents: propagate_and_save, backpropagate_with_gradient
 using ..OpticalComponents: propagate_and_save!, backpropagate_with_gradient!
 using ..OpticalComponents: set_basis_projection!, apply_smoothing!, apply_projection!
 
+using AbstractFFTs
+
 using ChainRulesCore
 using Functors: fleaves
 using LinearAlgebra
@@ -180,10 +182,10 @@ function materialize(x::Base.ReshapedArray{T, N, <:Adjoint{T, <:AbstractArray}})
     reshape(adj_materialized, size(x))
 end
 
-materialize(x) = x
+materialize(x) = unthunk(x)
 
 function ChainRulesCore.ProjectTo(u::ScalarField{U}) where {U}
-    function pullback(∂y)
+    function (∂y)
         ∂y = unthunk(∂y)
         if ∂y.electric isa NoTangent
             NoTangent()
@@ -191,7 +193,42 @@ function ChainRulesCore.ProjectTo(u::ScalarField{U}) where {U}
             ScalarField(materialize(∂y.electric), u.ds, u.lambdas, u.tilts)
         end
     end
-    pullback
+end
+
+function ChainRulesCore.ProjectTo(u::HelmholtzField{U}) where {U}
+    function (∂y)
+        ∂y = unthunk(∂y)
+        if ∂y.electric isa NoTangent && ∂y.electric_dz isa NoTangent
+            NoTangent()
+        else
+            electric = ∂y.electric isa AbstractZero ? zero(∂y.electric_dz) : unthunk(∂y.electric)
+            electric_dz = ∂y.electric_dz isa AbstractZero ? zero(∂y.electric) : unthunk(∂y.electric_dz)
+            HelmholtzField(electric, electric_dz, u.ds, u.lambdas)
+        end
+    end
+end
+
+function ChainRulesCore.rrule(::typeof(split_field), u::HelmholtzField; n0::Real = 1.0)
+    kz = compute_kz(u, n0)
+    dEdz_f = fft(u.electric_dz, (1, 2))
+    @. dEdz_f /= (im * kz)
+    Eplus = ifft!(dEdz_f, (1, 2))
+    @. Eplus = (u.electric + Eplus) / 2
+    u_fwd = ScalarField(Eplus, u.ds, u.lambdas.collection)
+    u_bwd = set_field_data(u_fwd, u.electric .- Eplus)
+    
+    function pullback(∂y)
+        ∂u_fwd, ∂u_bwd = ∂y
+        ∂E_fwd = ∂u_fwd isa AbstractZero ? zero(u.electric) : unthunk(∂u_fwd.electric)
+        ∂E_bwd = ∂u_bwd isa AbstractZero ? zero(u.electric) : unthunk(∂u_bwd.electric)
+        ∂electric = @. (∂E_fwd + ∂E_bwd) / 2
+        ∂diff_f = fft(∂E_bwd .- ∂E_fwd, (1, 2))
+        @. ∂diff_f /= 2 * im * kz
+        ∂electric_dz = ifft!(∂diff_f, (1, 2))
+        ∂u = Tangent{HelmholtzField}(; electric = ∂electric, electric_dz = ∂electric_dz)
+        return (NoTangent(), ∂u)
+    end
+    return (u_fwd, u_bwd), pullback
 end
 
 function ChainRulesCore.rrule(::typeof(compute_ft!), p_f, u)

@@ -12,6 +12,10 @@ function CUDA.cu(u::ScalarField)
     set_field_data(u, cu(u.electric))
 end
 
+function CUDA.cu(u::HelmholtzField)
+    set_field_data(u, cu(u.electric), cu(u.electric_dz))
+end
+
 function Base.unique(x::CuArray)
     unique(Array(x))
 end

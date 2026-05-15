@@ -10,7 +10,6 @@ using LRUCache
 using ..FluxOptics: isbroadcastable, bzip, NothingIterator
 using ..GridUtils
 using ..Fields
-using ..Fields: compute_kz
 using ..FFTutils
 
 export Direction, Forward, Backward
@@ -780,7 +779,8 @@ function conj_direction(mask, ::Type{Backward})
 end
 
 include("sources/scalar_source.jl")
-export ScalarSource, get_source
+include("sources/helmholtz_source.jl")
+export ScalarSource, HelmholtzSource, get_source
 
 include("modulators/phasemask.jl")
 export Phase

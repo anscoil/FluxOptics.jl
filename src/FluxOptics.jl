@@ -37,13 +37,16 @@ function Base.similar(A::Type{<: AbstractArray}, f::Function, ndims::Integer)
     A.name.wrapper{f(A.parameters[1]), ndims, A.parameters[3:end]...}
 end
 
+Base.similar(t::Tuple{}) = ()
+Base.similar(t::NamedTuple{}) = (;)
+
 include("fields/Fields.jl")
 using .Fields
 export ScalarField, HelmholtzField
 export set_field_data, set_field_tilts, offset_tilts!, is_on_axis
 export dot, power, normalize_power!, coupling_efficiency, intensity, phase
 export orthonormalize, unitary_transform, spatial_moments, spatial_centroids, spatial_variance
-export forward_field, backward_field, split_field, poynting_flux
+export split_field, poynting_flux
 
 include("metrics/Metrics.jl")
 using .Metrics
@@ -82,7 +85,8 @@ export HelmholtzProp
 export as_rotation!, as_rotation, field_rotation_matrix
 export AS_BPM, Shift_BPM
 export FS_WPM, smoothstep_partition
-export ScalarSource, get_source, Phase, Mask, FourierMask, FourierPhase
+export ScalarSource, HelmholtzSource, get_source
+export Phase, Mask, FourierMask, FourierPhase
 export TeaDOE, TeaReflector
 export FieldProbe
 export BasisProjectionWrapper, make_spatial_basis, make_fourier_basis

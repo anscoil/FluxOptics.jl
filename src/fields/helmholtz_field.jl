@@ -1,8 +1,8 @@
-struct HelmholtzField{U, L} <: AbstractField{U, 2}
+struct HelmholtzField{U, Lv, Lc} <: AbstractField{U, 2}
     electric:: U
     electric_dz:: U
     ds:: NTuple{2, Float64}
-    lambdas:: L
+    lambdas:: @NamedTuple{val::Lv, collection::Lc}
 end
 
 Functors.@functor HelmholtzField (electric, electric_dz)
@@ -64,20 +64,36 @@ function HelmholtzField(u::ScalarField; n0::Real = 1.0, forward::Bool = true)
     HelmholtzField(u.electric, Tuple(u.ds), u.lambdas.collection; n0, forward)
 end
 
+function HelmholtzField(u_fwd::ScalarField{U, 2},
+                        u_bwd::ScalarField{U, 2};
+                        n0::Real = 1.0) where {U}
+    ns = size(u_fwd.electric)[1:2]
+    ds = u_fwd.ds
+    lambdas = u_fwd.lambdas
+    K = similar(U, real, 1)
+    fx = fftfreq(ns[1], 1/ds[1]) |> K
+    fy = fftfreq(ns[2], 1/ds[2]) |> K
+    kz = compute_kz.(fx, fy', lambdas.val, n0)
+    electric = u_fwd.electric .+ u_bwd.electric
+    electric_dz = u_fwd.electric .- u_bwd.electric
+    fft!(electric_dz, (1, 2))
+    @. electric_dz *= im * kz
+    ifft!(electric_dz, (1, 2))
+    HelmholtzField(electric, electric_dz, Tuple(ds), lambdas)
+end
+
 function forward_field(u::HelmholtzField; n0::Real = 1.0)
     kz = compute_kz(u, n0)
-    E_f = fft(u.electric, (1, 2))
     dEdz_f = fft(u.electric_dz, (1, 2))
-    Eplus = ifft((@. (E_f + dEdz_f / (im * kz)) / 2), (1, 2))
+    @. dEdz_f /= (im * kz)
+    Eplus = ifft!(dEdz_f, (1, 2))
+    @. Eplus = (u.electric + Eplus) / 2
     ScalarField(Eplus, u.ds, u.lambdas.collection)
 end
 
 function backward_field(u::HelmholtzField; n0::Real = 1.0)
-    kz = compute_kz(u, n0)
-    E_f = fft(u.electric, (1, 2))
-    dEdz_f = fft(u.electric_dz, (1, 2))
-    Eminus = ifft((@. (E_f - dEdz_f / (im * kz)) / 2), (1, 2))
-    ScalarField(Eminus, u.ds, u.lambdas.collection)
+    u_fwd = forward_field(u; n0)
+    set_field_data(u_fwd, u.electric .- u_fwd.electric)
 end
 
 function split_field(u::HelmholtzField; n0::Real = 1.0)
@@ -106,6 +122,12 @@ end
 
 function Base.similar(u::HelmholtzField)
     HelmholtzField(similar(u.electric), similar(u.electric_dz), u.ds, deepcopy(u.lambdas))
+end
+
+function Base.copyto!(u::HelmholtzField, v::HelmholtzField)
+    copyto!(u.electric, v.electric)
+    copyto!(u.electric_dz, v.electric_dz)
+    u
 end
 
 function set_field_data(u::HelmholtzField,
@@ -141,4 +163,8 @@ function normalize_power!(u::HelmholtzField, target_power = 1;
     u.electric .*= scale
     u.electric_dz .*= scale
     u
+end
+
+function +(u::HelmholtzField, v::HelmholtzField)
+    set_field_data(u, u.electric + v.electric, u.electric_dz + v.electric_dz)
 end
