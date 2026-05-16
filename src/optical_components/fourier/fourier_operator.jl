@@ -55,7 +55,7 @@ end
 
 get_data(p::FourierOperator) = ()
 
-function propagate!(u::ScalarField, p::FourierOperator)
+function propagate!(u::AbstractField, p::FourierOperator)
     if p.direct
         compute_ft!(p.p_f, u)
     else
@@ -63,34 +63,12 @@ function propagate!(u::ScalarField, p::FourierOperator)
     end
 end
 
-function backpropagate!(u::ScalarField, p::FourierOperator)
+function backpropagate!(u::AbstractField, p::FourierOperator)
     if p.direct
         compute_ift!(p.p_f, u)
     else
         compute_ft!(p.p_f, u)
     end
-end
-
-function propagate!(u::HelmholtzField, p::FourierOperator)
-    if p.direct
-        p.p_f.ft * u.electric
-        p.p_f.ft * u.electric_dz
-    else
-        p.p_f.ift * u.electric
-        p.p_f.ift * u.electric_dz
-    end
-    u
-end
-
-function backpropagate!(u::HelmholtzField, p::FourierOperator)
-    if p.direct
-        p.p_f.ift * u.electric
-        p.p_f.ift * u.electric_dz
-    else
-        p.p_f.ft * u.electric
-        p.p_f.ft * u.electric_dz
-    end
-    u
 end
 
 propagate(u, p::FourierOperator) = propagate!(copy(u), p)

@@ -1,4 +1,4 @@
-struct HelmholtzSource{M, Bf, Bb, H, Sf, Sb, P, T} <: AbstractCustomSource{M}
+struct HelmholtzSource{M, Bf, Bb, H, Sf, Sb, P, K, T} <: AbstractCustomSource{M}
     trainability::Val{M}
     trainable_forward::Val{Bf}
     trainable_backward::Val{Bb}
@@ -7,6 +7,7 @@ struct HelmholtzSource{M, Bf, Bb, H, Sf, Sb, P, T} <: AbstractCustomSource{M}
     u0_fwd::Sf
     u0_bwd::Sb
     ∂p::P
+    kz::K
     n0::T
 end
 
@@ -31,8 +32,9 @@ function HelmholtzSource(u::H;
           && trainable_backward && buffered) ? (; u0 = similar(u0)) : nothing
     ∂p = ((only_forward || only_backward)
           && buffered) ? (; u0_fwd = ∂u0_fwd, u0_bwd = ∂u0_bwd) : ∂p
+    kz = compute_kz(u, n0)
     HelmholtzSource(Val(M), Val(trainable_forward), Val(trainable_backward),
-                    u0, uf, u0_fwd, u0_bwd, ∂p, n0)
+                    u0, uf, u0_fwd, u0_bwd, ∂p, kz, n0)
 end
 
 Base.size(p::HelmholtzSource) = size(p.u0)
@@ -55,19 +57,28 @@ function propagate(p::HelmholtzSource{<:Trainable, true, true})
 end
 
 function propagate(p::HelmholtzSource{<:Trainable})
-    HelmholtzField(p.u0_fwd, p.u0_bwd; n0 = p.n0)
+    electric = p.u0_fwd.electric .+ p.u0_bwd.electric
+    electric_dz = p.u0_fwd.electric .- p.u0_bwd.electric
+    fft!(electric_dz, (1, 2))
+    @. electric_dz *= im * p.kz
+    ifft!(electric_dz, (1, 2))
+    ds = p.u0_fwd.ds
+    lambdas = p.u0_fwd.lambdas
+    HelmholtzField(electric, electric_dz, Tuple(ds), lambdas)
 end
 
 propagate_and_save(p::HelmholtzSource) = propagate(p)
 
 function backpropagate_with_gradient(∂v, ∂p::NamedTuple,
                                      p::HelmholtzSource{<:Trainable, Bf, Bb}) where {Bf, Bb}
-    ∂v_fwd, ∂v_bwd = split_field(∂v)
+    dEdz_f = fft(∂v.electric_dz, (1, 2))
+    @. dEdz_f *= conj(im * p.kz)
+    dEdz = ifft!(dEdz_f, (1, 2))
     if Bf
-        copyto!(∂p.u0_fwd, ∂v_fwd)
+        @. ∂p.u0_fwd.electric = ∂v.electric + dEdz
     end
     if Bb
-        copyto!(∂p.u0_bwd, ∂v_bwd)
+        @. ∂p.u0_bwd.electric = ∂v.electric - dEdz
     end
     ∂p
 end

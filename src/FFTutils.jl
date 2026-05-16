@@ -1,7 +1,7 @@
 module FFTutils
 
 using AbstractFFTs
-using ..Fields: ScalarField
+using ..Fields: ScalarField, HelmholtzField
 import FFTW
 
 export compute_ft!, compute_ift!, FFTPlans
@@ -26,6 +26,18 @@ end
 
 function compute_ift!(p_f::FFTPlans, u::ScalarField)
     p_f.ift * u.electric
+    u
+end
+
+function compute_ft!(p_f::FFTPlans, u::HelmholtzField)
+    p_f.ft * u.electric
+    p_f.ft * u.electric_dz
+    u
+end
+
+function compute_ift!(p_f::FFTPlans, u::HelmholtzField)
+    p_f.ift * u.electric
+    p_f.ift * u.electric_dz
     u
 end
 

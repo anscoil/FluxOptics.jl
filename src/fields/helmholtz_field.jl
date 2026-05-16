@@ -32,12 +32,22 @@ function compute_kz(fx::Real, fy::Real, λ::T, n0::Real = 1.0) where {T <: Real}
     Complex{T}(sqrt(Complex((k0 * n0)^2 - kx^2 - ky^2)))
 end
 
-function compute_kz(u::HelmholtzField{U}, n0::Real = 1.0) where {U}
-    ns = size(u.electric)[1:2]
+function compute_kz(u::U, ds::NTuple{2, Real}, lambdas, n0::Real = 1
+                    ) where {N, T, U <: AbstractArray{Complex{T}, N}}
+    @assert N >= 2
+    ns = size(u)[1:2]
     K = similar(U, real, 1)
-    fx = fftfreq(ns[1], 1/u.ds[1]) |> K
-    fy = fftfreq(ns[2], 1/u.ds[2]) |> K
-    compute_kz.(fx, fy', u.lambdas.val, n0)
+    fx = fftfreq(ns[1], 1/ds[1]) |> K
+    fy = fftfreq(ns[2], 1/ds[2]) |> K
+    compute_kz.(fx, fy', lambdas, n0)
+end
+
+function compute_kz(u::HelmholtzField{U}, n0::Real = 1.0) where {U}
+    compute_kz(u.electric, u.ds, u.lambdas.val, n0)
+end
+
+function compute_kz(u::ScalarField{U, 2}, n0::Real = 1.0) where {U}
+    compute_kz(u.electric, Tuple(u.ds), u.lambdas.val, n0)
 end
 
 function HelmholtzField(u::U,
@@ -48,11 +58,7 @@ function HelmholtzField(u::U,
                         ) where {N, T, U <: AbstractArray{Complex{T}, N}}
     @assert N >= 2
     lambdas = parse_lambdas(u, lambdas, 2)
-    ns = size(u)[1:2]
-    K = similar(U, real, 1)
-    fx = fftfreq(ns[1], 1/ds[1]) |> K
-    fy = fftfreq(ns[2], 1/ds[2]) |> K
-    kz = compute_kz.(fx, fy', lambdas.val, n0)
+    kz = compute_kz(u, ds, lambdas.val, n0)
     E_f = fft(u, (1, 2))
     sgn = forward ? 1 : -1
     @. E_f *= sgn * im * kz
@@ -67,18 +73,14 @@ end
 function HelmholtzField(u_fwd::ScalarField{U, 2},
                         u_bwd::ScalarField{U, 2};
                         n0::Real = 1.0) where {U}
-    ns = size(u_fwd.electric)[1:2]
-    ds = u_fwd.ds
     lambdas = u_fwd.lambdas
-    K = similar(U, real, 1)
-    fx = fftfreq(ns[1], 1/ds[1]) |> K
-    fy = fftfreq(ns[2], 1/ds[2]) |> K
-    kz = compute_kz.(fx, fy', lambdas.val, n0)
+    kz = compute_kz(u_fwd, n0)
     electric = u_fwd.electric .+ u_bwd.electric
     electric_dz = u_fwd.electric .- u_bwd.electric
     fft!(electric_dz, (1, 2))
     @. electric_dz *= im * kz
     ifft!(electric_dz, (1, 2))
+    ds = u_fwd.ds
     HelmholtzField(electric, electric_dz, Tuple(ds), lambdas)
 end
 

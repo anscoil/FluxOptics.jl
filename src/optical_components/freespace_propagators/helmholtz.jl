@@ -31,11 +31,14 @@ end
         kz_val = _kz_val(kz, I, J)
         E_val = electric[I, J]
         dE_val = electric_dz[I, J]
-        C = real(cos(kz_val * dz))
+        # C = real(cos(kz_val * dz))
+        C = cos(kz_val * dz)
         sin_kz_dz = sin(kz_val * dz)
-        Ss = iszero(kz_val) ? typeof(C)(dz) : real(sin_kz_dz / kz_val)
-        Ks = real(kz_val * sin_kz_dz)
-        a, b = adj ? (-Ks, Ss) : (Ss, -Ks)
+        # Ss = iszero(kz_val) ? typeof(C)(dz) : real(sin_kz_dz / kz_val)
+        # Ks = real(kz_val * sin_kz_dz)
+        Ss = iszero(kz_val) ? typeof(C)(dz) : sin_kz_dz / kz_val
+        Ks = kz_val * sin_kz_dz
+        a, b = adj ? (-Ks, Ss) : (conj(Ss), -conj(Ks))
         electric[I, J] = nrm_f * (C * E_val + a * dE_val)
         electric_dz[I, J] = nrm_f * (b * E_val + C * dE_val)
     end

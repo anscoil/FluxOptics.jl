@@ -222,8 +222,8 @@ function ChainRulesCore.rrule(::typeof(split_field), u::HelmholtzField; n0::Real
         ∂E_fwd = ∂u_fwd isa AbstractZero ? zero(u.electric) : unthunk(∂u_fwd.electric)
         ∂E_bwd = ∂u_bwd isa AbstractZero ? zero(u.electric) : unthunk(∂u_bwd.electric)
         ∂electric = @. (∂E_fwd + ∂E_bwd) / 2
-        ∂diff_f = fft(∂E_bwd .- ∂E_fwd, (1, 2))
-        @. ∂diff_f /= 2 * im * kz
+        ∂diff_f = fft(∂E_fwd .- ∂E_bwd, (1, 2))
+        @. ∂diff_f /= 2*conj(im * kz)
         ∂electric_dz = ifft!(∂diff_f, (1, 2))
         ∂u = Tangent{HelmholtzField}(; electric = ∂electric, electric_dz = ∂electric_dz)
         return (NoTangent(), ∂u)
