@@ -791,6 +791,9 @@ export Mask
 include("modulators/tea_doe.jl")
 export TeaDOE, TeaReflector
 
+include("modulators/helmholtz_index_slice.jl")
+export HelmholtzIndexSlice
+
 include("system/optical_sequence.jl")
 export AbstractSequence, OpticalSequence, get_sequence
 
@@ -815,6 +818,7 @@ export HelmholtzProp
 include("bulk_propagators/bulk_propagators.jl")
 export BPM, AS_BPM, TiltedAS_BPM, Shift_BPM
 export FS_WPM, smoothstep_partition
+export HelmholtzBPM
 
 include("utilities/basis_projection_wrapper.jl")
 export BasisProjectionWrapper, make_spatial_basis, make_fourier_basis

@@ -85,9 +85,11 @@ export HelmholtzProp
 export as_rotation!, as_rotation, field_rotation_matrix
 export AS_BPM, Shift_BPM
 export FS_WPM, smoothstep_partition
+export HelmholtzBPM
 export ScalarSource, HelmholtzSource, get_source
 export Phase, Mask, FourierMask, FourierPhase
 export TeaDOE, TeaReflector
+export HelmholtzIndexSlice
 export FieldProbe
 export BasisProjectionWrapper, make_spatial_basis, make_fourier_basis
 export FourierSmoothingWrapper, DensityWrapper, set_sharpness!, set_binarize!
