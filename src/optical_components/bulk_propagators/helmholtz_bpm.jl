@@ -1,4 +1,4 @@
-struct HelmholtzBPM{M, C} <: AbstractSequence{M}
+struct HelmholtzBPM{M, C} <: AbstractPureComponent{M}
     trainability::Val{M}
     optical_components :: C
 end
@@ -25,8 +25,17 @@ function HelmholtzBPM(u::HelmholtzField,
     end
     push!(components, p_half)
     M = trainability(trainable, buffered)
-    components_tuple = Tuple(components)
-    HelmholtzBPM(Val(M), components_tuple)
+    HelmholtzBPM(Val(M), components)
 end
 
-get_sequence(p::HelmholtzBPM) = p.optical_components
+function propagate!(u::HelmholtzField, p::HelmholtzBPM)
+    for pk in p.optical_components
+        u = propagate!(u, pk)
+    end
+    u
+end
+
+function propagate(u::HelmholtzField, p::HelmholtzBPM)
+    propagate!(copy(u), p)
+end
+

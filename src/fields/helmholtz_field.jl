@@ -29,7 +29,7 @@ function compute_kz(fx::Real, fy::Real, λ::T, n0::Real = 1.0) where {T <: Real}
     k0 = 2π / λ
     kx = 2π * fx
     ky = 2π * fy
-    Complex{T}(sqrt(Complex((k0 * n0)^2 - kx^2 - ky^2)))
+    Complex{T}(sqrt(complex((k0 * n0)^2 - kx^2 - ky^2)))
 end
 
 function compute_kz(u::U, ds::NTuple{2, Real}, lambdas, n0::Real = 1
