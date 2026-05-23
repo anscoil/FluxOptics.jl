@@ -85,7 +85,7 @@ export HelmholtzProp
 export as_rotation!, as_rotation, field_rotation_matrix
 export AS_BPM, Shift_BPM
 export FS_WPM, smoothstep_partition
-export HelmholtzBPM
+export HelmholtzBPM, BidirectionalBPM
 export ScalarSource, HelmholtzSource, get_source
 export Phase, Mask, FourierMask, FourierPhase
 export TeaDOE, TeaReflector

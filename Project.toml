@@ -5,6 +5,7 @@ authors = ["Nicolas Barré"]
 
 [deps]
 AbstractFFTs = "621f4979-c628-5d54-868e-fcf4e3e8185c"
+Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 CoordinateTransformations = "150eb455-5306-5404-9cee-2592286d6298"
 EllipsisNotation = "da5c29d0-fa7d-589e-88eb-ea29b0a81949"
@@ -34,6 +35,7 @@ Plotting = "Makie"
 
 [compat]
 AbstractFFTs = "1.5"
+Adapt = "4.6.0"
 CUDA = "5.8, 6"
 CairoMakie = "0.15"
 ChainRulesCore = "1.25"

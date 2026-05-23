@@ -2,7 +2,7 @@ struct HelmholtzIndexSlice{M, A, P, H, T} <: AbstractCustomComponent{M}
     trainability::Val{M}
     index_slice::A
     dz::T
-    n0::T
+    n0::Complex{T}
     ∂p::P
     u::H
 end
@@ -11,7 +11,7 @@ Functors.@functor HelmholtzIndexSlice (index_slice,)
 
 function HelmholtzIndexSlice(u::H,
                              dz::Real,
-                             n0::Real = 1.0,
+                             n0::Number = 1.0,
                              f::Union{Function, AbstractArray{<:Number, 2}} = (x,y) -> n0;
                              trainable::Bool = false,
                              buffered::Bool = false) where {T, U <: AbstractArray{Complex{T}},
@@ -29,7 +29,7 @@ function HelmholtzIndexSlice(u::H,
     copyto!(index_slice, raw)
     ∂p = (trainable && buffered) ? (; index_slice = similar(index_slice)) : nothing
     u = (trainable && buffered) ? similar(u.electric) : nothing
-    HelmholtzIndexSlice(Val(M), index_slice, T(dz), T(n0), ∂p, u)
+    HelmholtzIndexSlice(Val(M), index_slice, T(dz), Complex{T}(n0), ∂p, u)
 end
 
 data_symbol(p::HelmholtzIndexSlice) = :index_slice
@@ -70,7 +70,7 @@ function backpropagate_with_gradient!(∂v::HelmholtzField,
                                       u_saved::AbstractArray,
                                       ∂p::NamedTuple,
                                       p::HelmholtzIndexSlice{<:Trainable})
-    k0sq = (2π / ∂v.lambdas.val)^2
+    k0sq = @. (2π / ∂v.lambdas.val)^2
     _index_slice_grad!(∂p.index_slice, ∂v.electric_dz, u_saved, p.index_slice, k0sq, p.dz)
     backpropagate!(∂v, p)
 end

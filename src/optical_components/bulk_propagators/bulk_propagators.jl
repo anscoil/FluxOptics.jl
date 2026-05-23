@@ -1,3 +1,6 @@
 include("bpm.jl")
 include("fs_wpm.jl")
 include("helmholtz_bpm.jl")
+include("bidirectional_bpm.jl")
+# include("helmholtz_rk4ip.jl")
+# include("helmholtz_rk4.jl")

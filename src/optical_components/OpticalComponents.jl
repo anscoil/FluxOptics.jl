@@ -7,6 +7,7 @@ using AbstractFFTs
 using FINUFFT
 using EllipsisNotation
 using LRUCache
+using Adapt
 using ..FluxOptics: isbroadcastable, bzip, NothingIterator
 using ..GridUtils
 using ..Fields
@@ -818,7 +819,7 @@ export HelmholtzProp
 include("bulk_propagators/bulk_propagators.jl")
 export BPM, AS_BPM, TiltedAS_BPM, Shift_BPM
 export FS_WPM, smoothstep_partition
-export HelmholtzBPM
+export HelmholtzBPM, BidirectionalBPM
 
 include("utilities/basis_projection_wrapper.jl")
 export BasisProjectionWrapper, make_spatial_basis, make_fourier_basis

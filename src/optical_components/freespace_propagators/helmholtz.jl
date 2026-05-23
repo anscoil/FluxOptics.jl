@@ -1,12 +1,12 @@
 struct HelmholtzKernelProp{M, K, T, A} <: AbstractCustomComponent{M}
     z::A
     kz::K
-    n0::T
+    n0::Complex{T}
     nrm_f::T
 
     function HelmholtzKernelProp(u::HelmholtzField{U},
                                  z::Real;
-                                 n0::Real = 1) where {T, U <: AbstractArray{Complex{T}}}
+                                 n0::Number = 1.0) where {T, U <: AbstractArray{Complex{T}}}
         ns = size(u)[1:2]
         A = similar(U, real, 1)
         z_arr = [z] |> A
@@ -29,25 +29,34 @@ end
     dz = z[1]
     for J in CartesianIndices(axes(electric)[3:end])
         kz_val = _kz_val(kz, I, J)
+        a = im * kz_val
+        # kz_r = real(kz_val)
+        # ratio  = (kz_val - kz_r) / (kz_val + kz_r) 
+        exp_p = exp(a * dz)
+        # exp_m = conj(exp_p)
+        exp_m = exp(-a * dz)
+        
         E_val = electric[I, J]
         dE_val = electric_dz[I, J]
-        
-        exp_p = exp(im * kz_val * dz)
-        exp_m = conj(exp_p)
-        
-        C = real((exp_p + exp_m) / 2)
-        if iszero(kz_val)
-            Ss = typeof(C)(dz)
-            Ks = zero(typeof(C))
+
+        E_minus = 0
+        if adj
+            E_plus = nrm_f * (E_val + conj(a) * dE_val)
+            E_minus = 2 * nrm_f * E_val - E_plus # nrm_f * (E_val - conj(a) * dE_val)
+            E_plus *= exp_m
+            E_minus *= exp_p
+            electric[I,J] = 0.5 * (E_plus + E_minus)
+            electric_dz[I,J] = 0.5 / conj(a) * (E_plus - E_minus)
         else
-            diff = exp_p - exp_m
-            Ss = real(diff / (2im * kz_val))
-            Ks = real(kz_val * diff / 2im)
+            # E_minus = 0.5 * (E_val - dE_val / a)
+            # E_plus = E_val - E_minus
+            E_plus = 0.5 * (E_val + dE_val / a)
+            # E_plus = dE_val / a + E_minus
+            E_plus *= exp_p
+            E_minus *= exp_m
+            electric[I,J] = nrm_f * (E_plus + E_minus)
+            electric_dz[I,J] = nrm_f * a * (E_plus - E_minus)
         end
-        
-        a, b = adj ? (-Ks, Ss) : (Ss, -Ks)
-        electric[I, J] = nrm_f * (C * E_val + a * dE_val)
-        electric_dz[I, J] = nrm_f * (b * E_val + C * dE_val)
     end
 end
 
@@ -75,7 +84,7 @@ struct HelmholtzProp{M, C} <: AbstractSequence{M}
         new{Trainable, C}(optical_components)
     end
 
-    function HelmholtzProp(u::HelmholtzField, z::Real; n0::Real = 1.0)
+    function HelmholtzProp(u::HelmholtzField, z::Real; n0::Number = 1.0)
         u_plan = similar(u.electric)
         kernel = HelmholtzKernelProp(u, z; n0)
         wrapper = FourierWrapper(u, kernel, normalize = false)

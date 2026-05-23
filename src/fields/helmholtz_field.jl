@@ -25,14 +25,14 @@ function HelmholtzField(nd::NTuple{N, Integer},
     HelmholtzField(electric, electric_dz, ds, lambdas)
 end
 
-function compute_kz(fx::Real, fy::Real, λ::T, n0::Real = 1.0) where {T <: Real}
+function compute_kz(fx::Real, fy::Real, λ::T, n0::Number = 1.0) where {T <: Real}
     k0 = 2π / λ
     kx = 2π * fx
     ky = 2π * fy
     Complex{T}(sqrt(complex((k0 * n0)^2 - kx^2 - ky^2)))
 end
 
-function compute_kz(u::U, ds::NTuple{2, Real}, lambdas, n0::Real = 1
+function compute_kz(u::U, ds::NTuple{2, Real}, lambdas, n0::Number = 1.0
                     ) where {N, T, U <: AbstractArray{Complex{T}, N}}
     @assert N >= 2
     ns = size(u)[1:2]
@@ -42,11 +42,11 @@ function compute_kz(u::U, ds::NTuple{2, Real}, lambdas, n0::Real = 1
     compute_kz.(fx, fy', lambdas, n0)
 end
 
-function compute_kz(u::HelmholtzField{U}, n0::Real = 1.0) where {U}
+function compute_kz(u::HelmholtzField{U}, n0::Number = 1.0) where {U}
     compute_kz(u.electric, u.ds, u.lambdas.val, n0)
 end
 
-function compute_kz(u::ScalarField{U, 2}, n0::Real = 1.0) where {U}
+function compute_kz(u::ScalarField{U, 2}, n0::Number = 1.0) where {U}
     compute_kz(u.electric, Tuple(u.ds), u.lambdas.val, n0)
 end
 
