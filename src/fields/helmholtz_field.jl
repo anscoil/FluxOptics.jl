@@ -42,7 +42,7 @@ function compute_kz(u::U, ds::NTuple{2, Real}, lambdas, n0::Number = 1.0
     compute_kz.(fx, fy', lambdas, n0)
 end
 
-function compute_kz(u::HelmholtzField{U}, n0::Number = 1.0) where {U}
+function compute_kz(u::HelmholtzField, n0::Number = 1.0)
     compute_kz(u.electric, u.ds, u.lambdas.val, n0)
 end
 
@@ -50,10 +50,22 @@ function compute_kz(u::ScalarField{U, 2}, n0::Number = 1.0) where {U}
     compute_kz(u.electric, Tuple(u.ds), u.lambdas.val, n0)
 end
 
+function compute_fresnel_r12(u::HelmholtzField, n1::Number, n2::Number)
+    kz1 = compute_kz(u.electric, u.ds, u.lambdas.val, n1)
+    kz2 = compute_kz(u.electric, u.ds, u.lambdas.val, n2)
+    r12 = @. (kz1 - kz2) / (kz1 + kz2)
+end
+
+function compute_fresnel_t12(u::HelmholtzField, n1::Number, n2::Number)
+    kz1 = compute_kz(u.electric, u.ds, u.lambdas.val, n1)
+    kz2 = compute_kz(u.electric, u.ds, u.lambdas.val, n2)
+    t12 = @. 2*kz1 / (kz1 + kz2)
+end
+
 function HelmholtzField(u::U,
                         ds::NTuple{2, Real},
                         lambdas::Union{Real, AbstractArray{<:Real}};
-                        n0::Real = 1.0,
+                        n0::Number = 1.0,
                         forward::Bool = true
                         ) where {N, T, U <: AbstractArray{Complex{T}, N}}
     @assert N >= 2
@@ -66,13 +78,13 @@ function HelmholtzField(u::U,
     HelmholtzField(u, dEdz, ds, lambdas)
 end
 
-function HelmholtzField(u::ScalarField; n0::Real = 1.0, forward::Bool = true)
+function HelmholtzField(u::ScalarField; n0::Number = 1.0, forward::Bool = true)
     HelmholtzField(u.electric, Tuple(u.ds), u.lambdas.collection; n0, forward)
 end
 
 function HelmholtzField(u_fwd::ScalarField{U, 2},
                         u_bwd::ScalarField{U, 2};
-                        n0::Real = 1.0) where {U}
+                        n0::Number = 1.0) where {U}
     lambdas = u_fwd.lambdas
     kz = compute_kz(u_fwd, n0)
     electric = u_fwd.electric .+ u_bwd.electric
@@ -84,7 +96,7 @@ function HelmholtzField(u_fwd::ScalarField{U, 2},
     HelmholtzField(electric, electric_dz, Tuple(ds), lambdas)
 end
 
-function forward_field(u::HelmholtzField; n0::Real = 1.0)
+function forward_field(u::HelmholtzField; n0::Number = 1.0)
     kz = compute_kz(u, n0)
     dEdz_f = fft(u.electric_dz, (1, 2))
     @. dEdz_f /= (im * kz)
@@ -93,12 +105,12 @@ function forward_field(u::HelmholtzField; n0::Real = 1.0)
     ScalarField(Eplus, u.ds, u.lambdas.collection)
 end
 
-function backward_field(u::HelmholtzField; n0::Real = 1.0)
+function backward_field(u::HelmholtzField; n0::Number = 1.0)
     u_fwd = forward_field(u; n0)
     set_field_data(u_fwd, u.electric .- u_fwd.electric)
 end
 
-function split_field(u::HelmholtzField; n0::Real = 1.0)
+function split_field(u::HelmholtzField; n0::Number = 1.0)
     u_fwd = forward_field(u; n0)
     u_bwd = set_field_data(u_fwd, u.electric .- u_fwd.electric)
     (u_fwd, u_bwd)
@@ -143,7 +155,7 @@ function poynting_flux(u::HelmholtzField)
     imag.(sum(conj.(u.electric) .* u.electric_dz; dims = (1, 2))) .* ds
 end
 
-function power(u::HelmholtzField; n0::Real = 1.0)
+function power(u::HelmholtzField; n0::Number = 1.0)
     nx, ny = size(u)[1:2]
     kz = compute_kz(u, n0)
     E_f = fft(u.electric, (1, 2))
@@ -158,12 +170,20 @@ function power(u::HelmholtzField; n0::Real = 1.0)
 end
 
 function normalize_power!(u::HelmholtzField, target_power = 1;
-                          n0::Real = 1.0, forward::Bool = true)
+                          n0::Number = 1.0, forward::Bool = true)
     Pplus, Pminus = power(u; n0)
     P = forward ? Pplus : Pminus
     scale = sqrt.(target_power ./ P)
     u.electric .*= scale
     u.electric_dz .*= scale
+    u
+end
+
+function normalize_poynting!(u::HelmholtzField, S_out = 1)
+    S_in = poynting_flux(u)
+    ratio = @. sqrt(S_out / S_in)
+    @. u.electric *= ratio
+    @. u.electric_dz *= ratio
     u
 end
 

@@ -16,7 +16,8 @@ export select_lambdas, select_tilts, set_field_ds!, set_field_data, set_field_ti
 export is_on_axis
 export power, normalize_power!, coupling_efficiency, intensity, phase
 export orthonormalize, unitary_transform, spatial_moments, spatial_centroids, spatial_variance
-export compute_kz, forward_field, backward_field, split_field, poynting_flux
+export compute_kz, compute_fresnel_r12, compute_fresnel_t12
+export forward_field, backward_field, split_field, poynting_flux, normalize_poynting!
 
 function parse_val(u::AbstractArray{Complex{T}, N},
                    val::AbstractArray,

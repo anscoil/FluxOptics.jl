@@ -46,7 +46,7 @@ export ScalarField, HelmholtzField
 export set_field_data, set_field_tilts, offset_tilts!, is_on_axis
 export dot, power, normalize_power!, coupling_efficiency, intensity, phase
 export orthonormalize, unitary_transform, spatial_moments, spatial_centroids, spatial_variance
-export split_field, poynting_flux
+export split_field, poynting_flux, normalize_poynting!
 
 include("metrics/Metrics.jl")
 using .Metrics
