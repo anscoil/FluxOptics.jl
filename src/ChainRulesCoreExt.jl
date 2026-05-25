@@ -177,6 +177,15 @@ function ChainRulesCore.rrule(::Type{<:ScalarField}, data::AbstractArray, ds,
     return y, pullback
 end
 
+function ChainRulesCore.rrule(::Type{HelmholtzField}, electric, electric_dz, ds, lambdas)
+    y = HelmholtzField(electric, electric_dz, ds, lambdas)
+    function HelmholtzField_pullback(∂y)
+        ∂y = unthunk(∂y)
+        return NoTangent(), ∂y.electric, ∂y.electric_dz, NoTangent(), NoTangent()
+    end
+    return y, HelmholtzField_pullback
+end
+
 function materialize(x::Base.ReshapedArray{T, N, <:Adjoint{T, <:AbstractArray}}) where {T, N}
     adj_materialized = copy(parent(x))
     reshape(adj_materialized, size(x))
@@ -201,9 +210,9 @@ function ChainRulesCore.ProjectTo(u::HelmholtzField{U}) where {U}
         if ∂y.electric isa NoTangent && ∂y.electric_dz isa NoTangent
             NoTangent()
         else
-            electric = ∂y.electric isa AbstractZero ? zero(∂y.electric_dz) : unthunk(∂y.electric)
-            electric_dz = ∂y.electric_dz isa AbstractZero ? zero(∂y.electric) : unthunk(∂y.electric_dz)
-            HelmholtzField(electric, electric_dz, u.ds, u.lambdas)
+            ∂electric = ∂y.electric isa AbstractZero ? zero(∂y.electric_dz) : unthunk(∂y.electric)
+            ∂electric_dz = ∂y.electric_dz isa AbstractZero ? zero(∂y.electric) : unthunk(∂y.electric_dz)
+            HelmholtzField(∂electric, ∂electric_dz, u.ds, u.lambdas)
         end
     end
 end

@@ -223,7 +223,7 @@ function apply_boundary_condition_2!(u::HelmholtzField, p::BidirectionalBPM)
     compute_ift!(p.p_f, u)
 end
 
-function propagate!(u::HelmholtzField, p::BidirectionalBPM)
+function _propagate!(u::HelmholtzField, p::BidirectionalBPM)
     slices_range = 1:size(p.n_xyz, 3)
     for k in reverse(slices_range)
         propagate_slice_backward!(p.ub, p, k)
@@ -241,3 +241,214 @@ function propagate!(u::HelmholtzField, p::BidirectionalBPM)
     copyto!(p.ub, u)
     u
 end
+
+function pack_state!(x::AbstractVector, p::BidirectionalBPM)
+    ne = length(p.E_tmp)
+    nu = length(p.ub.electric)
+    copyto!(view(x, 1:ne), vec(p.E_tmp))
+    copyto!(view(x, ne+1:ne+nu), vec(p.ub.electric))
+    copyto!(view(x, ne+nu+1:length(x)), vec(p.ub.electric_dz))
+    x
+end
+
+function unpack_state!(p::BidirectionalBPM, x::AbstractVector)
+    ne = length(p.E_tmp)
+    nu = length(p.ub.electric)
+    copyto!(vec(p.E_tmp), view(x, 1:ne))
+    copyto!(vec(p.ub.electric), view(x, ne+1:ne+nu))
+    copyto!(vec(p.ub.electric_dz), view(x, ne+nu+1:length(x)))
+    p
+end
+
+function andersonm!(x::AbstractVector, F!; m::Int=3, maxiter=50, tol=1f-6)
+    T = real(eltype(x))
+    G = [similar(x) for _ in 1:m]
+    Fx = [similar(x) for _ in 1:m]
+    x_prev = similar(x)
+    x_best = similar(x)
+    g_cur = similar(x)
+    slot = 0
+    n_fill = 0
+    res_best = T(Inf)
+
+    for iter in 1:maxiter
+        copyto!(x_prev, x)
+        F!(x)
+        @. g_cur = x - x_prev
+
+        res = T(norm(g_cur))
+        # @info "iter $iter, res = $res"
+        if res < res_best
+            res_best = res
+            copyto!(x_best, x)
+        end
+        res < tol && break
+
+        if res > 10 * res_best          # rollback + restart
+            copyto!(x, x_best)
+            slot = 0
+            n_fill = 0
+            continue
+        end
+
+        slot = mod1(slot + 1, m)
+        n_fill = min(n_fill + 1, m)
+        copyto!(G[slot], g_cur)
+        copyto!(Fx[slot], x)
+
+        n_fill < 2 && continue
+
+        k = n_fill
+        idx = [mod1(slot - k + i, m) for i in 1:k]
+
+        H = [real(dot(G[idx[i]], G[idx[j]])) for i in 1:k, j in 1:k]
+
+        A  = [H              ones(T, k, 1);
+              ones(T, 1, k)  zeros(T, 1, 1)]
+        b  = vcat(zeros(T, k), T(1))
+        θ  = (A \ b)[1:k]
+
+        fill!(x, zero(eltype(x)))
+        for i in 1:k
+            @. x += θ[i] * Fx[idx[i]]
+        end
+    end
+    x
+end
+
+function propagate_anderson!(u::HelmholtzField, p::BidirectionalBPM, anderson!;
+                             maxiter=5, tol=1f-6)
+    u_inc_e = copy(u.electric)
+    u_inc_edz = copy(u.electric_dz)
+
+    x = similar(p.E_tmp, eltype(p.E_tmp),
+                length(p.E_tmp) + 2 * length(p.ub.electric))
+    pack_state!(x, p)
+
+    function F!(x)
+        unpack_state!(p, x)
+        copyto!(u.electric, u_inc_e)
+        copyto!(u.electric_dz, u_inc_edz)
+        _propagate!(u, p)
+        pack_state!(x, p)
+    end
+
+    anderson!(x, F!; maxiter=maxiter, tol=tol)
+    unpack_state!(p, x)
+    u
+end
+
+# ─── GMRES restarted ──────────────────────────────────────────────────────────
+# Résout (I-K)x = b0 avec garantie de convergence
+# Mémoire : m+5 vecteurs extra (base de Krylov + scratch)
+function gmres_solver!(x::AbstractVector, F!, b0::AbstractVector;
+                       m::Int=5, maxiter::Int=20, tol=1f-6)
+    T  = real(eltype(x))
+    TC = eltype(x)
+
+    V      = [similar(x) for _ in 1:m+1]   # base de Krylov (GPU)
+    w      = similar(x)                      # scratch matvec
+    v_save = similar(x)                      # sauvegarde avant F!
+    r      = similar(x)                      # résidu
+    x_best = similar(x)
+    res_best = T(Inf)
+
+    # (I-K)·v = v - F(v) + b0  (1 appel _propagate! par matvec)
+    function Av!(w, v)
+        copyto!(v_save, v)
+        copyto!(w, v)
+        F!(w)                           # w = F(v)
+        @. w = v_save - w + b0         # (I-K)v
+    end
+
+    copyto!(x_best, x)
+
+    for iter in 1:maxiter                  # restarts
+        # r = b0 - (I-K)x = F(x) - x
+        copyto!(r, x)
+        F!(r)
+        @. r = r - x
+
+        β = T(norm(r))
+        # @info "iter $iter, res = $β"
+        if β < res_best; res_best = β; copyto!(x_best, x); end
+        β < tol && break
+
+        @. V[1] = r / β
+
+        H     = zeros(TC, m+1, m)
+        j_eff = m
+
+        for j in 1:m                    # Arnoldi (m matvecs par restart)
+            Av!(w, V[j])
+            for i in 1:j               # Gram-Schmidt modifié
+                H[i,j] = dot(V[i], w)  # réduction GPU → scalaire CPU
+                @. w -= H[i,j] * V[i]
+            end
+            h = T(norm(w))
+            H[j+1,j] = h
+            if h < T(1f-14)            # happy breakdown
+                j_eff = j; break
+            end
+            @. V[j+1] = w / h
+        end
+
+        # Moindres carrés (CPU, (j_eff+1)×j_eff, négligeable)
+        rhs = zeros(TC, j_eff+1); rhs[1] = β
+        y   = H[1:j_eff+1, 1:j_eff] \ rhs
+
+        for j in 1:j_eff               # x ← x + V·y (GPU)
+            @. x += y[j] * V[j]
+        end
+    end
+
+    copyto!(x, x_best)
+end
+
+# ─── propagate_gmres! ─────────────────────────────────────────────────────────
+function propagate_gmres!(u::HelmholtzField, p::BidirectionalBPM;
+                          m::Int=5, maxiter::Int=20, tol=1f-6)
+    u_inc_e   = copy(u.electric)
+    u_inc_edz = copy(u.electric_dz)
+
+    n_state = length(p.E_tmp) + 2*length(p.ub.electric)
+    x  = similar(p.E_tmp, eltype(p.E_tmp), n_state)
+    b0 = similar(x)
+    pack_state!(x, p)
+
+    function F!(x)
+        unpack_state!(p, x)
+        copyto!(u.electric,    u_inc_e)
+        copyto!(u.electric_dz, u_inc_edz)
+        _propagate!(u, p)
+        pack_state!(x, p)
+    end
+
+    fill!(b0, zero(eltype(b0)))
+    F!(b0)
+
+    gmres_solver!(x, F!, b0; m=m, maxiter=maxiter, tol=tol)
+
+    # ← bug était ici : u non mis à jour après la convergence
+    unpack_state!(p, x)
+    copyto!(u.electric,    u_inc_e)
+    copyto!(u.electric_dz, u_inc_edz)
+    _propagate!(u, p)      # u ← champ propagé avec le point fixe convergé
+    u
+end
+
+function propagate!(u::HelmholtzField, p::BidirectionalBPM;
+                    method=:gmres, m=10, maxiter=20, tol=1)
+    method === :gmres && return propagate_gmres!(u, p; m=m, maxiter=maxiter, tol=tol)
+    method === :anderson && return propagate_anderson!(u, p,
+        (x, F!; kw...) -> andersonm!(x, F!; m=m, kw...); maxiter=maxiter, tol=tol)
+    error("method ∈ {:gmres, :anderson}")
+end
+
+# propagate_anderson_m!(u, p, m::Integer; kw...) =
+#     propagate_anderson!(u, p, (x, F!; kw2...) -> andersonm!(x, F!; m, kw2...); kw...)
+
+# function propagate!(u::HelmholtzField, p::BidirectionalBPM; maxiter=100, tol=1f-6)
+#     propagate_anderson_m!(u, p, 5; maxiter=maxiter, tol=tol)
+# end
+

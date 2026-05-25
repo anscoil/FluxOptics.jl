@@ -2,7 +2,7 @@ struct HelmholtzField{U, Lv, Lc} <: AbstractField{U, 2}
     electric:: U
     electric_dz:: U
     ds:: NTuple{2, Float64}
-    lambdas:: @NamedTuple{val::Lv, collection::Lc}
+    lambdas::@NamedTuple{val::Lv, collection::Lc}
 end
 
 Functors.@functor HelmholtzField (electric, electric_dz)

@@ -33,8 +33,8 @@ end
         # kz_r = real(kz_val)
         # ratio  = (kz_val - kz_r) / (kz_val + kz_r) 
         exp_p = exp(a * dz)
-        # exp_m = conj(exp_p)
-        exp_m = exp(-a * dz)
+        exp_m = conj(exp_p)
+        # exp_m = exp(-a * dz)
         
         E_val = electric[I, J]
         dE_val = electric_dz[I, J]
@@ -43,12 +43,12 @@ end
         if adj
             E_plus = nrm_f * (E_val + conj(a) * dE_val)
             E_minus = 2 * nrm_f * E_val - E_plus # nrm_f * (E_val - conj(a) * dE_val)
-            E_plus *= exp_m
-            E_minus *= exp_p
+            E_plus *= conj(exp_p)
+            E_minus *= conj(exp_m)
             electric[I,J] = 0.5 * (E_plus + E_minus)
             electric_dz[I,J] = 0.5 / conj(a) * (E_plus - E_minus)
         else
-            # E_minus = 0.5 * (E_val - dE_val / a)
+            E_minus = 0.5 * (E_val - dE_val / a)
             # E_plus = E_val - E_minus
             E_plus = 0.5 * (E_val + dE_val / a)
             # E_plus = dE_val / a + E_minus
