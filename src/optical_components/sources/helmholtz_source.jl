@@ -17,7 +17,7 @@ function HelmholtzSource(u::H;
                          n0::Real = 1.0,
                          trainable_forward::Bool = false,
                          trainable_backward::Bool = false,
-                         buffered::Bool = false) where {U <: AbstractArray{<:Complex},
+                         buffered::Bool = false) where {T, U <: AbstractArray{<:Complex{T}},
                                                         H <: HelmholtzField{U}}
     all_or_none_trainable = !xor(trainable_forward, trainable_backward)
     only_forward = trainable_forward && !trainable_backward
@@ -34,7 +34,7 @@ function HelmholtzSource(u::H;
           && buffered) ? (; u0_fwd = ∂u0_fwd, u0_bwd = ∂u0_bwd) : ∂p
     kz = compute_kz(u, n0)
     HelmholtzSource(Val(M), Val(trainable_forward), Val(trainable_backward),
-                    u0, uf, u0_fwd, u0_bwd, ∂p, kz, n0)
+                    u0, uf, u0_fwd, u0_bwd, ∂p, kz, T(n0))
 end
 
 Base.size(p::HelmholtzSource) = size(p.u0)
@@ -57,6 +57,7 @@ function propagate(p::HelmholtzSource{<:Trainable, true, true})
 end
 
 function propagate(p::HelmholtzSource{<:Trainable})
+    # HelmholtzField(p.u0_fwd, p.u0_bwd; n0 = p.n0)
     electric = p.u0_fwd.electric .+ p.u0_bwd.electric
     electric_dz = p.u0_fwd.electric .- p.u0_bwd.electric
     fft!(electric_dz, (1, 2))
