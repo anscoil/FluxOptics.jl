@@ -228,16 +228,21 @@ function _propagate!(u::HelmholtzField, p::BidirectionalBPM)
     for k in reverse(slices_range)
         propagate_slice_backward!(p.ub, p, k)
     end
-    kz = compute_kz(u, p.n1)
-    E_f = fft(u.electric, (1, 2))
-    dEdz_f = fft(u.electric_dz, (1, 2))
-    @. E_f = 0.5 * (E_f + dEdz_f  / (im * kz))
-    copyto!(u, p.ub)
-    apply_boundary_condition_1!(u, E_f, p)
+    # kz = compute_kz(u, p.n1)
+    # E_f = fft(u.electric, (1, 2))
+    # dEdz_f = fft(u.electric_dz, (1, 2))
+    # @. E_f = 0.5 * (E_f + dEdz_f  / (im * kz))
+    # copyto!(u, p.ub)
+    # apply_boundary_condition_1!(u, E_f, p)
+    u_fwd = forward_field(u; n0 = p.n1)    
+    u_bwd = backward_field(p.ub; n0 = p.n1)
+    copyto!(u, HelmholtzField(u_fwd, u_bwd; n0 = p.n1))
     for k in slices_range
         propagate_slice_forward!(u, p, k)
     end
-    apply_boundary_condition_2!(u, p)
+    u_fwd = forward_field(u; n0 = p.n2)
+    copyto!(u, HelmholtzField(u_fwd; n0 = p.n2))
+    # apply_boundary_condition_2!(u, p)
     copyto!(p.ub, u)
     u
 end
@@ -429,16 +434,15 @@ function propagate_gmres!(u::HelmholtzField, p::BidirectionalBPM;
 
     gmres_solver!(x, F!, b0; m=m, maxiter=maxiter, tol=tol)
 
-    # ← bug était ici : u non mis à jour après la convergence
     unpack_state!(p, x)
     copyto!(u.electric,    u_inc_e)
     copyto!(u.electric_dz, u_inc_edz)
-    _propagate!(u, p)      # u ← champ propagé avec le point fixe convergé
+    _propagate!(u, p)
     u
 end
 
 function propagate!(u::HelmholtzField, p::BidirectionalBPM;
-                    method=:gmres, m=10, maxiter=20, tol=1)
+                    method=:gmres, m=10, maxiter=50, tol=0.1)
     method === :gmres && return propagate_gmres!(u, p; m=m, maxiter=maxiter, tol=tol)
     method === :anderson && return propagate_anderson!(u, p,
         (x, F!; kw...) -> andersonm!(x, F!; m=m, kw...); maxiter=maxiter, tol=tol)
