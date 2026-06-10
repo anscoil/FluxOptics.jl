@@ -217,7 +217,7 @@ function ChainRulesCore.ProjectTo(u::HelmholtzField{U}) where {U}
     end
 end
 
-function ChainRulesCore.rrule(::typeof(split_field), u::HelmholtzField; n0::Real = 1.0)
+function ChainRulesCore.rrule(::typeof(split_field), u::HelmholtzField; n0::Number = 1.0)
     kz = compute_kz(u, n0)
     dEdz_f = fft(u.electric_dz, (1, 2))
     @. dEdz_f /= (im * kz)

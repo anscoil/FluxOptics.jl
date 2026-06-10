@@ -18,8 +18,8 @@ function HelmholtzBPM(u::HelmholtzField,
     M  = trainability(trainable, buffered)
 
     if method == :Strang  # Strang
-        p_half = HelmholtzProp(u, dz/2; n0)
-        p_full = HelmholtzProp(u, dz; n0)
+        p_half = HelmholtzBoundedProp(u, dz/2; n0)
+        p_full = HelmholtzBoundedProp(u, dz; n0)
         components = AbstractPipeComponent[p_half]
         for k in 1:n_slices
             push!(components, HelmholtzIndexSlice(u, dz, n0, n_xyz[:,:,k]; trainable, buffered))
@@ -30,9 +30,9 @@ function HelmholtzBPM(u::HelmholtzField,
     elseif method == :Yoshida  # Yoshida
         w1 = 1 / (2 - 2^(1/3))
         w0 = -2^(1/3) / (2 - 2^(1/3))
-        p_start = HelmholtzProp(u, w1*dz/2; n0)
-        p_full = HelmholtzProp(u, w1*dz; n0)
-        p_mid = HelmholtzProp(u, (w1+w0)*dz/2; n0)
+        p_start = HelmholtzBoundedProp(u, w1*dz/2; n0)
+        p_full = HelmholtzBoundedProp(u, w1*dz; n0)
+        p_mid = HelmholtzBoundedProp(u, (w1+w0)*dz/2; n0)
         components = AbstractPipeComponent[p_start]
         for k in 1:n_slices
             s_w1 = HelmholtzIndexSlice(u, w1*dz, n0, n_xyz[:,:,k]; trainable, buffered)
@@ -44,9 +44,9 @@ function HelmholtzBPM(u::HelmholtzField,
 
     elseif method == :Suzuki  # Suzuki
         p  = 1 / (4 - 4^(1/3))
-        p_start = HelmholtzProp(u, p*dz/2; n0)
-        p_full = HelmholtzProp(u, p*dz; n0)
-        p_mid = HelmholtzProp(u, (1-3p)*dz/2; n0)
+        p_start = HelmholtzBoundedProp(u, p*dz/2; n0)
+        p_full = HelmholtzBoundedProp(u, p*dz; n0)
+        p_mid = HelmholtzBoundedProp(u, (1-3p)*dz/2; n0)
         components = AbstractPipeComponent[p_start]
         for k in 1:n_slices
             s_p = HelmholtzIndexSlice(u, p*dz, n0, n_xyz[:,:,k]; trainable, buffered)

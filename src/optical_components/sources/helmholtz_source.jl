@@ -14,10 +14,10 @@ end
 Functors.@functor HelmholtzSource (u0_fwd, u0_bwd)
 
 function HelmholtzSource(u::H;
-                         n0::Real = 1.0,
+                         n0::Number = 1.0,
                          trainable_forward::Bool = false,
                          trainable_backward::Bool = false,
-                         buffered::Bool = false) where {T, U <: AbstractArray{<:Complex{T}},
+                         buffered::Bool = false) where {T, U <: AbstractArray{Complex{T}},
                                                         H <: HelmholtzField{U}}
     all_or_none_trainable = !xor(trainable_forward, trainable_backward)
     only_forward = trainable_forward && !trainable_backward
@@ -34,7 +34,7 @@ function HelmholtzSource(u::H;
           && buffered) ? (; u0_fwd = ∂u0_fwd, u0_bwd = ∂u0_bwd) : ∂p
     kz = compute_kz(u, n0)
     HelmholtzSource(Val(M), Val(trainable_forward), Val(trainable_backward),
-                    u0, uf, u0_fwd, u0_bwd, ∂p, kz, T(n0))
+                    u0, uf, u0_fwd, u0_bwd, ∂p, kz, Complex{T}(n0))
 end
 
 Base.size(p::HelmholtzSource) = size(p.u0)

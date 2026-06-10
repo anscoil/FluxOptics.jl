@@ -69,4 +69,5 @@ include("collins_integral.jl")
 include("fourier_lens.jl")
 include("paraxial_propagation.jl")
 
-include("helmholtz.jl")
+include("helmholtz_bounded_propagator.jl")
+include("helmholtz_propagator.jl")

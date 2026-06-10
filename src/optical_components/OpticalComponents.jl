@@ -814,7 +814,7 @@ include("freespace_propagators/freespace.jl")
 export ASProp, ASPropZ, ShiftProp
 export RSProp, CollinsProp, FourierLens, ParaxialProp
 export as_rotation!, as_rotation, field_rotation_matrix
-export HelmholtzProp
+export HelmholtzProp, HelmholtzBoundedProp
 
 include("bulk_propagators/bulk_propagators.jl")
 export BPM, AS_BPM, TiltedAS_BPM, Shift_BPM
