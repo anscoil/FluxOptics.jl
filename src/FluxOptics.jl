@@ -37,7 +37,10 @@ function Base.similar(A::Type{<: AbstractArray}, f::Function, ndims::Integer)
     A.name.wrapper{f(A.parameters[1]), ndims, A.parameters[3:end]...}
 end
 
-include("Fields.jl")
+Base.similar(t::Tuple{}) = ()
+Base.similar(t::NamedTuple{}) = (;)
+
+include("fields/Fields.jl")
 using .Fields
 export ScalarField
 export set_field_data, set_field_tilts, offset_tilts!, is_on_axis

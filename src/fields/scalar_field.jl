@@ -1,43 +1,3 @@
-module Fields
-
-using Functors
-using LinearAlgebra
-using StaticArrays
-using ..FluxOptics
-using ..FluxOptics: isbroadcastable, bzip
-
-import Base: +, -, *, /
-
-export ScalarField
-export get_lambdas, get_lambdas_collection
-export get_tilts, get_tilts_collection, offset_tilts!
-export select_lambdas, select_tilts, set_field_ds!, set_field_data, set_field_tilts
-export is_on_axis
-export power, normalize_power!, coupling_efficiency, intensity, phase
-export orthonormalize, unitary_transform, spatial_moments, spatial_centroids, spatial_variance
-
-function parse_val(u::AbstractArray{Complex{T}, N},
-                   val::AbstractArray,
-                   Nd::Integer) where {N, T}
-    shape = ntuple(k -> k <= Nd ? 1 : size(val, k - Nd), N)
-    val_adapt = similar(u, T, shape)
-    copyto!(val_adapt, val)
-    @assert isbroadcastable(val_adapt, u)
-    val_adapt
-end
-
-function parse_lambdas(u::U, lambdas, Nd::Integer) where {T, U <: AbstractArray{Complex{T}}}
-    lambdas_collection = isa(lambdas, Real) ? T(lambdas) : T.(lambdas)
-    lambdas_val = isa(lambdas, Real) ? T(lambdas) : parse_val(u, lambdas, Nd)
-    (; val = lambdas_val, collection = lambdas_collection)
-end
-
-function parse_tilts(u::U, tilts, Nd::Integer) where {T, U <: AbstractArray{Complex{T}}}
-    tilts_collection = map(θ -> isa(θ, Real) ? T.([θ]) : T.(θ), tilts)
-    tilts_val = map(θ -> parse_val(u, isa(θ, Real) ? [θ] : θ, Nd), tilts)
-    (; val = tilts_val, collection = tilts_collection)
-end
-
 """
     ScalarField(data::AbstractArray{Complex}, ds::NTuple{Nd,Real}, lambdas; tilts=ntuple(_->0, Nd))
     ScalarField(nd::NTuple, ds::NTuple{Nd,Real}, lambdas; tilts=ntuple(_->0, Nd))
@@ -116,48 +76,36 @@ julia> v = ScalarField(data, (1.0, 1.0), 1.064; tilts=([0.01, 0.02, 0.03], 0));
 
 See also: [`set_field_data`](@ref), [`power`](@ref), [`normalize_power!`](@ref)
 """
-struct ScalarField{U, Nd, L, A}
+struct ScalarField{U, Nd, L, A} <: AbstractField{U, Nd}
     electric::U
     ds::MVector{Nd, Float64}
     lambdas::L
     tilts::A
-
-    function ScalarField(u::U, ds::S, lambdas::L,
-                         tilts::A) where {U, Nd, S <: MVector{Nd}, L <: NamedTuple,
-                                          A <: NamedTuple}
-        new{U, Nd, L, A}(u, ds, lambdas, tilts)
-    end
-
-    function ScalarField(u::U, ds::NTuple{Nd, Real},
-                         lambdas::Union{Real, AbstractArray{<:Real}};
-                         tilts::NTuple{Nd, Union{<:Real, <:AbstractArray}}
-                         = ntuple(_ -> 0, Nd)) where {Nd, N, T,
-                                                      U <: AbstractArray{Complex{T}, N}}
-        @assert Nd in (1, 2)
-        @assert N >= Nd
-        lambdas = parse_lambdas(u, lambdas, Nd)
-        tilts = parse_tilts(u, tilts, Nd)
-        L = typeof(lambdas)
-        A = typeof(tilts)
-        new{U, Nd, L, A}(u, ds, lambdas, tilts)
-    end
-
-    function ScalarField(nd::NTuple{N, Integer}, ds::NTuple{Nd, Real}, lambdas;
-                         tilts = ntuple(_ -> 0, Nd)) where {N, Nd}
-        u = zeros(ComplexF64, nd)
-        ScalarField(u, ds, lambdas; tilts)
-    end
 end
 
 Functors.@functor ScalarField (electric,)
 
-function get_lambdas(u::ScalarField)
-    u.lambdas.val
+function ScalarField(u::U, ds::NTuple{Nd, Real},
+                     lambdas::Union{Real, AbstractArray{<:Real}};
+                     tilts::NTuple{Nd, Union{<:Real, <:AbstractArray}}
+                     = ntuple(_ -> 0, Nd)) where {Nd, N, T,
+                                                  U <: AbstractArray{Complex{T}, N}}
+    @assert Nd in (1, 2)
+    @assert N >= Nd
+    lambdas = parse_lambdas(u, lambdas, Nd)
+    tilts = parse_tilts(u, tilts, Nd)
+    ScalarField(u, MVector(ds), lambdas, tilts)
 end
 
-function get_lambdas_collection(u::ScalarField)
-    u.lambdas.collection
+function ScalarField(nd::NTuple{N, Integer}, ds::NTuple{Nd, Real}, lambdas;
+                     tilts = ntuple(_ -> 0, Nd)) where {N, Nd}
+    u = zeros(ComplexF64, nd)
+    ScalarField(u, ds, lambdas; tilts)
 end
+
+get_lambdas(u::ScalarField) = u.lambdas.val
+
+get_lambdas_collection(u::ScalarField) = u.lambdas.collection
 
 function select_lambdas(u::ScalarField)
     function select(is_collection::Bool)
@@ -166,13 +114,9 @@ function select_lambdas(u::ScalarField)
     select
 end
 
-function get_tilts(u::ScalarField)
-    u.tilts.val
-end
+get_tilts(u::ScalarField) = u.tilts.val
 
-function get_tilts_collection(u::ScalarField)
-    u.tilts.collection
-end
+get_tilts_collection(u::ScalarField) = u.tilts.collection
 
 function select_tilts(u::ScalarField)
     Tuple([is_collection -> is_collection ? collection : val
@@ -1163,6 +1107,4 @@ function _spatial_variance(u::ScalarField{U, 2}, ::Val{true}) where {U}
     v2  = @. (vx + vy)/2 - sqrt(((vx - vy)/2)^2 + vxy^2)
     α   = @. atan(2*vxy, vx - vy) / 2
     (v1, v2, α)
-end
-
 end

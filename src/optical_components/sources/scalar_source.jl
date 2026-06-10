@@ -42,7 +42,8 @@ struct ScalarSource{M, S} <: AbstractCustomSource{M}
     ∂p::Union{Nothing, @NamedTuple{u0::S}}
 
     function ScalarSource(u0::S, uf::S, ∂p) where {S}
-        new{Static, S}(u0, uf, ∂p)
+        M = isnothing(∂p) ? Trainable{Unbuffered} : Trainable{Buffered}
+        new{M, S}(u0, uf, ∂p)
     end
 
     function ScalarSource(u::S;
@@ -68,18 +69,18 @@ trainable(p::ScalarSource{<:Trainable}) = (; u0 = p.u0)
 get_preallocated_gradient(p::ScalarSource{Trainable{Buffered}}) = p.∂p
 
 function propagate(p::ScalarSource)
-    copyto!(p.uf.electric, p.u0.electric)
+    copyto!(p.uf, p.u0)
     p.uf
 end
 
 propagate_and_save(p::ScalarSource) = propagate(p)
 
 function backpropagate_with_gradient(∂v, ∂p::NamedTuple, p::ScalarSource{<:Trainable})
-    copyto!(∂p.u0.electric, ∂v.electric)
+    copyto!(∂p.u0, ∂v)
     ∂p
 end
 
-get_data(p::ScalarSource) = p.u0.electric
+data_symbol(p::ScalarSource) = :u0
 
 function Base.fill!(p::ScalarSource, u0::ScalarField)
     copyto!(p.u0.electric, u0.electric)

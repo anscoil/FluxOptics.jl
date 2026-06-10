@@ -30,36 +30,31 @@ wrappers.
 
 See also: [`FourierWrapper`](@ref), [`FourierPhase`](@ref), [`FourierMask`](@ref)
 """
-struct FourierOperator{M, S, P} <: AbstractPureComponent{M}
+struct FourierOperator{S, P} <: AbstractPureComponent{Static}
     p_f::P
     s::S
     direct::Bool
+end
 
-    function FourierOperator(p_f::P, s::S, direct::Bool) where {S, P}
-        new{Static, S, P}(p_f, s, direct)
-    end
+function FourierOperator(p_f::FFTPlans, direct::Bool)
+    s = size(p_f.ft)
+    @assert s == size(p_f.ift)
+    d = fftdims(p_f.ft)
+    @assert d == fftdims(p_f.ift)
+    S = Val{(s, d)}
+    FourierOperator(p_f, S(), direct)
+end
 
-    function FourierOperator(p_f::FFTPlans, direct::Bool)
-        s = size(p_f.ft)
-        @assert s == size(p_f.ift)
-        d = fftdims(p_f.ft)
-        @assert d == fftdims(p_f.ift)
-        P = typeof(p_f)
-        S = Val{(s, d)}
-        new{Static, S, P}(p_f, S(), direct)
-    end
-
-    function FourierOperator(u::ScalarField{U, Nd}, direct::Bool;
-                             normalize::Bool = true) where {Nd, U}
-        u_plan = similar(u.electric)
-        p_f = make_fft_plans(u_plan, Tuple(1:Nd); normalize)
-        FourierOperator(p_f, direct)
-    end
+function FourierOperator(u::ScalarField{U, Nd}, direct::Bool;
+                         normalize::Bool = true) where {Nd, U}
+    u_plan = similar(u.electric)
+    p_f = make_fft_plans(u_plan, Tuple(1:Nd); normalize)
+    FourierOperator(p_f, direct)
 end
 
 get_data(p::FourierOperator) = ()
 
-function propagate!(u::ScalarField, p::FourierOperator)
+function propagate!(u::AbstractField, p::FourierOperator)
     if p.direct
         compute_ft!(p.p_f, u)
     else
@@ -67,9 +62,7 @@ function propagate!(u::ScalarField, p::FourierOperator)
     end
 end
 
-propagate(u::ScalarField, p::FourierOperator) = propagate!(copy(u), p)
-
-function backpropagate!(u::ScalarField, p::FourierOperator)
+function backpropagate!(u::AbstractField, p::FourierOperator)
     if p.direct
         compute_ift!(p.p_f, u)
     else
@@ -77,3 +70,4 @@ function backpropagate!(u::ScalarField, p::FourierOperator)
     end
 end
 
+propagate(u, p::FourierOperator) = propagate!(copy(u), p)

@@ -51,24 +51,24 @@ end
 
 trainable(p::AbstractSequence{<:Trainable}) = (; optical_components = get_sequence(p))
 
-function propagate!(u::ScalarField, p::AbstractSequence)
+function propagate!(u::AbstractField, p::AbstractSequence)
     _propagate_sequence!(u, get_sequence(p))
 end
 
-@inline _propagate_sequence!(u, ::Tuple{}) = u
+@inline _propagate_sequence!(u::AbstractField, ::Tuple{}) = u
 
-@inline function _propagate_sequence!(u, components::Tuple)
+@inline function _propagate_sequence!(u::AbstractField, components::Tuple)
     u = propagate!(u, first(components))
     _propagate_sequence!(u, Base.tail(components))
 end
 
-propagate(u::ScalarField, p::AbstractSequence) = propagate!(copy(u), p)
+propagate(u::AbstractField, p::AbstractSequence) = propagate!(copy(u), p)
 
-function backpropagate!(u::ScalarField, p::AbstractSequence)
+function backpropagate!(u::AbstractField, p::AbstractSequence)
     _backpropagate_sequence!(u, get_sequence(p))
 end
 
-@inline _backpropagate_sequence!(u, ::Tuple{}) = u
+@inline _backpropagate_sequence!(u::AbstractField, ::Tuple{}) = u
 @inline function _backpropagate_sequence!(u, components::Tuple)
     _backpropagate_sequence!(u, Base.tail(components))
     u = backpropagate!(u, first(components))
@@ -111,9 +111,8 @@ See also: [`OpticalSystem`](@ref), [`AbstractSequence`](@ref), [`get_sequence`](
 struct OpticalSequence{M, C} <: AbstractSequence{M}
     optical_components::C
 
-    function OpticalSequence(optical_components::C) where {N,
-                                                           C <:
-                                                           NTuple{N, AbstractPipeComponent}}
+    function OpticalSequence(optical_components::C
+                             ) where {N, C <: NTuple{N, AbstractPipeComponent}}
         new{Trainable, C}(optical_components)
     end
 

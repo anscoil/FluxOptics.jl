@@ -180,10 +180,10 @@ function materialize(x::Base.ReshapedArray{T, N, <:Adjoint{T, <:AbstractArray}})
     reshape(adj_materialized, size(x))
 end
 
-materialize(x) = x
+materialize(x) = unthunk(x)
 
 function ChainRulesCore.ProjectTo(u::ScalarField{U}) where {U}
-    function pullback(∂y)
+    function (∂y)
         ∂y = unthunk(∂y)
         if ∂y.electric isa NoTangent
             NoTangent()
@@ -191,7 +191,6 @@ function ChainRulesCore.ProjectTo(u::ScalarField{U}) where {U}
             ScalarField(materialize(∂y.electric), u.ds, u.lambdas, u.tilts)
         end
     end
-    pullback
 end
 
 function ChainRulesCore.rrule(::typeof(compute_ft!), p_f, u)
