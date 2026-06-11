@@ -29,9 +29,8 @@ See also: [`FourierMask`](@ref), [`FourierWrapper`](@ref), [`Phase`](@ref)
 struct FourierPhase{M, C} <: AbstractSequence{M}
     optical_components::C
 
-    function FourierPhase(optical_components::C) where {N,
-                                                        C <:
-                                                        NTuple{N, AbstractPipeComponent}}
+    function FourierPhase(optical_components::C
+                          ) where {N, C <: NTuple{N, AbstractPipeComponent}}
         new{Trainable, C}(optical_components)
     end
 
@@ -63,3 +62,5 @@ end
 Functors.@functor FourierPhase (optical_components,)
 
 get_sequence(p::FourierPhase) = p.optical_components
+
+data_symbol_chain(p::FourierPhase) = (:optical_components, :ϕ)

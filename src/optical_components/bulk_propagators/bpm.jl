@@ -219,7 +219,7 @@ end
 
 Functors.@functor BPM (dn,)
 
-data_symbol(p::BPM) = :dn
+data_symbol_chain(p::BPM) = (:dn,)
 
 trainable(p::BPM{<:Trainable}) = (; dn = p.dn)
 

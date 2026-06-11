@@ -80,7 +80,7 @@ function backpropagate_with_gradient(∂v, ∂p::NamedTuple, p::ScalarSource{<:T
     ∂p
 end
 
-data_symbol(p::ScalarSource) = :u0
+data_symbol_chain(p::ScalarSource) = (:u0,)
 
 function Base.fill!(p::ScalarSource, u0::ScalarField)
     copyto!(p.u0.electric, u0.electric)

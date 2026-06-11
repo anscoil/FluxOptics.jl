@@ -77,7 +77,7 @@ end
 
 Functors.@functor Phase (ϕ,)
 
-data_symbol(p::Phase) = :ϕ
+data_symbol_chain(p::Phase) = (:ϕ,)
 
 trainable(p::Phase{<:Trainable}) = (; ϕ = p.ϕ)
 

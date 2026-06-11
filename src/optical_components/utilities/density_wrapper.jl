@@ -48,7 +48,7 @@ end
 
 Functors.@functor DensityWrapper (D, h, aux_data)
 
-data_symbol(p::DensityWrapper) = :D
+data_symbol_chain(p::DensityWrapper) = (:D,)
 
 function trainable(p::DensityWrapper{<:Trainable})
     (; D = p.D, h = p.h, aux_data = p.aux_data)

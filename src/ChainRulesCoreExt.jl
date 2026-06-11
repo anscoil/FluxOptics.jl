@@ -8,7 +8,7 @@ using ..OpticalComponents
 using ..OpticalComponents: get_preallocated_gradient, get_saved_buffer
 using ..OpticalComponents: alloc_gradient, alloc_saved_buffer
 using ..OpticalComponents: backpropagate!, backpropagate
-using ..OpticalComponents: data_symbol, auxiliary_trainable
+using ..OpticalComponents: data_symbol, data_symbol_chain, auxiliary_trainable
 using ..OpticalComponents: propagate_and_save, backpropagate_with_gradient
 using ..OpticalComponents: propagate_and_save!, backpropagate_with_gradient!
 using ..OpticalComponents: set_basis_projection!, apply_smoothing!, apply_projection!
@@ -26,6 +26,30 @@ function auxiliary_tangent(p, ∂c)
     inner = trainable(p)
     skip = data_symbol(p)
     NamedTuple(k => getproperty(∂c, k) for (k, _) in pairs(inner) if k !== skip)
+end
+
+function find_property(obj, sym::Symbol)
+    hasproperty(obj, sym) && return getproperty(obj, sym)
+    
+    if obj isa ChainRulesCore.Tangent
+        b = ChainRulesCore.backing(obj)
+        if b isa Tuple
+            for elem in b
+                r = find_property(elem, sym)
+                r !== nothing && return r
+            end
+        end
+    end
+    
+    return nothing
+end
+
+function getproperty_nested(obj, symbols)
+    result = getproperty(obj, first(symbols))
+    foldl(Base.tail(symbols); init=result) do current, sym
+        current === nothing && return nothing
+        find_property(current, sym)
+    end
 end
 
 function ChainRulesCore.rrule(::typeof(spatial_vectors),
@@ -248,7 +272,7 @@ function ChainRulesCore.rrule(::typeof(set_basis_projection!),
     wrapped_component = set_basis_projection!(p)
 
     function pullback(∂c)
-        ∂mapped_data = getproperty(∂c, data_symbol(wrapped_component))
+        ∂mapped_data = getproperty_nested(∂c, data_symbol_chain(wrapped_component))
         aux_data = auxiliary_tangent(wrapped_component, ∂c)
         if isbuffered(p)
             ∂p = p.∂p
@@ -267,7 +291,7 @@ function ChainRulesCore.rrule(::typeof(apply_smoothing!),
     wrapped_component = apply_smoothing!(p)
 
     function pullback(∂c)
-        ∂mapped_data = getproperty(∂c, data_symbol(wrapped_component))
+        ∂mapped_data = getproperty_nested(∂c, data_symbol_chain(wrapped_component))
         aux_data = auxiliary_tangent(wrapped_component, ∂c)
         ∂p = isbuffered(p) ? p.∂p : (; buffer = similar(p.buffer))
         copyto!(∂p.buffer, ∂mapped_data)
@@ -286,7 +310,7 @@ function ChainRulesCore.rrule(::typeof(apply_projection!),
     wrapped_component = apply_projection!(p)
     
     function pullback(∂c)
-        ∂mapped_data = getproperty(∂c, data_symbol(wrapped_component))
+        ∂mapped_data = getproperty_nested(∂c, data_symbol_chain(wrapped_component))
         aux_data = auxiliary_tangent(wrapped_component, ∂c)
         ∂p = isbuffered(p) ? p.∂p : (; D = similar(p.D), h = similar(p.h))
         σ_val = @. (p.mapped_data - p.offset) / p.h

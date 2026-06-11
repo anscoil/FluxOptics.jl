@@ -83,7 +83,7 @@ end
 
 Functors.@functor FourierSmoothingWrapper (buffer, aux_data)
 
-data_symbol(p::FourierSmoothingWrapper) = :buffer
+data_symbol_chain(p::FourierSmoothingWrapper) = (:buffer,)
 
 function trainable(p::FourierSmoothingWrapper{<:Trainable})
     (; buffer = p.buffer, aux_data = p.aux_data)

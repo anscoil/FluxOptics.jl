@@ -1,6 +1,7 @@
 module OptimisersExt
 
 using ..OpticalComponents
+using ..Fields
 using Optimisers
 using Optimisers: mapvalue, _trainable, isnumeric, subtract!, Leaf
 using Functors
@@ -207,6 +208,9 @@ function make_rules(pairs::Pair{<:K, <:AbstractRule}...) where {K <: Union{Abstr
             end
             if isa(data, AbstractArray)
                 push!(new_pairs, (data, v))
+            end
+            if isa(data, ScalarField)
+                push!(new_pairs, (data.electric, v))
             end
         end
         if isa(x, AbstractArray)

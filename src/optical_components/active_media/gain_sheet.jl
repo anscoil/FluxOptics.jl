@@ -80,7 +80,7 @@ end
 
 Functors.@functor GainSheet (g0,)
 
-data_symbol(p::GainSheet) = :g0
+data_symbol_chain(p::GainSheet) = (:g0,)
 
 trainable(p::GainSheet{<:Trainable}) = (; g0 = p.g0)
 

@@ -133,7 +133,7 @@ end
 
 Functors.@functor TeaDOE (h,)
 
-data_symbol(p::TeaDOE) = :h
+data_symbol_chain(p::TeaDOE) = (:h,)
 
 trainable(p::TeaDOE{<:Trainable}) = (; h = p.h)
 

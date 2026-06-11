@@ -100,12 +100,12 @@ struct BasisProjectionWrapper{M, B, P, C, D, AD} <: AbstractPureComponent{M}
     end
 end
 
-Functors.@functor BasisProjectionWrapper (proj_coeffs,)
+Functors.@functor BasisProjectionWrapper (proj_coeffs, aux_data)
 
-data_symbol(p::BasisProjectionWrapper) = :proj_coeffs
+data_symbol_chain(p::BasisProjectionWrapper) = (:proj_coeffs,)
 
 function trainable(p::BasisProjectionWrapper{<:Trainable})
-    (; proj_coeffs = p.proj_coeffs, wrapped = auxiliary_trainable(p.wrapped_component))
+    (; proj_coeffs = p.proj_coeffs, aux_data = p.aux_data)
 end
 
 function set_basis_projection!(p::BasisProjectionWrapper)

@@ -251,8 +251,12 @@ See also: [`istrainable`](@ref), [`Buffered`](@ref), [`Unbuffered`](@ref)
 isbuffered(p::AbstractOpticalComponent) = false
 isbuffered(p::AbstractOpticalComponent{Trainable{Buffered}}) = true
 
-function data_symbol(p::AbstractOpticalComponent)
+function data_symbol_chain(p::AbstractOpticalComponent)
     error("Not implemented")
+end
+
+function data_symbol(p::AbstractOpticalComponent)
+    first(data_symbol_chain(p))
 end
 
 """

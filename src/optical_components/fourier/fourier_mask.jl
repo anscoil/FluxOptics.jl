@@ -64,3 +64,5 @@ end
 Functors.@functor FourierMask (optical_components,)
 
 get_sequence(p::FourierMask) = p.optical_components
+
+data_symbol_chain(p::FourierMask) = (:optical_components, :m)
