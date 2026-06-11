@@ -6,26 +6,19 @@ function compute_cos_correction(u::ScalarField)
 end
 
 struct BPM{M, A, U, D, P, K} <: AbstractCustomComponent{M}
+    trainability::Val{M}
     dn::A
     kdz::K
     aperture_mask::D
     p_bpm::P
     p_bpm_half::P
     ∂p::Union{Nothing, @NamedTuple{dn::A}}
-    u::Union{Nothing, U}
+    u::U
+end
 
-    function BPM(dn::A,
-                 kdz::K,
-                 aperture_mask::D,
-                 p_bpm::P,
-                 p_bpm_half::P,
-                 ∂p::Union{Nothing, @NamedTuple{dn::A}},
-                 u::U) where {A, K, D, P, U}
-        M = isnothing(u) ? Trainable{Unbuffered} : Trainable{Buffered}
-        new{M, A, U, D, P, K}(dn, kdz, aperture_mask, p_bpm, p_bpm_half, ∂p, u)
-    end
+Functors.@functor BPM (dn,)
 
-    function _init(u::U,
+function _init_BPM(u::U,
                    ds::NTuple{Nd, Real},
                    thickness::Real,
                    dn0::AbstractArray{<:Real, Nv},
@@ -33,45 +26,40 @@ struct BPM{M, A, U, D, P, K} <: AbstractCustomComponent{M}
                    buffered::Bool,
                    aperture::Function) where {Nd, Nv, N, T,
                                               U <: AbstractArray{Complex{T}, N}}
-        @assert Nd in (1, 2)
-        @assert Nv == Nd + 1
-        @assert N >= Nd
-        n_slices = size(dn0, Nv)
-        @assert n_slices >= 2
-        dz = thickness / n_slices
-        M = trainability(trainable, buffered)
-        A = similar(U, real, Nv)
-        D = similar(U, real, Nd)
-        dn = A(dn0)
-        xs = spatial_vectors(size(u)[1:Nd], ds)
-        aperture_mask = Nd == 2 ? D(aperture.(xs[1], xs[2]')) : D(aperture.(xs[1]))
-        ∂p = (trainable && buffered) ? (; dn = similar(dn)) : nothing
-        u = (trainable && buffered) ? similar(u, (size(u)..., n_slices)) : nothing
-        Us = similar(U, N+1)
-        ((M, A, Us, D), (dn, dz, aperture_mask, ∂p, u))
-    end
+    @assert Nd in (1, 2)
+    @assert Nv == Nd + 1
+    @assert N >= Nd
+    n_slices = size(dn0, Nv)
+    @assert n_slices >= 2
+    dz = thickness / n_slices
+    A = similar(U, real, Nv)
+    D = similar(U, real, Nd)
+    dn = A(dn0)
+    xs = spatial_vectors(size(u)[1:Nd], ds)
+    aperture_mask = Nd == 2 ? D(aperture.(xs[1], xs[2]')) : D(aperture.(xs[1]))
+    ∂p = (trainable && buffered) ? (; dn = similar(dn)) : nothing
+    u = (trainable && buffered) ? similar(u, (size(u)..., n_slices)) : nothing
+    (dn, dz, aperture_mask, ∂p, u)
+end
 
-    function BPM(Prop::BPMProp,
-                 use_cache::Bool,
-                 u::ScalarField,
-                 thickness::Real,
-                 dn0::AbstractArray{<:Real};
-                 trainable::Bool = false,
-                 buffered::Bool = false,
-                 aperture::Function = (_...) -> 1,
-                 double_precision_kernel::Bool = use_cache,
-                 kwargs = (;))
-        ((M, A, U, D),
-         (dn, dz, aperture_mask, ∂p, u_saved)) = _init(u.electric, Tuple(u.ds), thickness,
-                                                       dn0, trainable, buffered, aperture)
-        p_bpm = Prop(u, dz; use_cache, double_precision_kernel, kwargs...)
-        p_bpm_half = Prop(u, dz/2; use_cache, double_precision_kernel, kwargs...)
-        P = typeof(p_bpm)
-        T = real(eltype(u))
-        kdz = T(2π*dz) ./ compute_cos_correction(u)
-        K = typeof(kdz)
-        new{M, A, U, D, P, K}(dn, kdz, aperture_mask, p_bpm, p_bpm_half, ∂p, u_saved)
-    end
+function BPM(Prop::BPMProp,
+             use_cache::Bool,
+             u::ScalarField,
+             thickness::Real,
+             dn0::AbstractArray{<:Real};
+             trainable::Bool = false,
+             buffered::Bool = false,
+             aperture::Function = (_...) -> 1,
+             double_precision_kernel::Bool = use_cache,
+             kwargs = (;))
+    (dn, dz, aperture_mask, ∂p, u_saved) = _init_BPM(u.electric, Tuple(u.ds), thickness,
+                                                     dn0, trainable, buffered, aperture)
+    p_bpm = Prop(u, dz; use_cache, double_precision_kernel, kwargs...)
+    p_bpm_half = Prop(u, dz/2; use_cache, double_precision_kernel, kwargs...)
+    M = trainability(trainable, buffered)
+    T = real(eltype(u))
+    kdz = T(2π*dz) ./ compute_cos_correction(u)
+    BPM(Val(M), dn, kdz, aperture_mask, p_bpm, p_bpm_half, ∂p, u_saved)
 end
 
 """
@@ -216,8 +204,6 @@ function Shift_BPM(u::ScalarField,
     BPM(ShiftProp, use_cache, u, thickness, dn0; trainable, buffered, aperture,
         double_precision_kernel)
 end
-
-Functors.@functor BPM (dn,)
 
 data_symbol_chain(p::BPM) = (:dn,)
 

@@ -37,28 +37,24 @@ julia> system = source_train |> phase_mask |> propagator;
 See also: [`get_source`](@ref), [`propagate`](@ref)
 """
 struct ScalarSource{M, S} <: AbstractCustomSource{M}
+    trainability::Val{M}
     u0::S
     uf::S
     ∂p::Union{Nothing, @NamedTuple{u0::S}}
-
-    function ScalarSource(u0::S, uf::S, ∂p) where {S}
-        M = isnothing(∂p) ? Trainable{Unbuffered} : Trainable{Buffered}
-        new{M, S}(u0, uf, ∂p)
-    end
-
-    function ScalarSource(u::S;
-                          trainable::Bool = false,
-                          buffered::Bool = false) where {U <: AbstractArray{<:Complex},
-                                                         S <: ScalarField{U}}
-        u0 = copy(u)
-        uf = similar(u)
-        M = trainability(trainable, buffered)
-        ∂p = (trainable && buffered) ? (; u0 = similar(u0)) : nothing
-        new{M, S}(u0, uf, ∂p)
-    end
 end
 
 Functors.@functor ScalarSource (u0,)
+
+function ScalarSource(u::S;
+                      trainable::Bool = false,
+                      buffered::Bool = false) where {U <: AbstractArray{<:Complex},
+                                                     S <: ScalarField{U}}
+    u0 = copy(u)
+    uf = similar(u)
+    M = trainability(trainable, buffered)
+    ∂p = (trainable && buffered) ? (; u0 = similar(u0)) : nothing
+    ScalarSource(Val(M), u0, uf, ∂p)
+end
 
 Base.collect(p::ScalarSource) = collect(p.u0)
 Base.size(p::ScalarSource) = size(p.u0)

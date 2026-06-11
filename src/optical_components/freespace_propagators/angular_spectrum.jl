@@ -63,7 +63,8 @@ function tilted_as_kernel(fx::T, λ::T, θx::T, track_tilts::Bool, n0::Tp, z::Tp
     Complex{T}(kernel * v * nrm_f)
 end
 
-struct ASKernelProp{M, K, T, Tp, H} <: AbstractPropagator{M, K, T}
+struct ASKernelProp{M, K, Tp, H} <: AbstractPropagator{M, K}
+    trainability::Val{M}
     kernel::K
     track_tilts::Bool
     n0::Tp
@@ -71,28 +72,27 @@ struct ASKernelProp{M, K, T, Tp, H} <: AbstractPropagator{M, K, T}
     filter::H
     nrm_f::Tp
     is_paraxial::Bool
-
-    function ASKernelProp(u::ScalarField{U, Nd},
-                          ds::NTuple{Nd, Real},
-                          z::Real;
-                          use_cache::Bool = true,
-                          track_tilts::Bool = false,
-                          n0::Real = 1,
-                          filter::H = nothing,
-                          paraxial::Bool = false,
-                          double_precision_kernel::Bool
-                          = use_cache) where {Nd, T, H, U <: AbstractArray{Complex{T}}}
-        ns = size(u)[1:Nd]
-        cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
-        kernel = FourierKernel(u.electric, ns, ds, cache_size; normalize = false)
-        Tp = double_precision_kernel ? Float64 : T
-        nrm_f = Tp(1/prod(ns))
-        new{Static, typeof(kernel), T, Tp, H}(kernel, track_tilts, Tp(n0), Tp(z), filter,
-                                              nrm_f, paraxial)
-    end
 end
 
 Functors.@functor ASKernelProp ()
+
+function ASKernelProp(u::ScalarField{U, Nd},
+                      ds::NTuple{Nd, Real},
+                      z::Real;
+                      use_cache::Bool = true,
+                      track_tilts::Bool = false,
+                      n0::Real = 1,
+                      filter::H = nothing,
+                      paraxial::Bool = false,
+                      double_precision_kernel::Bool = use_cache
+                      ) where {Nd, T, H, U <: AbstractArray{Complex{T}}}
+    ns = size(u)[1:Nd]
+    cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
+    kernel = FourierKernel(u.electric, ns, ds, cache_size; normalize = false)
+    Tp = double_precision_kernel ? Float64 : T
+    nrm_f = Tp(1/prod(ns))
+    ASKernelProp(Val(Static), kernel, track_tilts, Tp(n0), Tp(z), filter, nrm_f, paraxial)
+end
 
 get_data(p::ASKernelProp) = p.kernel
 
@@ -181,45 +181,40 @@ prop_filtered = ASProp(u, 1000.0; filter=filter_lp)
 See also: [`ASPropZ`](@ref), [`ParaxialProp`](@ref), [`RSProp`](@ref)
 """
 struct ASProp{M, C} <: AbstractSequence{M}
+    trainability::Val{M}
     optical_components::C
-
-    function ASProp(optical_components::C) where {N,
-                                                  C <: NTuple{N, AbstractPipeComponent}}
-        new{Trainable, C}(optical_components)
-    end
-
-    function ASProp(u::ScalarField{U, Nd},
-                    ds::NTuple{Nd, Real},
-                    z::Real;
-                    use_cache::Bool = true,
-                    track_tilts::Bool = false,
-                    n0::Real = 1,
-                    filter = nothing,
-                    paraxial::Bool = false,
-                    double_precision_kernel::Bool = use_cache) where {U, Nd}
-        kernel = ASKernelProp(u, ds, z; use_cache, track_tilts, n0, filter, paraxial,
-                              double_precision_kernel)
-        wrapper = FourierWrapper(kernel.kernel.p_f, kernel)
-        M = get_trainability(wrapper)
-        optical_components = get_sequence(wrapper)
-        C = typeof(optical_components)
-        new{M, C}(optical_components)
-    end
-
-    function ASProp(u::ScalarField,
-                    z::Real;
-                    use_cache::Bool = true,
-                    track_tilts::Bool = false,
-                    n0::Real = 1,
-                    filter = nothing,
-                    paraxial::Bool = false,
-                    double_precision_kernel::Bool = use_cache)
-        ASProp(u, Tuple(u.ds), z; use_cache, track_tilts, n0, filter, paraxial,
-               double_precision_kernel)
-    end
 end
 
 Functors.@functor ASProp (optical_components,)
+
+function ASProp(u::ScalarField{U, Nd},
+                ds::NTuple{Nd, Real},
+                z::Real;
+                use_cache::Bool = true,
+                track_tilts::Bool = false,
+                n0::Real = 1,
+                filter = nothing,
+                paraxial::Bool = false,
+                double_precision_kernel::Bool = use_cache) where {U, Nd}
+    kernel = ASKernelProp(u, ds, z; use_cache, track_tilts, n0, filter, paraxial,
+                          double_precision_kernel)
+    wrapper = FourierWrapper(kernel.kernel.p_f, kernel)
+    M = get_trainability(wrapper)
+    optical_components = get_sequence(wrapper)
+    ASProp(Val(M), optical_components)
+end
+
+function ASProp(u::ScalarField,
+                z::Real;
+                use_cache::Bool = true,
+                track_tilts::Bool = false,
+                n0::Real = 1,
+                filter = nothing,
+                paraxial::Bool = false,
+                double_precision_kernel::Bool = use_cache)
+    ASProp(u, Tuple(u.ds), z; use_cache, track_tilts, n0, filter, paraxial,
+           double_precision_kernel)
+end
 
 get_sequence(p::ASProp) = p.optical_components
 
@@ -262,6 +257,7 @@ system = source |> phase |> prop_z
 See also: [`ASProp`](@ref), [`Trainability`](@ref)
 """
 struct ASPropZ{M, T, A, V, H} <: AbstractPureComponent{M}
+    trainability::Val{M}
     n0::T
     z::A
     track_tilts::Bool
@@ -269,50 +265,42 @@ struct ASPropZ{M, T, A, V, H} <: AbstractPureComponent{M}
     f_vec::V
     filter::H
     nrm_f::T
-
-    function ASPropZ(n0::T, z::A, track_tilts::Bool, is_paraxial::Bool,
-                     f_vec::V, filter::H, nrm_f::T) where {T, A, V, H}
-        new{Trainable, T, A, V, H}(n0, z, track_tilts, is_paraxial, f_vec, filter, nrm_f)
-    end
-
-    function ASPropZ(u::ScalarField{U, Nd},
-                     ds::NTuple{Nd, Real},
-                     z::Real;
-                     n0::Real = 1,
-                     trainable::Bool = false,
-                     track_tilts::Bool = false,
-                     paraxial::Bool = false,
-                     filter::H = nothing,
-                     double_precision_kernel::Bool = false) where {Nd, T, H,
-                                                                   U <:
-                                                                   AbstractArray{Complex{T}}}
-        ns = size(u)[1:Nd]
-        F = similar(U, real, 1)
-        fs = [fftfreq(nx, 1/dx) |> F for (nx, dx) in zip(ns, ds)]
-        f_vec = Nd == 2 ? (; x = fs[1], y = fs[2]') : (; x = fs[1])
-        V = typeof(f_vec)
-        M = trainable ? Trainable : Static
-        Tp = double_precision_kernel ? Float64 : T
-        z_arr = Tp.([z] |> F)
-        nrm_f = Tp(1/prod(ns))
-        new{M, Tp, typeof(z_arr), V, H}(Tp(n0), z_arr, track_tilts, paraxial, f_vec,
-                                        filter, nrm_f)
-    end
-
-    function ASPropZ(u::ScalarField,
-                     z::Real;
-                     n0::Real = 1,
-                     trainable::Bool = false,
-                     track_tilts::Bool = false,
-                     paraxial::Bool = false,
-                     filter = nothing,
-                     double_precision_kernel::Bool = false)
-        ASPropZ(u, Tuple(u.ds), z; n0, trainable, track_tilts, paraxial, filter,
-                double_precision_kernel)
-    end
 end
 
 Functors.@functor ASPropZ (z,)
+
+function ASPropZ(u::ScalarField{U, Nd},
+                 ds::NTuple{Nd, Real},
+                 z::Real;
+                 n0::Real = 1,
+                 trainable::Bool = false,
+                 track_tilts::Bool = false,
+                 paraxial::Bool = false,
+                 filter::H = nothing,
+                 double_precision_kernel::Bool = false
+                 ) where {Nd, T, H, U <: AbstractArray{Complex{T}}}
+    ns = size(u)[1:Nd]
+    F = similar(U, real, 1)
+    fs = [fftfreq(nx, 1/dx) |> F for (nx, dx) in zip(ns, ds)]
+    f_vec = Nd == 2 ? (; x = fs[1], y = fs[2]') : (; x = fs[1])
+    M = trainable ? Trainable : Static
+    Tp = double_precision_kernel ? Float64 : T
+    z_arr = Tp.([z] |> F)
+    nrm_f = Tp(1/prod(ns))
+    ASPropZ(Val(M), Tp(n0), z_arr, track_tilts, paraxial, f_vec, filter, nrm_f)
+end
+
+function ASPropZ(u::ScalarField,
+                 z::Real;
+                 n0::Real = 1,
+                 trainable::Bool = false,
+                 track_tilts::Bool = false,
+                 paraxial::Bool = false,
+                 filter = nothing,
+                 double_precision_kernel::Bool = false)
+    ASPropZ(u, Tuple(u.ds), z; n0, trainable, track_tilts, paraxial, filter,
+            double_precision_kernel)
+end
 
 get_data(p::ASPropZ) = p.z
 

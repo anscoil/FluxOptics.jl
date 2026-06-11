@@ -32,54 +32,45 @@ doe_ml = TeaDOE(u, 0.5, levels)
 See also: [`TeaReflector`](@ref), [`Phase`](@ref)
 """
 struct TeaDOE{M, Fn, Fr, A, U} <: AbstractCustomComponent{M}
+    trainability::Val{M}
     dn::Fn
     r::Fr
     h::A
     ∂p::Union{Nothing, @NamedTuple{h::A}}
-    u::Union{Nothing, U}
+    u::U
+end
 
-    function TeaDOE(dn::Fn,
-                    r::Fr,
-                    h::A,
-                    ∂p::Union{Nothing, @NamedTuple{h::A}},
-                    u::U) where {Fn, Fr, A, U}
-        M = isnothing(u) ? Trainable{Unbuffered} : Trainable{Buffered}
-        new{M, Fn, Fr, A, U}(dn, r, h, ∂p, u)
-    end
+Functors.@functor TeaDOE (h,)
 
-    function TeaDOE(u::ScalarField{U, Nd},
-                    ds::NTuple{Nd, Real},
-                    dn::Union{Real, Function},
-                    f::Union{Function, AbstractArray{<:Real}} = (_...) -> 0;
-                    r::Union{Number, Function} = 1,
-                    trainable::Bool = false,
-                    buffered::Bool = false) where {N, Nd, T,
-                                                   U <: AbstractArray{Complex{T}, N}}
-        @assert Nd in (1, 2)
-        @assert N >= Nd
-        M = trainability(trainable, buffered)
-        P = similar(U, real, Nd)
-        ns = size(u)[1:Nd]
-        h = isa(f, Function) ? P(function_to_array(f, ns, ds)) : P(f)
-        @assert isbroadcastable(h, u)
-        ∂p = (trainable && buffered) ? (; h = similar(h)) : nothing
-        u = (trainable && buffered) ? similar(u.electric) : nothing
-        dn_f = isa(dn, Real) ? (λ -> T(dn)) : (λ -> T(dn(λ)))
-        r_f = isa(r, Number) ? (λ -> Complex{T}(r)) : (λ -> Complex{T}(r(λ)))
-        Fn = typeof(dn_f)
-        Fr = typeof(r_f)
-        A = typeof(h)
-        new{M, Fn, Fr, A, U}(dn_f, r_f, h, ∂p, u)
-    end
+function TeaDOE(u::ScalarField{U, Nd},
+                ds::NTuple{Nd, Real},
+                dn::Union{Real, Function},
+                f::Union{Function, AbstractArray{<:Real}} = (_...) -> 0;
+                r::Union{Number, Function} = 1,
+                trainable::Bool = false,
+                buffered::Bool = false) where {N, Nd, T,
+                                               U <: AbstractArray{Complex{T}, N}}
+    @assert Nd in (1, 2)
+    @assert N >= Nd
+    M = trainability(trainable, buffered)
+    P = similar(U, real, Nd)
+    ns = size(u)[1:Nd]
+    h = isa(f, Function) ? P(function_to_array(f, ns, ds)) : P(f)
+    @assert isbroadcastable(h, u)
+    ∂p = (trainable && buffered) ? (; h = similar(h)) : nothing
+    u = (trainable && buffered) ? similar(u.electric) : nothing
+    dn_f = isa(dn, Real) ? (λ -> T(dn)) : (λ -> T(dn(λ)))
+    r_f = isa(r, Number) ? (λ -> Complex{T}(r)) : (λ -> Complex{T}(r(λ)))
+    TeaDOE(Val(M), dn_f, r_f, h, ∂p, u)
+end
 
-    function TeaDOE(u::ScalarField{U, Nd},
-                    dn::Union{Real, Function},
-                    f::Union{Function, AbstractArray{<:Real}} = (_...) -> 0;
-                    r::Union{Number, Function} = 1,
-                    trainable::Bool = false,
-                    buffered::Bool = false) where {U <: AbstractArray{<:Complex}, Nd}
-        TeaDOE(u, Tuple(u.ds), dn, f; r, trainable, buffered)
-    end
+function TeaDOE(u::ScalarField,
+                dn::Union{Real, Function},
+                f::Union{Function, AbstractArray{<:Real}} = (_...) -> 0;
+                r::Union{Number, Function} = 1,
+                trainable::Bool = false,
+                buffered::Bool = false)
+    TeaDOE(u, Tuple(u.ds), dn, f; r, trainable, buffered)
 end
 
 """
@@ -119,19 +110,17 @@ function TeaReflector(u::ScalarField{U, Nd},
                       f::Union{Function, AbstractArray{<:Real}} = (_...) -> 0;
                       r::Union{Number, Function} = 1,
                       trainable::Bool = false,
-                      buffered::Bool = false) where {U <: AbstractArray{<:Complex}, Nd}
+                      buffered::Bool = false) where {U, Nd}
     TeaDOE(u, ds, 2, f; r, trainable, buffered)
 end
 
-function TeaReflector(u::ScalarField{U, Nd},
+function TeaReflector(u::ScalarField,
                       f::Union{Function, AbstractArray{<:Real}} = (_...) -> 0;
                       r::Union{Number, Function} = 1,
                       trainable::Bool = false,
-                      buffered::Bool = false) where {U <: AbstractArray{<:Complex}, Nd}
+                      buffered::Bool = false)
     TeaDOE(u, 2, f; r, trainable, buffered)
 end
-
-Functors.@functor TeaDOE (h,)
 
 data_symbol_chain(p::TeaDOE) = (:h,)
 

@@ -28,32 +28,33 @@ function rs_valid_distance(nx, ny, dx, dy, λ)
     max(zc_x, zc_y)
 end
 
-struct RSKernelProp{M, K, T, Tp} <: AbstractPropagator{M, K, T}
+struct RSKernelProp{M, K, Tp} <: AbstractPropagator{M, K}
+    trainability::Val{M}
     kernel::K
     track_tilts::Bool
     n0::Tp
     z::Tp
     nrm_f::Tp
-
-    function RSKernelProp(u::ScalarField{U, Nd},
-                          ds::NTuple{Nd, Real},
-                          z::Real;
-                          use_cache::Bool = true,
-                          track_tilts::Bool = false,
-                          n0::Real = 1,
-                          double_precision_kernel::Bool
-                          = use_cache) where {T, U <: AbstractArray{Complex{T}}, Nd}
-        ns = size(u)[1:Nd]
-        ns′ = map(n -> 2*n-1, ns)
-        cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
-        kernel = ConvolutionKernel(u.electric, ns, ds, cache_size; normalize = false)
-        Tp = double_precision_kernel ? Float64 : T
-        nrm_f = Tp(prod(ds)/2π/prod(ns′))
-        new{Static, typeof(kernel), T, Tp}(kernel, track_tilts, Tp(n0), Tp(z), nrm_f)
-    end
 end
 
 Functors.@functor RSKernelProp ()
+
+function RSKernelProp(u::ScalarField{U, Nd},
+                      ds::NTuple{Nd, Real},
+                      z::Real;
+                      use_cache::Bool = true,
+                      track_tilts::Bool = false,
+                      n0::Real = 1,
+                      double_precision_kernel::Bool = use_cache
+                      ) where {T, U <: AbstractArray{Complex{T}}, Nd}
+    ns = size(u)[1:Nd]
+    ns′ = map(n -> 2*n-1, ns)
+    cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
+    kernel = ConvolutionKernel(u.electric, ns, ds, cache_size; normalize = false)
+    Tp = double_precision_kernel ? Float64 : T
+    nrm_f = Tp(prod(ds)/2π/prod(ns′))
+    RSKernelProp(Val(Static), kernel, track_tilts, Tp(n0), Tp(z), nrm_f)
+end
 
 get_kernels(p::RSKernelProp) = (p.kernel,)
 
@@ -123,46 +124,42 @@ u_out = propagate(u, prop)
 See also: [`ASProp`](@ref)
 """
 struct RSProp{M, C} <: AbstractSequence{M}
+    trainability::Val{M}
     optical_components::C
-
-    function RSProp(optical_components::C) where {C}
-        new{Trainable, C}(optical_components)
-    end
-
-    function RSProp(u::ScalarField{U, Nd},
-                    ds::NTuple{Nd, Real},
-                    z::Real;
-                    use_cache::Bool = true,
-                    track_tilts::Bool = false,
-                    n0::Real = 1,
-                    double_precision_kernel::Bool
-                    = use_cache) where {T, U <: AbstractArray{Complex{T}}, Nd}
-        ns = size(u)[1:Nd]
-        zc = rs_valid_distance(ns..., ds..., minimum(u.lambdas.collection)/n0)
-        if abs(z) < zc
-            @warn """RSProp: propagation distance z=$z is below critical distance zc=$zc.
-             Numerical artifacts expected. Consider using ASProp or finer sampling (dx < λ/2)."""
-        end
-        rs = RSKernelProp(u, ds, z; use_cache, track_tilts, n0, double_precision_kernel)
-        wrapper = FourierWrapper(rs.kernel.p_f, rs)
-        pad_op = PadCropOperator(u, rs.kernel.u_plan; store_ref = true)
-        crop_op = adjoint(pad_op)
-        optical_components = (pad_op, get_sequence(wrapper)..., crop_op)
-        M = get_trainability(wrapper)
-        C = typeof(optical_components)
-        new{M, C}(optical_components)
-    end
-
-    function RSProp(u::ScalarField,
-                    z::Real;
-                    use_cache::Bool = true,
-                    track_tilts::Bool = false,
-                    n0::Real = 1,
-                    double_precision_kernel::Bool = use_cache)
-        RSProp(u, Tuple(u.ds), z; use_cache, track_tilts, n0, double_precision_kernel)
-    end
 end
 
 Functors.@functor RSProp (optical_components,)
+
+function RSProp(u::ScalarField{U, Nd},
+                ds::NTuple{Nd, Real},
+                z::Real;
+                use_cache::Bool = true,
+                track_tilts::Bool = false,
+                n0::Real = 1,
+                double_precision_kernel::Bool = use_cache
+                ) where {T, U <: AbstractArray{Complex{T}}, Nd}
+    ns = size(u)[1:Nd]
+    zc = rs_valid_distance(ns..., ds..., minimum(u.lambdas.collection)/n0)
+    if abs(z) < zc
+        @warn """RSProp: propagation distance z=$z is below critical distance zc=$zc.
+                   Numerical artifacts expected. Consider using ASProp or finer sampling (dx < λ/2)."""
+    end
+    rs = RSKernelProp(u, ds, z; use_cache, track_tilts, n0, double_precision_kernel)
+    wrapper = FourierWrapper(rs.kernel.p_f, rs)
+    pad_op = PadCropOperator(u, rs.kernel.u_plan; store_ref = true)
+    crop_op = adjoint(pad_op)
+    optical_components = (pad_op, get_sequence(wrapper)..., crop_op)
+    M = get_trainability(wrapper)
+    RSProp(Val(M), optical_components)
+end
+
+function RSProp(u::ScalarField,
+                z::Real;
+                use_cache::Bool = true,
+                track_tilts::Bool = false,
+                n0::Real = 1,
+                double_precision_kernel::Bool = use_cache)
+    RSProp(u, Tuple(u.ds), z; use_cache, track_tilts, n0, double_precision_kernel)
+end
 
 get_sequence(p::RSProp) = p.optical_components

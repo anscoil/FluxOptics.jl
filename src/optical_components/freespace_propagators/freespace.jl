@@ -1,6 +1,6 @@
 include("abstract_kernel.jl")
 
-abstract type AbstractPropagator{M, K, T} <: AbstractCustomComponent{M} end
+abstract type AbstractPropagator{M, K} <: AbstractCustomComponent{M} end
 
 function get_kernels(p::AbstractPropagator{M, <:AbstractKernel}) where {M}
     error("Not implemented")

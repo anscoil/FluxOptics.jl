@@ -36,102 +36,90 @@ function collins_tilted_d_chirp(x::T, y::T, λ::T, θx::T, θy::T, track_tilts::
     Complex{T}(cis(π*(x^2*αx*(d*αx-1) + y^2*αy*(d*αy-1))/(b*λ))*lin_phase)
 end
 
-# function collins_adjust_tilt(x::T, y::T, λ::T, θx::T, θy::T, d::Tp,
-#                              ::Type{<:Forward}) where {T <: Real, Tp <: Real}
-#     x, y, λ = Tp(x), Tp(y), Tp(λ)
-#     f0x, f0y = sin(θx)/λ, sin(θy)/λ
-#     Complex{T}(cis(-Tp(2)*(d-1)*π*(x*f0x+y*f0y)))
-# end
-
-# function collins_adjust_tilt(x::T, y::T, λ::T, θx::T, θy::T, a::Tp,
-#                              ::Type{<:Backward}) where {T <: Real, Tp <: Real}
-#     x, y, λ = Tp(x), Tp(y), Tp(λ)
-#     f0x, f0y = sin(θx)/λ, sin(θy)/λ
-#     Complex{T}(cis(-Tp(2)*(a-1)*π*(x*f0x+y*f0y)))
-# end
-
-struct CollinsAChirp{M, K, T, Tp, Nd} <: AbstractPropagator{M, K, T}
+struct CollinsAChirp{M, K, Tp, Nd} <: AbstractPropagator{M, K}
+    trainability::Val{M}
     kernel::K
     αs::NTuple{Nd, Tp}
     ds::NTuple{Nd, Tp}
     a::Tp
     b::Tp
     track_tilts::Bool
-
-    function CollinsAChirp(u::ScalarField{U, Nd},
-                           ds::NTuple{Nd, Real},
-                           ds′::NTuple{Nd, Real},
-                           a::Real, b::Real;
-                           use_cache::Bool = true,
-                           track_tilts::Bool = false,
-                           double_precision_kernel::Bool
-                           = use_cache) where {T, U <: AbstractArray{Complex{T}}, Nd}
-        ns = size(u)[1:Nd]
-        cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
-        kernel = ChirpKernel(u.electric, ns, ds, cache_size)
-        Tp = double_precision_kernel ? Float64 : T
-        αs = Tuple([Tp(dx′/dx) for (dx, dx′) in zip(ds, ds′)])
-        K = typeof(kernel)
-        new{Static, K, T, Tp, Nd}(kernel, αs, ds, a, b, track_tilts)
-    end
 end
 
-struct CollinsDChirp{M, K, T, Tp, Nd} <: AbstractPropagator{M, K, T}
+Functors.@functor CollinsAChirp ()
+
+function CollinsAChirp(u::ScalarField{U, Nd},
+                       ds::NTuple{Nd, Real},
+                       ds′::NTuple{Nd, Real},
+                       a::Real, b::Real;
+                       use_cache::Bool = true,
+                       track_tilts::Bool = false,
+                       double_precision_kernel::Bool = use_cache
+                       ) where {T, U <: AbstractArray{Complex{T}}, Nd}
+    ns = size(u)[1:Nd]
+    cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
+    kernel = ChirpKernel(u.electric, ns, ds, cache_size)
+    Tp = double_precision_kernel ? Float64 : T
+    αs = Tuple([Tp(dx′/dx) for (dx, dx′) in zip(ds, ds′)])
+    CollinsAChirp(Val(Static), kernel, αs, Tp.(ds), Tp(a), Tp(b), track_tilts)
+end
+
+struct CollinsDChirp{M, K, Tp, Nd} <: AbstractPropagator{M, K}
+    trainability::Val{M}
     kernel::K
     αs::NTuple{Nd, Tp}
     ds′::NTuple{Nd, Tp}
     d::Tp
     b::Tp
     track_tilts::Bool
-
-    function CollinsDChirp(u::ScalarField{U, Nd},
-                           ds::NTuple{Nd, Real},
-                           ds′::NTuple{Nd, Real},
-                           d::Real, b::Real;
-                           use_cache::Bool = true,
-                           track_tilts::Bool = false,
-                           double_precision_kernel::Bool
-                           = use_cache) where {T, U <: AbstractArray{Complex{T}}, Nd}
-        ns = size(u)[1:Nd]
-        cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
-        kernel = ChirpKernel(u.electric, ns, ds, cache_size)
-        Tp = double_precision_kernel ? Float64 : T
-        αs = Tuple([Tp(dx′/dx) for (dx, dx′) in zip(ds, ds′)])
-        K = typeof(kernel)
-        new{Static, K, T, Tp, Nd}(kernel, αs, ds′, d, b, track_tilts)
-    end
 end
 
-struct CollinsConvolution{M, K, T, Tp, Nd} <: AbstractPropagator{M, K, T}
+Functors.@functor CollinsDChirp ()
+
+function CollinsDChirp(u::ScalarField{U, Nd},
+                       ds::NTuple{Nd, Real},
+                       ds′::NTuple{Nd, Real},
+                       d::Real, b::Real;
+                       use_cache::Bool = true,
+                       track_tilts::Bool = false,
+                       double_precision_kernel::Bool = use_cache
+                       ) where {T, U <: AbstractArray{Complex{T}}, Nd}
+    ns = size(u)[1:Nd]
+    cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
+    kernel = ChirpKernel(u.electric, ns, ds, cache_size)
+    Tp = double_precision_kernel ? Float64 : T
+    αs = Tuple([Tp(dx′/dx) for (dx, dx′) in zip(ds, ds′)])
+    CollinsDChirp(Val(Static), kernel, αs, Tp.(ds′), Tp(d), Tp(b), track_tilts)
+end
+
+struct CollinsConvolution{M, K, Tp, Nd} <: AbstractPropagator{M, K}
+    trainability::Val{M}
     kernel::K
     αs::NTuple{Nd, Tp}
     b::Tp
     nrm_fwd::Complex{Tp}
     nrm_bwd::Complex{Tp}
-
-    function CollinsConvolution(u::ScalarField{U, Nd},
-                                ds::NTuple{Nd, Real},
-                                ds′::NTuple{Nd, Real},
-                                b::Real;
-                                use_cache::Bool = true,
-                                double_precision_kernel::Bool
-                                = use_cache) where {T, U <: AbstractArray{Complex{T}}, Nd}
-        ns = size(u)[1:Nd]
-        ns′ = map(n -> 2*n-1, ns)
-        cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
-        kernel = ConvolutionKernel(u.electric, ns, ds, cache_size; normalize = false)
-        Tp = double_precision_kernel ? Float64 : T
-        nrm_fwd = Complex{Tp}(prod(ds ./ sqrt(im*b))/prod(ns′))
-        nrm_bwd = Complex{Tp}(prod(ds′ ./ sqrt(-im*b))/prod(ns′))
-        αs = Tuple([Tp(dx′/dx) for (dx, dx′) in zip(ds, ds′)])
-        K = typeof(kernel)
-        new{Static, K, T, Tp, Nd}(kernel, αs, b, nrm_fwd, nrm_bwd)
-    end
 end
 
-Functors.@functor CollinsAChirp ()
-Functors.@functor CollinsDChirp ()
 Functors.@functor CollinsConvolution ()
+
+function CollinsConvolution(u::ScalarField{U, Nd},
+                            ds::NTuple{Nd, Real},
+                            ds′::NTuple{Nd, Real},
+                            b::Real;
+                            use_cache::Bool = true,
+                            double_precision_kernel::Bool = use_cache
+                            ) where {T, U <: AbstractArray{Complex{T}}, Nd}
+    ns = size(u)[1:Nd]
+    ns′ = map(n -> 2*n-1, ns)
+    cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
+    kernel = ConvolutionKernel(u.electric, ns, ds, cache_size; normalize = false)
+    Tp = double_precision_kernel ? Float64 : T
+    nrm_fwd = Complex{Tp}(prod(ds ./ sqrt(im*b))/prod(ns′))
+    nrm_bwd = Complex{Tp}(prod(ds′ ./ sqrt(-im*b))/prod(ns′))
+    αs = Tuple([Tp(dx′/dx) for (dx, dx′) in zip(ds, ds′)])
+    CollinsConvolution(Val(Static), kernel, αs, Tp(b), nrm_fwd, nrm_bwd)
+end
 
 CollinsChirpKernel = Union{CollinsAChirp, CollinsDChirp}
 
@@ -259,44 +247,40 @@ u_sys = propagate(u, lens_system, Forward)
 See also: [`FourierLens`](@ref), [`ParaxialProp`](@ref)
 """
 struct CollinsProp{M, C} <: AbstractSequence{M}
+    trainability::Val{M}
     optical_components::C
-
-    function CollinsProp(optical_components::C) where {C}
-        new{Trainable, C}(optical_components)
-    end
-
-    function CollinsProp(u::ScalarField{U, Nd},
-                         ds::NTuple{Nd, Real},
-                         ds′::NTuple{Nd, Real},
-                         abd::Tuple{Real, Real, Real};
-                         use_cache::Bool = true,
-                         track_tilts::Bool = false,
-                         double_precision_kernel::Bool = use_cache) where {U, Nd}
-        a, b, d = abd
-        a_chirp = CollinsAChirp(u, ds, ds′, a, b; use_cache, track_tilts,
-                                double_precision_kernel)
-        d_chirp = CollinsDChirp(u, ds, ds′, d, b; use_cache, track_tilts,
-                                double_precision_kernel)
-        collins = CollinsConvolution(u, ds, ds′, b; use_cache, double_precision_kernel)
-        wrapper = FourierWrapper(collins.kernel.p_f, collins)
-        pad_op = PadCropOperator(u, collins.kernel.u_plan; store_ref = true)
-        crop_op = adjoint(pad_op)
-        optical_components = (a_chirp, pad_op, get_sequence(wrapper)..., crop_op, d_chirp)
-        C = typeof(optical_components)
-        new{Static, C}(optical_components)
-    end
-
-    function CollinsProp(u::ScalarField{U, Nd},
-                         ds′::NTuple{Nd, Real},
-                         abd::Tuple{Real, Real, Real};
-                         use_cache::Bool = true,
-                         track_tilts::Bool = false,
-                         double_precision_kernel::Bool = use_cache) where {U, Nd}
-        CollinsProp(u, Tuple(u.ds), ds′, abd; use_cache, track_tilts,
-                    double_precision_kernel)
-    end
 end
 
 Functors.@functor CollinsProp (optical_components,)
+
+function CollinsProp(u::ScalarField{U, Nd},
+                     ds::NTuple{Nd, Real},
+                     ds′::NTuple{Nd, Real},
+                     abd::Tuple{Real, Real, Real};
+                     use_cache::Bool = true,
+                     track_tilts::Bool = false,
+                     double_precision_kernel::Bool = use_cache) where {U, Nd}
+    a, b, d = abd
+    a_chirp = CollinsAChirp(u, ds, ds′, a, b; use_cache, track_tilts,
+                            double_precision_kernel)
+    d_chirp = CollinsDChirp(u, ds, ds′, d, b; use_cache, track_tilts,
+                            double_precision_kernel)
+    collins = CollinsConvolution(u, ds, ds′, b; use_cache, double_precision_kernel)
+    wrapper = FourierWrapper(collins.kernel.p_f, collins)
+    pad_op = PadCropOperator(u, collins.kernel.u_plan; store_ref = true)
+    crop_op = adjoint(pad_op)
+    optical_components = (a_chirp, pad_op, get_sequence(wrapper)..., crop_op, d_chirp)
+    CollinsProp(Val(Static), optical_components)
+end
+
+function CollinsProp(u::ScalarField{U, Nd},
+                     ds′::NTuple{Nd, Real},
+                     abd::Tuple{Real, Real, Real};
+                     use_cache::Bool = true,
+                     track_tilts::Bool = false,
+                     double_precision_kernel::Bool = use_cache) where {U, Nd}
+    CollinsProp(u, Tuple(u.ds), ds′, abd; use_cache, track_tilts,
+                double_precision_kernel)
+end
 
 get_sequence(p::CollinsProp) = p.optical_components

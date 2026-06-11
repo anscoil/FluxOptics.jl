@@ -109,20 +109,16 @@ components = get_sequence(sequence)
 See also: [`OpticalSystem`](@ref), [`AbstractSequence`](@ref), [`get_sequence`](@ref)
 """
 struct OpticalSequence{M, C} <: AbstractSequence{M}
+    trainability::Val{M}
     optical_components::C
-
-    function OpticalSequence(optical_components::C
-                             ) where {N, C <: NTuple{N, AbstractPipeComponent}}
-        new{Trainable, C}(optical_components)
-    end
-
-    function OpticalSequence(optical_components::Vararg{AbstractPipeComponent})
-        M = any(istrainable, optical_components) ? Trainable : Static
-        C = typeof(optical_components)
-        new{M, C}(optical_components)
-    end
 end
 
 Functors.@functor OpticalSequence (optical_components,)
+
+function OpticalSequence(optical_components::Vararg{AbstractPipeComponent})
+    M = any(istrainable, optical_components) ? Trainable : Static
+    C = typeof(optical_components)
+    OpticalSequence(Val(M), optical_components)
+end
 
 get_sequence(p::OpticalSequence) = p.optical_components

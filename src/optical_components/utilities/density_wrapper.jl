@@ -1,4 +1,5 @@
 struct DensityWrapper{M, C, A, AD, T} <: AbstractPureComponent{M}
+    trainability::Val{M}
     wrapped_component::C
     mapped_data::A
     aux_data::AD
@@ -8,45 +9,30 @@ struct DensityWrapper{M, C, A, AD, T} <: AbstractPureComponent{M}
     offset::T
     binarize::Ref{Bool}
     ∂p::Union{Nothing, @NamedTuple{D::A, h::A}}
-
-    function DensityWrapper(wrapped_component::C,
-                            mapped_data::A,
-                            aux_data::AD,
-                            D::A,
-                            h::A,
-                            β::Ref{T},
-                            offset::T,
-                            binarize::Ref{Bool},
-                            ∂p::Union{Nothing, @NamedTuple{D::A, h::A}}) where {C, A, AD, T}
-        M = isnothing(∂p) ? Trainable{Unbuffered} : Trainable{Buffered}
-        new{M, C, A, AD, T}(wrapped_component, mapped_data, aux_data, D, h, β, offset, binarize, ∂p)
-    end
-
-    function DensityWrapper(wrapped_component::C,
-                            ns::NTuple{Nd, Integer},
-                            h::Real;
-                            sharpness::Real = 1.0,
-                            offset::Real = 0,
-                            binarize::Bool = false) where {M <: Trainability,
-                                                           C <: AbstractPipeComponent{M}, Nd}
-        mapped_data = get_data(wrapped_component)
-        T = eltype(mapped_data)
-        @assert T <: Real "mapped_data must be real-valued, got $(eltype(mapped_data))"
-        @assert size(mapped_data)[1:Nd] == ns "Spatial dimensions $(size(mapped_data)[1:Nd]) don't match ns=$ns"
-        A = typeof(mapped_data)
-        D = similar(mapped_data)
-        fill!(D, 0.0)
-        h_arr = similar(mapped_data, ntuple(_ -> 1, ndims(mapped_data)))
-        fill!(h_arr, h)
-        aux_data = auxiliary_trainable(wrapped_component)
-        AD = typeof(aux_data)
-        ∂p = M == Trainable{Buffered} ? (; D = similar(D), h = similar(h_arr)) : nothing
-        new{M, C, A, AD, T}(wrapped_component, mapped_data, aux_data,
-                            D, h_arr, Ref{T}(sharpness), T(offset), Ref(binarize), ∂p)
-    end
 end
 
 Functors.@functor DensityWrapper (D, h, aux_data)
+
+function DensityWrapper(wrapped_component::C,
+                        ns::NTuple{Nd, Integer},
+                        h::Real;
+                        sharpness::Real = 1.0,
+                        offset::Real = 0,
+                        binarize::Bool = false) where {M <: Trainability,
+                                                       C <: AbstractPipeComponent{M}, Nd}
+    mapped_data = get_data(wrapped_component)
+    T = eltype(mapped_data)
+    @assert T <: Real "mapped_data must be real-valued, got $(eltype(mapped_data))"
+    @assert size(mapped_data)[1:Nd] == ns "Spatial dimensions $(size(mapped_data)[1:Nd]) don't match ns=$ns"
+    D = similar(mapped_data)
+    fill!(D, 0.0)
+    h_arr = similar(mapped_data, ntuple(_ -> 1, ndims(mapped_data)))
+    fill!(h_arr, h)
+    aux_data = auxiliary_trainable(wrapped_component)
+    ∂p = M == Trainable{Buffered} ? (; D = similar(D), h = similar(h_arr)) : nothing
+    DensityWrapper(Val(M), wrapped_component, mapped_data, aux_data,
+                   D, h_arr, Ref{T}(sharpness), T(offset), Ref(binarize), ∂p)
+end
 
 data_symbol_chain(p::DensityWrapper) = (:D,)
 

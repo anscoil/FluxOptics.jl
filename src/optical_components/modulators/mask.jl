@@ -37,46 +37,41 @@ mask_real = Mask(u, measured_transmission)
 See also: [`Phase`](@ref), [`TeaDOE`](@ref), [`FourierMask`](@ref)
 """
 struct Mask{M, A, U} <: AbstractCustomComponent{M}
+    trainability::Val{M}
     m::A
     ∂p::Union{Nothing, @NamedTuple{m::A}}
-    u::Union{Nothing, U}
-
-    function Mask(m::A, ∂p::Union{Nothing, @NamedTuple{m::A}}, u::U) where {A, U}
-        M = isnothing(u) ? Trainable{Unbuffered} : Trainable{Buffered}
-        new{M, A, U}(m, ∂p, u)
-    end
-
-    function Mask(u::ScalarField{U, Nd},
-                  ds::NTuple{Nd, Real},
-                  f::Union{Function, AbstractArray} = (_...) -> 1;
-                  trainable::Bool = false,
-                  buffered::Bool = false) where {Nd, U}
-        M = trainability(trainable, buffered)
-        @assert Nd in (1, 2)
-        if isa(f, Function)
-            A = similar(U, Nd)
-            ns = size(u)[1:Nd]
-            m = A(function_to_array(f, ns, ds))
-        else
-            @assert isbroadcastable(f, u)
-            A = similar(U, ndims(f))
-            m = A(f)
-        end
-        ∂p = (trainable && buffered) ? (; m = similar(m)) : nothing
-        u = (trainable && buffered) ? similar(u.electric) : nothing
-        A = typeof(m)
-        new{M, A, U}(m, ∂p, u)
-    end
-
-    function Mask(u::ScalarField{U, Nd},
-                  f::Union{Function, AbstractArray} = (_...) -> 1;
-                  trainable::Bool = false,
-                  buffered::Bool = false) where {Nd, U}
-        Mask(u, Tuple(u.ds), f; trainable, buffered)
-    end
+    u::U
 end
 
 Functors.@functor Mask (m,)
+
+function Mask(u::ScalarField{U, Nd},
+              ds::NTuple{Nd, Real},
+              f::Union{Function, AbstractArray} = (_...) -> 1;
+              trainable::Bool = false,
+              buffered::Bool = false) where {U, Nd}
+    M = trainability(trainable, buffered)
+    @assert Nd in (1, 2)
+    if isa(f, Function)
+        A = similar(U, Nd)
+        ns = size(u)[1:Nd]
+        m = A(function_to_array(f, ns, ds))
+    else
+        @assert isbroadcastable(f, u)
+        A = similar(U, ndims(f))
+        m = A(f)
+    end
+    ∂p = (trainable && buffered) ? (; m = similar(m)) : nothing
+    u = (trainable && buffered) ? similar(u.electric) : nothing
+    Mask(Val(M), m, ∂p, u)
+end
+
+function Mask(u::ScalarField,
+              f::Union{Function, AbstractArray} = (_...) -> 1;
+              trainable::Bool = false,
+              buffered::Bool = false)
+    Mask(u, Tuple(u.ds), f; trainable, buffered)
+end
 
 data_symbol_chain(p::Mask) = (:m,)
 

@@ -36,46 +36,41 @@ system = ScalarSource(u) |> phase_opt |> ASProp(u, 1000.0)
 See also: [`Mask`](@ref), [`TeaDOE`](@ref), [`FourierPhase`](@ref)
 """
 struct Phase{M, A, U} <: AbstractCustomComponent{M}
+    trainability::Val{M}
     ϕ::A
     ∂p::Union{Nothing, @NamedTuple{ϕ::A}}
-    u::Union{Nothing, U}
-
-    function Phase(ϕ::A, ∂p::Union{Nothing, @NamedTuple{ϕ::A}}, u::U) where {A, U}
-        M = isnothing(u) ? Trainable{Unbuffered} : Trainable{Buffered}
-        new{M, A, U}(ϕ, ∂p, u)
-    end
-
-    function Phase(u::ScalarField{U, Nd},
-                   ds::NTuple{Nd, Real},
-                   f::Union{Function, AbstractArray{<:Real}} = (_...) -> 0;
-                   trainable::Bool = false,
-                   buffered::Bool = false) where {Nd, U}
-        M = trainability(trainable, buffered)
-        @assert Nd in (1, 2)
-        if isa(f, Function)
-            A = similar(U, real, Nd)
-            ns = size(u)[1:Nd]
-            ϕ = A(function_to_array(f, ns, ds))
-        else
-            @assert isbroadcastable(f, u)
-            A = similar(U, real, ndims(f))
-            ϕ = A(f)
-        end
-        ∂p = (trainable && buffered) ? (; ϕ = similar(ϕ)) : nothing
-        u = (trainable && buffered) ? similar(u.electric) : nothing
-        A = typeof(ϕ)
-        new{M, A, U}(ϕ, ∂p, u)
-    end
-
-    function Phase(u::ScalarField{U, Nd},
-                   f::Union{Function, AbstractArray{<:Real}} = (_...) -> 0;
-                   trainable::Bool = false,
-                   buffered::Bool = false) where {Nd, U}
-        Phase(u, Tuple(u.ds), f; trainable, buffered)
-    end
+    u::U
 end
 
 Functors.@functor Phase (ϕ,)
+
+function Phase(u::ScalarField{U, Nd},
+               ds::NTuple{Nd, Real},
+               f::Union{Function, AbstractArray{<:Real}} = (_...) -> 0;
+               trainable::Bool = false,
+               buffered::Bool = false) where {U, Nd}
+    M = trainability(trainable, buffered)
+    @assert Nd in (1, 2)
+    if isa(f, Function)
+        A = similar(U, real, Nd)
+        ns = size(u)[1:Nd]
+        ϕ = A(function_to_array(f, ns, ds))
+    else
+        @assert isbroadcastable(f, u)
+        A = similar(U, real, ndims(f))
+        ϕ = A(f)
+    end
+    ∂p = (trainable && buffered) ? (; ϕ = similar(ϕ)) : nothing
+    u = (trainable && buffered) ? similar(u.electric) : nothing
+    Phase(Val(M), ϕ, ∂p, u)
+end
+
+function Phase(u::ScalarField,
+               f::Union{Function, AbstractArray{<:Real}} = (_...) -> 0;
+               trainable::Bool = false,
+               buffered::Bool = false)
+    Phase(u, Tuple(u.ds), f; trainable, buffered)
+end
 
 data_symbol_chain(p::Phase) = (:ϕ,)
 

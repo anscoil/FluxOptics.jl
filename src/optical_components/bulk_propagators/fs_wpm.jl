@@ -66,6 +66,7 @@ See also: [`FourierSmoothingWrapper`](@ref), [`BasisProjectionWrapper`](@ref),
 [`ASProp`](@ref), [`AS_BPM`](@ref)
 """
 struct FS_WPM{M, A, U, K, T, P} <: AbstractCustomComponent{M}
+    trainability::Val{M}
     S::A
     n_slices::Int
     nz::Int
@@ -75,59 +76,49 @@ struct FS_WPM{M, A, U, K, T, P} <: AbstractCustomComponent{M}
     p_n1::P
     p_n2::P
     ∂p::Union{Nothing, @NamedTuple{S::A}}
-    u::Union{Nothing, U}
-
-    function FS_WPM(S::A, n_slices::Integer, nz::Integer, dz::T, dn::T, k_dz::K,
-                    p_n1::P, p_n2::P, ∂p, u) where {A, T, K, P}
-        M = isnothing(u) ? Trainable{Unbuffered} : Trainable{Buffered}
-        U = typeof(u)
-        new{M, A, U, K, T, P}(S, n_slices, nz, dz, dn, k_dz, p_n1, p_n2, ∂p, u)
-    end
-    
-    function FS_WPM(u::ScalarField{U, Nd},
-                    ds::NTuple{Nd, Real},
-                    thickness::Real, dz::Real,
-                    n1::Real, n2::Real,
-                    f::Union{Function, AbstractArray{<:Real, Nd}} = (_...) -> 0;
-                    nz::Integer = 4,
-                    use_cache::Bool = true,
-                    trainable::Bool = false,
-                    buffered::Bool = false) where {U, Nd}
-        T = real(eltype(u))
-        M = trainability(trainable, buffered)
-        n_slices = Int(round(thickness / dz))
-        @assert Nd in (1, 2)
-        @assert nz >= 0
-        A = similar(U, real, Nd)
-        ns = size(u)[1:Nd]
-        S = isa(f, Function) ? A(function_to_array(f, ns, ds)) : A(f)
-        @assert isbroadcastable(S, u)
-        p_n1 = ASProp(u, dz; use_cache, n0 = n1)
-        p_n2 = ASProp(u, dz; use_cache, n0 = n2)
-        k_dz = T(2π*dz) ./ get_lambdas(u)
-        dn = T(n1-n2)
-        ∂p = (trainable && buffered) ? (; S = similar(S)) : nothing
-        u_saved = (trainable && buffered) ?
-            (similar(u.electric, (size(u)..., nz, 2)), similar(S, Int)) : nothing
-        Us = typeof(u_saved)
-        K = typeof(k_dz)
-        P = typeof(p_n1)
-        new{M, A, Us, K, T, P}(S, n_slices, nz, dz, dn, k_dz, p_n1, p_n2, ∂p, u_saved)
-    end
-
-    function FS_WPM(u::ScalarField{U, Nd},
-                    thickness::Real, dz::Real,
-                    n1::Real, n2::Real,
-                    f::Union{Function, AbstractArray{<:Real, Nd}} = (_...) -> 0;
-                    nz::Integer = 4,
-                    use_cache::Bool = true,
-                    trainable::Bool = false,
-                    buffered::Bool = false) where {U, Nd}
-        FS_WPM(u, Tuple(u.ds), thickness, dz, n1, n2, f; nz, use_cache, trainable, buffered)
-    end
+    u::U
 end
 
 Functors.@functor FS_WPM (S,)
+
+function FS_WPM(u::ScalarField{U, Nd},
+                ds::NTuple{Nd, Real},
+                thickness::Real, dz::Real,
+                n1::Real, n2::Real,
+                f::Union{Function, AbstractArray{<:Real, Nd}} = (_...) -> 0;
+                nz::Integer = 4,
+                use_cache::Bool = true,
+                trainable::Bool = false,
+                buffered::Bool = false) where {U, Nd}
+    T = real(eltype(u))
+    M = trainability(trainable, buffered)
+    n_slices = Int(round(thickness / dz))
+    @assert Nd in (1, 2)
+    @assert nz >= 0
+    A = similar(U, real, Nd)
+    ns = size(u)[1:Nd]
+    S = isa(f, Function) ? A(function_to_array(f, ns, ds)) : A(f)
+    @assert isbroadcastable(S, u)
+    p_n1 = ASProp(u, dz; use_cache, n0 = n1)
+    p_n2 = ASProp(u, dz; use_cache, n0 = n2)
+    k_dz = T(2π*dz) ./ get_lambdas(u)
+    dn = T(n1-n2)
+    ∂p = (trainable && buffered) ? (; S = similar(S)) : nothing
+    u_saved = (trainable && buffered) ?
+        (similar(u.electric, (size(u)..., nz, 2)), similar(S, Int)) : nothing
+    FS_WPM(Val(M), S, n_slices, nz, T(dz), T(n1-n2), k_dz, p_n1, p_n2, ∂p, u_saved)
+end
+
+function FS_WPM(u::ScalarField{U, Nd},
+                thickness::Real, dz::Real,
+                n1::Real, n2::Real,
+                f::Union{Function, AbstractArray{<:Real, Nd}} = (_...) -> 0;
+                nz::Integer = 4,
+                use_cache::Bool = true,
+                trainable::Bool = false,
+                buffered::Bool = false) where {U, Nd}
+    FS_WPM(u, Tuple(u.ds), thickness, dz, n1, n2, f; nz, use_cache, trainable, buffered)
+end
 
 data_symbol_chain(p::FS_WPM) = (:S,)
 

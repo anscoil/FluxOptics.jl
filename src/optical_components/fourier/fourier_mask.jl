@@ -28,40 +28,34 @@ gaussian_filter = FourierMask(u, (fx, fy) -> exp(-(fx^2 + fy^2)/(2*sigma_f^2)))
 See also: [`FourierPhase`](@ref), [`FourierWrapper`](@ref), [`Mask`](@ref)
 """
 struct FourierMask{M, C} <: AbstractSequence{M}
+    trainability::Val{M}
     optical_components::C
-
-    function FourierMask(optical_components::C) where {N,
-                                                       C <:
-                                                       NTuple{N, AbstractPipeComponent}}
-        new{Trainable, C}(optical_components)
-    end
-
-    function FourierMask(u::ScalarField{U, Nd},
-                         ds::NTuple{Nd, Real},
-                         f::Union{Function, AbstractArray} = (_...) -> 1;
-                         trainable::Bool = false,
-                         buffered::Bool = false) where {Nd, U}
-        if isa(f, Function)
-            ns = size(u)[1:Nd]
-            f = function_to_array(f, ns, ds, true)
-        end
-        mask = Mask(u, ds, f; trainable, buffered)
-        wrapper = FourierWrapper(u, mask)
-        M = get_trainability(wrapper)
-        optical_components = get_sequence(wrapper)
-        C = typeof(optical_components)
-        new{M, C}(optical_components)
-    end
-
-    function FourierMask(u::ScalarField{U, Nd},
-                         f::Union{Function, AbstractArray} = (_...) -> 1;
-                         trainable::Bool = false,
-                         buffered::Bool = false) where {Nd, U}
-        FourierMask(u, Tuple(u.ds), f; trainable, buffered)
-    end
 end
 
 Functors.@functor FourierMask (optical_components,)
+
+function FourierMask(u::ScalarField{U, Nd},
+                     ds::NTuple{Nd, Real},
+                     f::Union{Function, AbstractArray} = (_...) -> 1;
+                     trainable::Bool = false,
+                     buffered::Bool = false) where {Nd, U}
+    if isa(f, Function)
+        ns = size(u)[1:Nd]
+        f = function_to_array(f, ns, ds, true)
+    end
+    mask = Mask(u, ds, f; trainable, buffered)
+    wrapper = FourierWrapper(u, mask)
+    M = get_trainability(wrapper)
+    optical_components = get_sequence(wrapper)
+    FourierMask(Val(M), optical_components)
+end
+
+function FourierMask(u::ScalarField{U, Nd},
+                     f::Union{Function, AbstractArray} = (_...) -> 1;
+                     trainable::Bool = false,
+                     buffered::Bool = false) where {Nd, U}
+    FourierMask(u, Tuple(u.ds), f; trainable, buffered)
+end
 
 get_sequence(p::FourierMask) = p.optical_components
 

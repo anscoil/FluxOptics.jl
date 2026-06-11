@@ -11,26 +11,26 @@ function shift_kernel(fx::T, θx::T, z::Tp) where {T <: Real, Tp <: Real}
     Complex{T}(cis(-2π*z*f0x*fx))
 end
 
-struct ShiftKernel{M, K, T, Tp} <: AbstractPropagator{M, K, T}
+struct ShiftKernel{M, K, Tp} <: AbstractPropagator{M, K}
+    trainability::Val{M}
     kernel::K
     z::Tp
-
-    function ShiftKernel(u::ScalarField{U, Nd},
-                         ds::NTuple{Nd, Real},
-                         z::Real;
-                         use_cache::Bool = true,
-                         double_precision_kernel::Bool = use_cache) where {Nd, T,
-                                                                           U <:
-                                                                           AbstractArray{Complex{T}}}
-        ns = size(u)[1:Nd]
-        cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
-        kernel = FourierKernel(u.electric, ns, ds, cache_size)
-        Tp = double_precision_kernel ? Float64 : T
-        new{Static, typeof(kernel), T, Tp}(kernel, Tp(z))
-    end
 end
 
 Functors.@functor ShiftKernel ()
+
+function ShiftKernel(u::ScalarField{U, Nd},
+                     ds::NTuple{Nd, Real},
+                     z::Real;
+                     use_cache::Bool = true,
+                     double_precision_kernel::Bool = use_cache
+                     ) where {Nd, T, U <: AbstractArray{Complex{T}}}
+    ns = size(u)[1:Nd]
+    cache_size = use_cache ? prod(size(u)[(Nd + 1):end]) : 0
+    kernel = FourierKernel(u.electric, ns, ds, cache_size)
+    Tp = double_precision_kernel ? Float64 : T
+    ShiftKernel(Val(Static), kernel, Tp(z))
+end
 
 get_kernels(p::ShiftKernel) = (p.kernel,)
 
@@ -89,29 +89,29 @@ as_prop = ASProp(u, 1000.0)
 See also: [`ASProp`](@ref), [`Shift_BPM`](@ref)
 """
 struct ShiftProp{M, C} <: AbstractSequence{M}
+    trainability::Val{M}
     optical_components::C
-
-    function ShiftProp(u::ScalarField{U, Nd},
-                       ds::NTuple{Nd, Real},
-                       z::Real;
-                       use_cache::Bool = true,
-                       double_precision_kernel::Bool = use_cache) where {U, Nd}
-        kernel = ShiftKernel(u, ds, z; use_cache, double_precision_kernel)
-        wrapper = FourierWrapper(kernel.kernel.p_f, kernel)
-        M = get_trainability(wrapper)
-        optical_components = get_sequence(wrapper)
-        C = typeof(optical_components)
-        new{M, C}(optical_components)
-    end
-
-    function ShiftProp(u::ScalarField,
-                       z::Real;
-                       use_cache::Bool = true,
-                       double_precision_kernel::Bool = use_cache)
-        ShiftProp(u, Tuple(u.ds), z; use_cache, double_precision_kernel)
-    end
 end
 
 Functors.@functor ShiftProp (optical_components,)
+
+function ShiftProp(u::ScalarField{U, Nd},
+                   ds::NTuple{Nd, Real},
+                   z::Real;
+                   use_cache::Bool = true,
+                   double_precision_kernel::Bool = use_cache) where {U, Nd}
+    kernel = ShiftKernel(u, ds, z; use_cache, double_precision_kernel)
+    wrapper = FourierWrapper(kernel.kernel.p_f, kernel)
+    M = get_trainability(wrapper)
+    optical_components = get_sequence(wrapper)
+    ShiftProp(Val(M), optical_components)
+end
+
+function ShiftProp(u::ScalarField,
+                   z::Real;
+                   use_cache::Bool = true,
+                   double_precision_kernel::Bool = use_cache)
+    ShiftProp(u, Tuple(u.ds), z; use_cache, double_precision_kernel)
+end
 
 get_sequence(p::ShiftProp) = p.optical_components
