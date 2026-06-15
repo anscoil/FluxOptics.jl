@@ -13,10 +13,12 @@ const FFTPlans = NamedTuple{(:ft, :ift), <:Tuple{AbstractFFTs.Plan, AbstractFFTs
 function make_fft_plans(u::U,
                         dims::NTuple{N, Integer};
                         normalize::Bool = true) where {N, U <: AbstractArray{<:Complex}}
+    ns = size(u)[1:N]
     p_ft = plan_fft!(u, dims, flags = FFTW.MEASURE)
     p_ift = normalize ? plan_ifft!(u, dims, flags = FFTW.MEASURE) :
-            plan_bfft!(u, dims, flags = FFTW.MEASURE)
-    (; ft = p_ft, ift = p_ift)
+        plan_bfft!(u, dims, flags = FFTW.MEASURE)
+    nrm_f = normalize ? nothing : prod(ns)
+    ((; ft = p_ft, ift = p_ift), nrm_f)
 end
 
 function compute_ft!(p_f::FFTPlans, u::ScalarField)
@@ -75,7 +77,7 @@ struct CZTPlan{U, B, N, P}
         end
         dims_tmp = ntuple(k -> k in dims ? 2*size(x, k) - 1 : size(x, k), N)
         x_tmp = similar(x, dims_tmp)
-        p_f = make_fft_plans(x_tmp, dims)
+        p_f, _ = make_fft_plans(x_tmp, dims)
         new{U, Val{inplace}, Nd, typeof(p_f)}(p_f,
                                               input_chirp,
                                               output_chirp,

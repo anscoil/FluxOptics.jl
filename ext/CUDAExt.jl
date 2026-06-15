@@ -20,9 +20,11 @@ function FFTutils.make_fft_plans(u::U,
                                  dims::NTuple{N, Integer};
                                  normalize::Bool = true) where {N,
                                                                 U <: CuArray{<:Complex}}
+    ns = size(u)[1:N]
     p_ft = plan_fft!(u, dims)
     p_ift = normalize ? plan_ifft!(u, dims) : plan_bfft!(u, dims)
-    (; ft = p_ft, ift = p_ift)
+    nrm_f = normalize ? nothing : prod(ns)
+    ((; ft = p_ft, ift = p_ift), nrm_f)
 end
 
 function Base.exp(A::CuArray{T,2}) where {T}

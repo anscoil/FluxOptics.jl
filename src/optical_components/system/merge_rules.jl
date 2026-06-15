@@ -42,10 +42,14 @@ end
 
 # FourierOperator
 
-function Base.merge(p1::FourierOperator{Static, S},
-                    p2::FourierOperator{Static, S}) where {S}
+function Base.merge(p1::FourierOperator{S},
+                    p2::FourierOperator{S}) where {S}
     if p1.direct != p2.direct
-        OpticalSequence()
+        if isnothing(p1.nrm_f) && isnothing(p2.nrm_f)
+            OpticalSequence()
+        else
+            OpticalSequence(p1, p2)
+        end
     else
         OpticalSequence(p1, p2)
     end

@@ -1,7 +1,8 @@
-struct ConvolutionKernel{K, Nd, V, P, U} <: AbstractKernel{K, V}
+struct ConvolutionKernel{K, Nd, V, T, P, U} <: AbstractKernel{K, V}
     s_vec::V
     kernel_cache::Union{Nothing, LRU{UInt, K}}
     p_f::P
+    nrm_f::T
     u_plan::U
 
     function ConvolutionKernel(u::U,
@@ -26,14 +27,15 @@ struct ConvolutionKernel{K, Nd, V, P, U} <: AbstractKernel{K, V}
             u_plan = similar(u, (2*nx-1, size(u)[2:end]...))
         end
         V = typeof(s_vec)
-        p_f = make_fft_plans(u_plan, Tuple(1:Nd); normalize)
+        p_f, nrm_f = make_fft_plans(u_plan, Tuple(1:Nd); normalize)
         P = typeof(p_f)
+        T = typeof(nrm_f)
         if iszero(cache_size)
-            new{Nothing, Nd, V, P, U}(s_vec, nothing, p_f, u_plan)
+            new{Nothing, Nd, V, T, P, U}(s_vec, nothing, p_f, nrm_f, u_plan)
         else
             K = similar(U, Nd)
             kernel_cache = LRU{UInt, K}(maxsize = cache_size)
-            new{K, Nd, V, P, U}(s_vec, kernel_cache, p_f, u_plan)
+            new{K, Nd, V, T, P, U}(s_vec, kernel_cache, p_f, nrm_f, u_plan)
         end
     end
 end

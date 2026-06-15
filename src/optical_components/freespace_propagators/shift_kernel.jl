@@ -101,7 +101,7 @@ function ShiftProp(u::ScalarField{U, Nd},
                    use_cache::Bool = true,
                    double_precision_kernel::Bool = use_cache) where {U, Nd}
     kernel = ShiftKernel(u, ds, z; use_cache, double_precision_kernel)
-    wrapper = FourierWrapper(kernel.kernel.p_f, kernel)
+    wrapper = FourierWrapper(kernel.kernel.p_f, kernel.kernel.nrm_f, kernel)
     M = get_trainability(wrapper)
     optical_components = get_sequence(wrapper)
     ShiftProp(Val(M), optical_components)

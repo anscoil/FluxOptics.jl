@@ -64,7 +64,7 @@ function FourierSmoothingWrapper(wrapped_component::C,
     filter = F(function_to_array(f, ns, ds, true) ./ prod(ns))
     buffer = similar(mapped_data, complex(eltype(mapped_data)))
     copyto!(buffer, mapped_data)
-    p_f = make_fft_plans(buffer, Tuple(1:Nd); normalize=false)
+    p_f, _ = make_fft_plans(buffer, Tuple(1:Nd); normalize=false)
     aux_data = auxiliary_trainable(wrapped_component)
     ∂p = M == Trainable{Buffered} ? (; buffer = similar(buffer)) : nothing
     FourierSmoothingWrapper(Val(M), wrapped_component, mapped_data, aux_data, buffer, filter, p_f, ∂p)

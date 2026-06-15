@@ -1,6 +1,8 @@
-function FourierWrapper(p_f::FFTPlans, wrapped_components::Vararg{AbstractPipeComponent})
-    ft = FourierOperator(p_f, true)
-    ift = FourierOperator(p_f, false)
+function FourierWrapper(p_f::FFTPlans,
+                        nrm_f::Union{Nothing, Number},
+                        wrapped_components::Vararg{AbstractPipeComponent})
+    ft = FourierOperator(p_f, nrm_f, true)
+    ift = FourierOperator(p_f, nrm_f, false)
     OpticalSequence(ft, wrapped_components..., ift)
 end
 
@@ -35,8 +37,8 @@ function FourierWrapper(u::AbstractField{U, Nd},
                         wrapped_components::Vararg{AbstractPipeComponent};
                         normalize::Bool = true) where {Nd, U}
     u_plan = similar(u.electric)
-    p_f = make_fft_plans(u_plan, Tuple(1:Nd); normalize)
-    FourierWrapper(p_f, wrapped_components...)
+    p_f, nrm_f = make_fft_plans(u_plan, Tuple(1:Nd); normalize)
+    FourierWrapper(p_f, nrm_f, wrapped_components...)
 end
 
 include("fourier_phase.jl")

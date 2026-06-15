@@ -198,7 +198,7 @@ function ASProp(u::ScalarField{U, Nd},
                 double_precision_kernel::Bool = use_cache) where {U, Nd}
     kernel = ASKernelProp(u, ds, z; use_cache, track_tilts, n0, filter, paraxial,
                           double_precision_kernel)
-    wrapper = FourierWrapper(kernel.kernel.p_f, kernel)
+    wrapper = FourierWrapper(kernel.kernel.p_f, kernel.kernel.nrm_f, kernel)
     M = get_trainability(wrapper)
     optical_components = get_sequence(wrapper)
     ASProp(Val(M), optical_components)

@@ -266,7 +266,7 @@ function CollinsProp(u::ScalarField{U, Nd},
     d_chirp = CollinsDChirp(u, ds, ds′, d, b; use_cache, track_tilts,
                             double_precision_kernel)
     collins = CollinsConvolution(u, ds, ds′, b; use_cache, double_precision_kernel)
-    wrapper = FourierWrapper(collins.kernel.p_f, collins)
+    wrapper = FourierWrapper(collins.kernel.p_f, collins.kernel.nrm_f, collins)
     pad_op = PadCropOperator(u, collins.kernel.u_plan; store_ref = true)
     crop_op = adjoint(pad_op)
     optical_components = (a_chirp, pad_op, get_sequence(wrapper)..., crop_op, d_chirp)
