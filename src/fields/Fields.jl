@@ -9,7 +9,7 @@ using ..FluxOptics: isbroadcastable, bzip
 
 import Base: +, -, *, /
 
-export AbstractField, ScalarField, HelmholtzField
+export AbstractField, ScalarField, ScalarWaveField
 export get_lambdas, get_lambdas_collection
 export get_tilts, get_tilts_collection, offset_tilts!
 export select_lambdas, select_tilts, set_field_ds!, set_field_data, set_field_tilts
@@ -17,7 +17,7 @@ export is_on_axis
 export power, normalize_power!, coupling_efficiency, intensity, phase
 export orthonormalize, unitary_transform, spatial_moments, spatial_centroids, spatial_variance
 export compute_kz, compute_fresnel_r12, compute_fresnel_t12
-export forward_field, backward_field, split_field, poynting_flux, normalize_poynting!
+export split_field, poynting_flux, normalize_poynting!
 
 function parse_val(u::AbstractArray{Complex{T}, N},
                    val::AbstractArray,
@@ -44,5 +44,7 @@ end
 abstract type AbstractField{U, Nd} end
 
 include("scalar_field.jl")
+
+include("scalar_wave_field.jl")
 
 end

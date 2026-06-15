@@ -785,6 +785,9 @@ end
 include("sources/scalar_source.jl")
 export ScalarSource, get_source
 
+include("sources/scalar_wave_source.jl")
+export ScalarWaveSource
+
 include("modulators/phasemask.jl")
 export Phase
 
