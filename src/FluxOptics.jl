@@ -40,6 +40,11 @@ end
 Base.similar(t::Tuple{}) = ()
 Base.similar(t::NamedTuple{}) = (;)
 
+_get_val(A::AbstractArray{<:Any, 2}, I, J) = A[I]
+function _get_val(A::AbstractArray{<:Any, N}, I, J) where {N}
+    A[I, CartesianIndex(min.(Tuple(J), size(A)[3:end]))]
+end
+
 include("fields/Fields.jl")
 using .Fields
 export ScalarField, ScalarWaveField
@@ -85,7 +90,6 @@ export as_rotation!, as_rotation, field_rotation_matrix
 export AS_BPM, Shift_BPM
 export FS_WPM, smoothstep_partition
 export ScalarSource, get_source, Phase, Mask, FourierMask, FourierPhase
-export ScalarWaveSource
 export TeaDOE, TeaReflector
 export FieldProbe
 export BasisProjectionWrapper, make_spatial_basis, make_fourier_basis
@@ -94,6 +98,9 @@ export GainSheet
 export AbstractSequence, OpticalSequence, FourierOperator, FourierWrapper, get_sequence
 export OpticalSystem, get_components
 export get_data
+
+export ScalarWaveSource
+export ScalarWavePropagator
 
 include("OptimisersExt.jl")
 using .OptimisersExt

@@ -6,6 +6,7 @@ using KernelAbstractions
 using AbstractFFTs
 using FINUFFT
 using EllipsisNotation
+using Adapt
 using LRUCache
 using ..FluxOptics: isbroadcastable, bzip, NothingIterator
 using ..GridUtils
@@ -785,9 +786,6 @@ end
 include("sources/scalar_source.jl")
 export ScalarSource, get_source
 
-include("sources/scalar_wave_source.jl")
-export ScalarWaveSource
-
 include("modulators/phasemask.jl")
 export Phase
 
@@ -840,5 +838,45 @@ include("system/merge_rules.jl")
 
 include("system/optical_system.jl")
 export OpticalSystem, get_source, get_components
+
+################################ Bidirectional components ##################################
+
+abstract type AbstractBidirectionalComponent end
+
+function get_n0!(p::AbstractBidirectionalComponent)
+    error("Not implemented")
+end
+
+get_n0_left!(p::AbstractBidirectionalComponent) = get_n0(p)
+
+get_n0_right!(p::AbstractBidirectionalComponent) = get_n0(p)
+
+function initial_state(u, p::AbstractBidirectionalComponent)
+    error("Not implemented")
+end
+
+function propagate!(u, state, p::AbstractBidirectionalComponent)
+    error("Not implemented")
+end
+
+function inverse_propagate!(u, state, p::AbstractBidirectionalComponent)
+    error("Not implemented")
+end
+
+abstract type AbstractBidirectionalSource end
+
+function get_n0!(p::AbstractBidirectionalSource)
+    error("Not implemented")
+end
+
+function propagate!(u, p::AbstractBidirectionalSource)
+    error("Not implemented")
+end
+
+include("sources/scalar_wave_source.jl")
+export ScalarWaveSource
+
+include("freespace_propagators/scalar_wave_propagator.jl")
+export ScalarWavePropagator
 
 end

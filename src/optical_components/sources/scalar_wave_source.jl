@@ -1,5 +1,5 @@
-struct ScalarWaveSource{U, K, T}
-    u0::U
+struct ScalarWaveSource{U, K, T} <: AbstractBidirectionalSource
+    u0::Un
     uf::U
     kz::K
     n0::T
@@ -19,7 +19,9 @@ end
 Base.size(p::ScalarWaveSource) = size(p.u0)
 Base.size(p::ScalarWaveSource, k::Integer) = size(p.u0, k)
 
-function propagate(p::ScalarWaveSource)
+get_n0(p::ScalarWaveSource) = p.n0
+
+function propagate!(p::ScalarWaveSource)
     copyto!(p.uf, p.u0)
     p.uf
 end
