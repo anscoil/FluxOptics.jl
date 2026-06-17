@@ -863,13 +863,15 @@ function inverse_propagate!(u, state, p::AbstractBidirectionalComponent)
     error("Not implemented")
 end
 
-abstract type AbstractBidirectionalSource end
+abstract type AbstractBidirectionalSource <: AbstractBidirectionalComponent end
 
-function get_n0!(p::AbstractBidirectionalSource)
+initial_state(u, p::AbstractBidirectionalSource) = nothing
+
+function propagate(p::AbstractBidirectionalSource)
     error("Not implemented")
 end
 
-function propagate!(u, p::AbstractBidirectionalSource)
+function get_source(p::AbstractBidirectionalSource)
     error("Not implemented")
 end
 
@@ -878,5 +880,8 @@ export ScalarWaveSource
 
 include("freespace_propagators/scalar_wave_propagator.jl")
 export ScalarWavePropagator
+
+include("system/scalar_flat_interface.jl")
+export ScalarFlatInterface
 
 end

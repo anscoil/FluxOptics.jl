@@ -101,6 +101,7 @@ export get_data
 
 export ScalarWaveSource
 export ScalarWavePropagator
+export ScalarFlatInterface
 
 include("OptimisersExt.jl")
 using .OptimisersExt
