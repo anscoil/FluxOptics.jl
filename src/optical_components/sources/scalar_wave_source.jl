@@ -1,6 +1,6 @@
-struct ScalarWaveSource{U, K, T} <: AbstractBidirectionalSource
-    u0::U
-    uf::U
+struct ScalarWaveSource{U, K, T} <: AbstractBidirectionalSource{U}
+    u0::ScalarWaveField{U}
+    uf::ScalarWaveField{U}
     kz::K
     n0::T
 end

@@ -3,6 +3,7 @@ module OpticalComponents
 using Functors
 using LinearAlgebra
 using KernelAbstractions
+using ComponentArrays
 using AbstractFFTs
 using FINUFFT
 using EllipsisNotation
@@ -863,7 +864,7 @@ function inverse_propagate!(u, state, p::AbstractBidirectionalComponent)
     error("Not implemented")
 end
 
-abstract type AbstractBidirectionalSource <: AbstractBidirectionalComponent end
+abstract type AbstractBidirectionalSource{U} <: AbstractBidirectionalComponent end
 
 initial_state(u, p::AbstractBidirectionalSource) = nothing
 
@@ -882,6 +883,9 @@ include("freespace_propagators/scalar_wave_propagator.jl")
 export ScalarWavePropagator
 
 include("system/scalar_flat_interface.jl")
-export ScalarFlatInterface
+export FlatInterface
+
+include("system/bidirectional_system.jl")
+export BidirectionalSystem
 
 end

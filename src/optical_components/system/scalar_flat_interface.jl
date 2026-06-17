@@ -73,3 +73,7 @@ function inverse_propagate!(u::ScalarWaveField, state, p::ScalarFlatInterface)
         ndrange = size(u.electric)[1:2])
     u
 end
+
+function FlatInterface(u::ScalarWaveField{U}, n1::Number, n2::Number)
+    ScalarFlatInterface(u, n1, n2)
+end

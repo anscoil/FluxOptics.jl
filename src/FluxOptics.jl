@@ -101,7 +101,7 @@ export get_data
 
 export ScalarWaveSource
 export ScalarWavePropagator
-export ScalarFlatInterface
+export BidirectionalSystem
 
 include("OptimisersExt.jl")
 using .OptimisersExt
