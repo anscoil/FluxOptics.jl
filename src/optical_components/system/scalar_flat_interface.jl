@@ -23,7 +23,7 @@ function ScalarFlatInterface(u::ScalarWaveField{U}, n1::Number, n2::Number,
     r21 = compute_fresnel_r12(u, n2, n1)
     t12 = compute_fresnel_t12(u, n1, n2)
     t21 = compute_fresnel_t12(u, n2, n1)
-    kernel = ScalarFresnelKernel(a1, a2, r12, t12, t21)
+    kernel = ScalarFresnelKernel(a1, a2, r21, t12, t21)
     ScalarFlatInterface(n1, n2, kernel)
 end
 
@@ -32,7 +32,7 @@ get_n0_left(p::ScalarFlatInterface) = p.n1
 get_n0_right(p::ScalarFlatInterface) = p.n2
 
 function initial_state(u::ScalarWaveField, p::ScalarFlatInterface)
-    (; E_state = zero(u.electric))
+    (; E_state = collect(zero(u.electric)))
 end
 
 @kernel function scalar_flat_interface_kernel!(electric, electric_dz, E_state,
@@ -74,6 +74,6 @@ function inverse_propagate!(u::ScalarWaveField, state, p::ScalarFlatInterface)
     u
 end
 
-function FlatInterface(u::ScalarWaveField{U}, n1::Number, n2::Number)
+function FlatInterface(u::ScalarWaveField, n1::Number, n2::Number)
     ScalarFlatInterface(u, n1, n2)
 end

@@ -9,7 +9,7 @@ using FINUFFT
 using EllipsisNotation
 using Adapt
 using LRUCache
-using ..FluxOptics: isbroadcastable, bzip, NothingIterator
+using ..FluxOptics: isbroadcastable, bzip, NothingIterator, _get_val
 using ..GridUtils
 using ..Fields
 using ..FFTutils
@@ -844,13 +844,13 @@ export OpticalSystem, get_source, get_components
 
 abstract type AbstractBidirectionalComponent end
 
-function get_n0!(p::AbstractBidirectionalComponent)
+function get_n0(p::AbstractBidirectionalComponent)
     error("Not implemented")
 end
 
-get_n0_left!(p::AbstractBidirectionalComponent) = get_n0(p)
+get_n0_left(p::AbstractBidirectionalComponent) = get_n0(p)
 
-get_n0_right!(p::AbstractBidirectionalComponent) = get_n0(p)
+get_n0_right(p::AbstractBidirectionalComponent) = get_n0(p)
 
 function initial_state(u, p::AbstractBidirectionalComponent)
     error("Not implemented")
@@ -864,9 +864,23 @@ function inverse_propagate!(u, state, p::AbstractBidirectionalComponent)
     error("Not implemented")
 end
 
-abstract type AbstractBidirectionalSource{U} <: AbstractBidirectionalComponent end
+abstract type AbstractBidirectionalSource{U} end
 
-initial_state(u, p::AbstractBidirectionalSource) = nothing
+function get_n0(p::AbstractBidirectionalSource)
+    error("Not implemented")
+end
+
+get_n0_left(p::AbstractBidirectionalSource) = get_n0(p)
+
+get_n0_right(p::AbstractBidirectionalSource) = get_n0(p)
+
+function propagate!(u, p::AbstractBidirectionalSource)
+    error("Not implemented")
+end
+
+function inverse_propagate!(u, p::AbstractBidirectionalSource)
+    error("Not implemented")
+end
 
 function propagate(p::AbstractBidirectionalSource)
     error("Not implemented")
@@ -886,6 +900,6 @@ include("system/scalar_flat_interface.jl")
 export FlatInterface
 
 include("system/bidirectional_system.jl")
-export BidirectionalSystem
+export BidirectionalSystem, fp_solve!
 
 end

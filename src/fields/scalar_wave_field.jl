@@ -55,8 +55,8 @@ function ScalarWaveField(u::U,
     kz = compute_kz(u, ds, lambdas.val, n0)
     E_f = fft(u, (1, 2))
     sgn = forward ? 1 : -1
-    @. E_f *= sgn * im * kz
-    ScalarWaveField(E_f, dEdz, ds, lambdas)
+    dEdz_f = @. E_f * sgn * im * kz
+    ScalarWaveField(E_f, dEdz_f, ds, lambdas)
 end
 
 function ScalarWaveField(u::ScalarField{U, 2};
@@ -103,6 +103,10 @@ Base.size(u::ScalarWaveField) = size(u.electric)
 Base.size(u::ScalarWaveField, k::Integer) = size(u.electric, k)
 
 Base.eltype(u::ScalarWaveField) = eltype(u.electric)
+
+function Base.zero(u::ScalarWaveField)
+    ScalarWaveField(zero(u.electric), zero(u.electric_dz), u.ds, deepcopy(u.lambdas))
+end
 
 function Base.copy(u::ScalarWaveField)
     ScalarWaveField(copy(u.electric), copy(u.electric_dz), u.ds, deepcopy(u.lambdas))

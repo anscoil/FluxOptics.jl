@@ -101,7 +101,7 @@ export get_data
 
 export ScalarWaveSource
 export ScalarWavePropagator
-export BidirectionalSystem
+export BidirectionalSystem, fp_solve!
 
 include("OptimisersExt.jl")
 using .OptimisersExt

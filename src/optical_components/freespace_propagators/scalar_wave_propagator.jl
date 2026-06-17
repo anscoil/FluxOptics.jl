@@ -20,13 +20,13 @@ function ScalarWavePropagator(u::ScalarWaveField{U}, z::Real, n0::Number
     exp_a_p = @. exp(a * z)
     exp_a_m = @. exp(-a * z)
     kernel = BidirectionalKernel(a, exp_a_p, exp_a_m)
-    ScalarWavePropagator(z, exp_a_p, exp_a_m)
+    ScalarWavePropagator(z, n0, kernel)
 end
 
 get_n0(p::ScalarWavePropagator) = p.n0
 
 function initial_state(u::ScalarWaveField, p::ScalarWavePropagator)
-    (; E_state = zero(u.electric))
+    (; E_state = collect(zero(u.electric)))
 end
 
 @kernel function propagate_scalar_wave_kernel!(electric, electric_dz, E_state,
