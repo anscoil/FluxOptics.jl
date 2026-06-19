@@ -101,7 +101,7 @@ export get_data
 
 export ScalarWaveSource
 export ScalarWavePropagator
-export BidirectionalSystem, fp_solve!
+export BidirectionalSystem, GmresSolver, fp_solve!
 
 include("OptimisersExt.jl")
 using .OptimisersExt

@@ -842,6 +842,9 @@ export OpticalSystem, get_source, get_components
 
 ################################ Bidirectional components ##################################
 
+using LinearOperators
+using Krylov
+
 abstract type AbstractBidirectionalComponent end
 
 function get_n0(p::AbstractBidirectionalComponent)
@@ -900,6 +903,6 @@ include("system/scalar_flat_interface.jl")
 export FlatInterface
 
 include("system/bidirectional_system.jl")
-export BidirectionalSystem, fp_solve!
+export BidirectionalSystem, GmresSolver, fp_solve!
 
 end
