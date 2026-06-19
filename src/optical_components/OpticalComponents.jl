@@ -899,6 +899,9 @@ export ScalarWaveSource
 include("freespace_propagators/scalar_wave_propagator.jl")
 export ScalarWavePropagator
 
+include("bulk_propagators/scalar_wave_bpm.jl")
+export ScalarWaveBPM
+
 include("system/scalar_flat_interface.jl")
 export FlatInterface
 

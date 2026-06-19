@@ -81,14 +81,18 @@ function compute_linear_operator(s::BidirectionalSystem, tmp_state::ComponentArr
                    end; S)
 end
 
-function GmresSolver(s::BidirectionalSystem; memory = 20)
+function FixedPointSolver(s::BidirectionalSystem, Workspace; kwargs...)
     tmp_state = similar(s.fp_state)
     op = compute_linear_operator(s, tmp_state)
     v = getdata(s.fp_state)
     n = length(v)
     S = typeof(v)
-    ws = GmresWorkspace(n, n, S; memory)
+    ws = Workspace(n, n, S; kwargs...)
     BidirectionalSolver(s, ws, tmp_state, op)
+end
+
+function GmresSolver(s::BidirectionalSystem; memory = 20)
+    FixedPointSolver(s, GmresWorkspace; memory)
 end
 
 struct ZeroRHS{T, V} <: AbstractVector{T}
@@ -103,7 +107,7 @@ end
 Base.size(z::ZeroRHS) = (z.n,)
 Base.getindex(z::ZeroRHS{T}, i) where T = zero(T)
 LinearAlgebra.norm(::ZeroRHS{T}) where T = zero(real(T))
-LinearAlgebra.dot(::ZeroRHS{T}, x) where T = zero(T)
+LinearAlgebra.dot(::ZeroRHS{T}, x::AbstractVector{T}) where T = zero(T)
 LinearAlgebra.axpy!(α, ::ZeroRHS, y) = y
 
 function LinearAlgebra.axpby!(α, ::ZeroRHS, β, y::AbstractVector)
@@ -118,11 +122,14 @@ end
 
 Krylov.ktypeof(z::ZeroRHS) = Krylov.ktypeof(z.v)
 
-function fp_solve!(solver::BidirectionalSolver{W};
-                   return_stats = false, kwargs...) where {W <: GmresWorkspace}
+function fp_solve!(solver::BidirectionalSolver{<:GmresWorkspace}, init_state; kwargs...)
+    gmres!(solver.workspace, solver.op, ZeroRHS(init_state), init_state; kwargs...)
+end
+
+function fp_solve!(solver::BidirectionalSolver; return_stats = false, kwargs...)
     s = solver.system
     init_state = getdata(s.fp_state)
-    gmres!(solver.workspace, solver.op, ZeroRHS(init_state), init_state; kwargs...)
+    fp_solve!(solver, init_state; kwargs...)
     res_state = Krylov.solution(solver.workspace)
     stats = solver.workspace.stats
     copyto!(init_state, res_state)
@@ -135,16 +142,16 @@ function fp_solve!(solver::BidirectionalSolver{W};
     end
 end
 
-# function fp_solve!(s::BidirectionalSystem; tol=1e-8, maxiter=100)
-#     fp = get_fp_state(s)
-#     for i in 1:maxiter
-#         fp_old = copy(fp)
-#         compute_roundtrip!(s, fp)
-#         # fp_data = getdata(fp)
-#         # fp_old_data = getdata(fp_old)
-#         # norm(fp_data .- fp_old_data) / (norm(fp_old_data) + eps()) < tol && break
-#     end
-#     set_fp_state!(s, fp)
-#     (reflected = get_source(s.start_source),
-#      transmitted = get_source(s.end_source))
-# end
+function fp_solve!(s::BidirectionalSystem; tol=1e-8, maxiter=100)
+    fp = get_fp_state(s)
+    for i in 1:maxiter
+        # fp_old = copy(fp)
+        compute_roundtrip!(s, fp)
+        # fp_data = getdata(fp)
+        # fp_old_data = getdata(fp_old)
+        # norm(fp_data .- fp_old_data) / (norm(fp_old_data) + eps()) < tol && break
+    end
+    set_fp_state!(s, fp)
+    (reflected = get_source(s.start_source),
+     transmitted = get_source(s.end_source))
+end
