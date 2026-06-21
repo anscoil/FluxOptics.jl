@@ -56,26 +56,26 @@ function compute_roundtrip!(s::BidirectionalSystem, fp_state::ComponentArray)
     nothing
 end
 
-struct BidirectionalSolver{W, S, P, L}
+struct BidirectionalSolver{W, S, P}
     system::S
     workspace::W
     tmp_state::P
-    op::L
+    r::P
 end
 
-function compute_linear_operator(s::BidirectionalSystem, tmp_state::ComponentArray)
+function compute_linear_operator(s::BidirectionalSystem, tmp_state::ComponentArray, v0, r)
     state = getdata(tmp_state)
     T = eltype(state)
     n = length(state)
     S = typeof(state)
     LinearOperator(T, n, n, false, false,
                    (res, v, α, β) -> begin
-                       copyto!(tmp_state, v)
+                       @. state = v + v0
                        compute_roundtrip!(s, tmp_state)
                        if iszero(β)
-                           @. res = α * (v - state)
+                           @. res = α * (v + v0 + r - state)
                        else
-                           @. res = α * (v - state) + β * res
+                           @. res = α * (v + v0 + r - state) + β * res
                        end
                        res
                    end; S)
@@ -83,59 +83,50 @@ end
 
 function FixedPointSolver(s::BidirectionalSystem, Workspace; kwargs...)
     tmp_state = similar(s.fp_state)
-    op = compute_linear_operator(s, tmp_state)
+    r = similar(s.fp_state)
     v = getdata(s.fp_state)
     n = length(v)
     S = typeof(v)
     ws = Workspace(n, n, S; kwargs...)
-    BidirectionalSolver(s, ws, tmp_state, op)
+    BidirectionalSolver(s, ws, tmp_state, r)
 end
 
 function GmresSolver(s::BidirectionalSystem; memory = 20)
     FixedPointSolver(s, GmresWorkspace; memory)
 end
 
-struct ZeroRHS{T, V} <: AbstractVector{T}
-    n::Int
-    v::V
-    
-    function ZeroRHS(v::V) where {T, V <: AbstractVector{T}}
-        new{T, V}(length(v), v)
-    end
+function BicgstabSolver(s::BidirectionalSystem)
+    FixedPointSolver(s, BicgstabWorkspace)
 end
 
-Base.size(z::ZeroRHS) = (z.n,)
-Base.getindex(z::ZeroRHS{T}, i) where T = zero(T)
-LinearAlgebra.norm(::ZeroRHS{T}) where T = zero(real(T))
-LinearAlgebra.dot(::ZeroRHS{T}, x::AbstractVector{T}) where T = zero(T)
-LinearAlgebra.axpy!(α, ::ZeroRHS, y) = y
-
-function LinearAlgebra.axpby!(α, ::ZeroRHS, β, y::AbstractVector)
-    iszero(β) ? fill!(y, 0) : y .*= β
-    y
+function krylov_solve!(solver::BidirectionalSolver{<:GmresWorkspace},
+                       op::LinearOperator; kwargs...)
+    gmres!(solver.workspace, op, getdata(solver.r); kwargs...)
 end
 
-function Base.copyto!(dest::AbstractVector, ::ZeroRHS)
-    fill!(dest, 0)
-    dest
-end
-
-Krylov.ktypeof(z::ZeroRHS) = Krylov.ktypeof(z.v)
-
-function fp_solve!(solver::BidirectionalSolver{<:GmresWorkspace}, init_state; kwargs...)
-    gmres!(solver.workspace, solver.op, ZeroRHS(init_state), init_state; kwargs...)
+function krylov_solve!(solver::BidirectionalSolver{<:BicgstabWorkspace},
+                       op::LinearOperator; kwargs...)
+    bicgstab!(solver.workspace, op, getdata(solver.r); kwargs...)
 end
 
 function fp_solve!(solver::BidirectionalSolver; return_stats = false, kwargs...)
     s = solver.system
-    init_state = getdata(s.fp_state)
-    fp_solve!(solver, init_state; kwargs...)
+    copyto!(solver.r, s.fp_state)
+    compute_roundtrip!(s, solver.r)
+    r = getdata(solver.r)
+    v0 = getdata(s.fp_state)
+    @. r = r - v0
+    op = compute_linear_operator(s, solver.tmp_state, v0, r)
+    krylov_solve!(solver, op; kwargs...)
     res_state = Krylov.solution(solver.workspace)
-    stats = solver.workspace.stats
-    copyto!(init_state, res_state)
+    δ = getdata(res_state)
+    @. v0 = v0 + δ
+    copyto!(getdata(solver.tmp_state), v0)
+    compute_roundtrip!(s, solver.tmp_state)
     res = (reflected = get_source(s.start_source),
            transmitted = get_source(s.end_source))
     if return_stats
+        stats = solver.workspace.stats
         (res, stats)
     else
         res

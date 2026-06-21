@@ -36,13 +36,13 @@ function initial_state(u::ScalarWaveField, p::ScalarWaveBPM)
     n_slices = size(p.n_xyz, 3)
     E_state = similar(u.electric, (size(u.electric)..., n_slices))
     E_state .= 0
-    (; E_state)
+    (; E_state = collect(E_state))
 end
 
 function propagate_slice!(u::ScalarWaveField, state, p::ScalarWaveBPM, k::Integer)
     backend = get_backend(u.electric)
     n_xy = view(p.n_xyz, :, :, k)
-    E_state = selectdim(state, ndims(state), k)
+    E_state = selectdim(state.E_state, ndims(state.E_state), k)
     compute_ift!(p.p_f, u)
     @. u.electric_dz += ((2π/u.lambdas.val)^2 * (p.n0^2 - n_xy^2) * p.dz * u.electric)
     compute_ft!(p.p_f, u)
@@ -55,7 +55,7 @@ end
 function inverse_propagate_slice!(u::ScalarWaveField, state, p::ScalarWaveBPM, k::Integer)
     backend = get_backend(u.electric)
     n_xy = view(p.n_xyz, :, :, k)
-    E_state = selectdim(state, ndims(state), k)
+    E_state = selectdim(state.E_state, ndims(state.E_state), k)
     propagate_scalar_wave_kernel!(backend)(
         u.electric, u.electric_dz, E_state, p.kernel, Val(false);
         ndrange = size(u.electric)[1:2])

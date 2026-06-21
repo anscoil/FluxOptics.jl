@@ -906,6 +906,6 @@ include("system/scalar_flat_interface.jl")
 export FlatInterface
 
 include("system/bidirectional_system.jl")
-export BidirectionalSystem, GmresSolver, fp_solve!
+export BidirectionalSystem, GmresSolver, BicgstabSolver, fp_solve!
 
 end
