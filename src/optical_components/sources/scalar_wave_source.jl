@@ -20,7 +20,7 @@ Base.size(p::ScalarWaveSource) = size(p.u0)
 Base.size(p::ScalarWaveSource, k::Integer) = size(p.u0, k)
 
 function Base.zero(p::ScalarWaveSource; n0::Number = p.n0)
-    ScalarWaveSource(zero(p.u0), zero(p.uf), p.kz, n0)
+    ScalarWaveSource(zero(p.u0); n0)
 end
 
 get_n0(p::ScalarWaveSource) = p.n0
