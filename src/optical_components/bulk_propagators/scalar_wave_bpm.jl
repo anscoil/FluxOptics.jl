@@ -65,6 +65,33 @@ function inverse_propagate_slice!(u::ScalarWaveField, state, p::ScalarWaveBPM, k
     u
 end
 
+function propagate_slice_adjoint!(u::ScalarWaveField, state, p::ScalarWaveBPM, k::Integer)
+    backend = get_backend(u.electric)
+    n_xy = view(p.n_xyz, :, :, k)
+    E_state = selectdim(state.E_state, ndims(state.E_state), k)
+    propagate_scalar_wave_adjoint_kernel!(backend)(
+        u.electric, u.electric_dz, E_state, p.kernel, Val(true);
+        ndrange = size(u.electric)[1:2])
+    compute_ift!(p.p_f, u)
+    @. u.electric += ((2π/u.lambdas.val)^2 * conj(p.n0^2 - n_xy^2) * p.dz * u.electric_dz)
+    compute_ft!(p.p_f, u)
+    u
+end
+
+function inverse_propagate_slice_adjoint!(u::ScalarWaveField, state,
+                                          p::ScalarWaveBPM, k::Integer)
+    backend = get_backend(u.electric)
+    n_xy = view(p.n_xyz, :, :, k)
+    E_state = selectdim(state.E_state, ndims(state.E_state), k)
+    compute_ift!(p.p_f, u)
+    @. u.electric -= ((2π/u.lambdas.val)^2 * conj(p.n0^2 - n_xy^2) * p.dz * u.electric_dz)
+    compute_ft!(p.p_f, u)
+    propagate_scalar_wave_adjoint_kernel!(backend)(
+        u.electric, u.electric_dz, E_state, p.kernel, Val(false);
+        ndrange = size(u.electric)[1:2])
+    u
+end
+
 function propagate!(u::ScalarWaveField, state, p::ScalarWaveBPM)
     n_slices = size(p.n_xyz, 3)
     for k in 1:n_slices
@@ -77,6 +104,22 @@ function inverse_propagate!(u::ScalarWaveField, state, p::ScalarWaveBPM)
     n_slices = size(p.n_xyz, 3)
     for k in reverse(1:n_slices)
         inverse_propagate_slice!(u, state, p, k)
+    end
+    u
+end
+
+function propagate_adjoint!(u::ScalarWaveField, state, p::ScalarWaveBPM)
+    n_slices = size(p.n_xyz, 3)
+    for k in reverse(1:n_slices)
+        propagate_slice_adjoint!(u, state, p, k)
+    end
+    u
+end
+
+function inverse_propagate_adjoint!(u::ScalarWaveField, state, p::ScalarWaveBPM)
+    n_slices = size(p.n_xyz, 3)
+    for k in 1:n_slices
+        inverse_propagate_slice_adjoint!(u, state, p, k)
     end
     u
 end

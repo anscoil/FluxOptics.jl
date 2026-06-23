@@ -56,6 +56,18 @@ function compute_roundtrip!(s::BidirectionalSystem, fp_state::ComponentArray)
     nothing
 end
 
+function compute_roundtrip_adjoint!(s::BidirectionalSystem, fp_state::ComponentArray)
+    fp_state_views = map(k -> getproperty(fp_state, k), s.fp_state_keys)
+    u = propagate_zero(s.start_source)
+    for (p, state) in zip(s.components, fp_state_views)
+        u = inverse_propagate_adjoint!(u, state, p)
+    end
+    for (p, state) in zip(reverse(s.components), reverse(fp_state_views))
+        u = propagate_adjoint!(u, state, p)
+    end
+    nothing
+end
+
 struct BidirectionalSolver{W, S, P}
     system::S
     workspace::W
@@ -68,14 +80,67 @@ function compute_linear_operator(s::BidirectionalSystem, tmp_state::ComponentArr
     T = eltype(state)
     n = length(state)
     S = typeof(state)
+    function prod!(res, v, α, β)
+        @. state = v + v0
+        compute_roundtrip!(s, tmp_state)
+        if iszero(β)
+            @. res = α * (v + v0 + r - state)
+        else
+            @. res = α * (v + v0 + r - state) + β * res
+        end
+        res
+    end
+    function ctprod!(res, v, α, β)
+        @. state = v
+        compute_roundtrip_adjoint!(s, tmp_state)
+        if iszero(β)
+            @. res = α * (v - state)
+        else
+            @. res = α * (v - state) + β * res
+        end
+        res
+    end
+    LinearOperator(T, n, n, false, false, prod!, nothing, ctprod!; S)
+end
+
+function compute_preconditioner(s::BidirectionalSystem, tmp_state::ComponentArray, v0, r)
+    state = getdata(tmp_state)
+    T = eltype(state)
+    n = length(state)
+    S = typeof(state)
     LinearOperator(T, n, n, false, false,
                    (res, v, α, β) -> begin
                        @. state = v + v0
                        compute_roundtrip!(s, tmp_state)
                        if iszero(β)
-                           @. res = α * (v + v0 + r - state)
+                           @. res = α * (v - v0 - r + state)
                        else
-                           @. res = α * (v + v0 + r - state) + β * res
+                           @. res = α * (v - v0 - r + state) + β * res
+                       end
+                       res
+                   end; S)
+end
+
+function compute_pade_preconditioner(s::BidirectionalSystem, tmp_state::ComponentArray, 
+                                     v0, r; n_iter=3)
+    state = getdata(tmp_state)
+    T = eltype(state)
+    n = length(state)
+    S = typeof(state)
+    LinearOperator(T, n, n, false, false,
+                   (res, v, α, β) -> begin
+                       copyto!(res, v)
+                       for _ in 1:n_iter
+                           @. state = res + v0
+                           compute_roundtrip!(s, tmp_state)
+                           @. res = v + (state - v0 - r) / 2
+                       end
+                       @. state = res + v0
+                       compute_roundtrip!(s, tmp_state)
+                       if iszero(β)
+                           @. res = α * (res + (state - v0 - r) / 2)
+                       else
+                           @. res = α * (res + (state - v0 - r) / 2) + β * res
                        end
                        res
                    end; S)
@@ -99,6 +164,18 @@ function BicgstabSolver(s::BidirectionalSystem)
     FixedPointSolver(s, BicgstabWorkspace)
 end
 
+function BilqSolver(s::BidirectionalSystem)
+    FixedPointSolver(s, BilqWorkspace)
+end
+
+function CgneSolver(s::BidirectionalSystem)
+    FixedPointSolver(s, CgneWorkspace)
+end
+
+function CraigSolver(s::BidirectionalSystem)
+    FixedPointSolver(s, CraigWorkspace)
+end
+
 function krylov_solve!(solver::BidirectionalSolver{<:GmresWorkspace},
                        op::LinearOperator; kwargs...)
     gmres!(solver.workspace, op, getdata(solver.r); kwargs...)
@@ -109,7 +186,23 @@ function krylov_solve!(solver::BidirectionalSolver{<:BicgstabWorkspace},
     bicgstab!(solver.workspace, op, getdata(solver.r); kwargs...)
 end
 
-function fp_solve!(solver::BidirectionalSolver; return_stats = false, kwargs...)
+function krylov_solve!(solver::BidirectionalSolver{<:BilqWorkspace},
+                       op::LinearOperator; kwargs...)
+    bilq!(solver.workspace, op, getdata(solver.r); kwargs...)
+end
+
+function krylov_solve!(solver::BidirectionalSolver{<:CgneWorkspace},
+                       op::LinearOperator; kwargs...)
+    cgne!(solver.workspace, op, getdata(solver.r); kwargs...)
+end
+
+function krylov_solve!(solver::BidirectionalSolver{<:CraigWorkspace},
+                       op::LinearOperator; kwargs...)
+    craig!(solver.workspace, op, getdata(solver.r); kwargs...)
+end
+
+function fp_solve!(solver::BidirectionalSolver;
+                   return_stats = false, precondition = false, kwargs...)
     s = solver.system
     copyto!(solver.r, s.fp_state)
     compute_roundtrip!(s, solver.r)
@@ -117,9 +210,11 @@ function fp_solve!(solver::BidirectionalSolver; return_stats = false, kwargs...)
     v0 = getdata(s.fp_state)
     @. r = r - v0
     op = compute_linear_operator(s, solver.tmp_state, v0, r)
-    krylov_solve!(solver, op; kwargs...)
+    op_pre = precondition ? compute_pade_preconditioner(s, solver.tmp_state, v0, solver.r) : I
+    krylov_solve!(solver, op; N = op_pre, kwargs...)
     res_state = Krylov.solution(solver.workspace)
     δ = getdata(res_state)
+    δ = δ isa Tuple ? first(δ) : δ
     @. v0 = v0 + δ
     copyto!(getdata(solver.tmp_state), v0)
     compute_roundtrip!(s, solver.tmp_state)
@@ -145,4 +240,40 @@ function fp_solve!(s::BidirectionalSystem; tol=1e-8, maxiter=100)
     set_fp_state!(s, fp)
     (reflected = get_source(s.start_source),
      transmitted = get_source(s.end_source))
+end
+
+function test_adjoint(solver, rand!)
+    s = solver.system
+    
+    # Reproduit exactement le setup de fp_solve!
+    copyto!(solver.r, s.fp_state)
+    compute_roundtrip!(s, solver.r)
+    r = getdata(solver.r)
+    v0 = getdata(s.fp_state)
+    @. r = r - v0
+    op = compute_linear_operator(s, solver.tmp_state, v0, r)
+    
+    n = length(v0)
+    S = typeof(v0)
+    
+    # Vecteurs aléatoires
+    x = similar(v0); rand!(x)
+    y = similar(v0); rand!(y)
+    
+    # Cx = (I-A)x via prod!
+    Cx = similar(x)
+    op.prod!(Cx, x, one(eltype(x)), zero(eltype(x)))
+    
+    # CᴴY = (I-Aᴴ)y via ctprod!
+    Cy = similar(y)
+    op.ctprod!(Cy, y, one(eltype(y)), zero(eltype(y)))
+
+    lhs = dot(Cx, y)
+    rhs = dot(x, Cy)
+    
+    @show lhs
+    @show rhs
+    err = abs(lhs - rhs) / abs(lhs)
+    @show err
+    err
 end

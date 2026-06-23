@@ -49,6 +49,27 @@ end
     end
 end
 
+@kernel function propagate_scalar_wave_adjoint_kernel!(∂electric, ∂electric_dz, ∂E_state,
+                                                       kernel, ::Val{forward}
+                                                       ) where {forward}
+    s = forward ? 1 : -1
+    I = @index(Global, Cartesian)
+    for J in CartesianIndices(axes(∂electric)[3:end])
+        a = _get_val(kernel.a, I, J)
+        exp_a_p = _get_val(kernel.exp_a_p, I, J)
+        exp_a_m = _get_val(kernel.exp_a_m, I, J)
+        ∂E_val = ∂electric[I,J]
+        ∂dE_val = ∂electric_dz[I,J]
+        ∂E1 = ∂E_state[I,J] + ∂E_val + s * conj(a) * ∂dE_val
+        ∂E2 = ∂E_val - s * conj(a) * ∂dE_val
+        ∂E1 *= conj(exp_a_p)
+        ∂E2 *= conj(exp_a_m)
+        ∂electric[I,J] = 0.5 * ∂E1
+        ∂electric_dz[I,J] = 0.5 / conj(a) * s * ∂E1
+        ∂E_state[I,J] = ∂E2
+    end
+end
+
 function propagate!(u::ScalarWaveField, state, p::ScalarWavePropagator)
     backend = get_backend(u.electric)
     propagate_scalar_wave_kernel!(backend)(
@@ -60,6 +81,22 @@ end
 function inverse_propagate!(u::ScalarWaveField, state, p::ScalarWavePropagator)
     backend = get_backend(u.electric)
     propagate_scalar_wave_kernel!(backend)(
+        u.electric, u.electric_dz, state.E_state, p.kernel, Val(false);
+        ndrange = size(u.electric)[1:2])
+    u
+end
+
+function propagate_adjoint!(u::ScalarWaveField, state, p::ScalarWavePropagator)
+    backend = get_backend(u.electric)
+    propagate_scalar_wave_adjoint_kernel!(backend)(
+        u.electric, u.electric_dz, state.E_state, p.kernel, Val(true);
+        ndrange = size(u.electric)[1:2])
+    u
+end
+
+function inverse_propagate_adjoint!(u::ScalarWaveField, state, p::ScalarWavePropagator)
+    backend = get_backend(u.electric)
+    propagate_scalar_wave_adjoint_kernel!(backend)(
         u.electric, u.electric_dz, state.E_state, p.kernel, Val(false);
         ndrange = size(u.electric)[1:2])
     u

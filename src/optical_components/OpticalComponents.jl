@@ -867,6 +867,14 @@ function inverse_propagate!(u, state, p::AbstractBidirectionalComponent)
     error("Not implemented")
 end
 
+function propagate_adjoint!(u, state, p::AbstractBidirectionalComponent)
+    error("Not implemented")
+end
+
+function inverse_propagate_adjoint!(u, state, p::AbstractBidirectionalComponent)
+    error("Not implemented")
+end
+
 abstract type AbstractBidirectionalSource{U} end
 
 function get_n0(p::AbstractBidirectionalSource)
@@ -885,7 +893,19 @@ function inverse_propagate!(u, p::AbstractBidirectionalSource)
     error("Not implemented")
 end
 
+function propagate_adjoint!(u, p::AbstractBidirectionalSource)
+    error("Not implemented")
+end
+
+function inverse_propagate_adjoint!(u, p::AbstractBidirectionalSource)
+    error("Not implemented")
+end
+
 function propagate(p::AbstractBidirectionalSource)
+    error("Not implemented")
+end
+
+function propagate_zero(p::AbstractBidirectionalSource)
     error("Not implemented")
 end
 
@@ -906,6 +926,8 @@ include("system/scalar_flat_interface.jl")
 export FlatInterface
 
 include("system/bidirectional_system.jl")
-export BidirectionalSystem, GmresSolver, BicgstabSolver, fp_solve!
+export BidirectionalSystem, GmresSolver, fp_solve!
+export BicgstabSolver, BilqSolver, CgneSolver, CraigSolver
+export test_adjoint
 
 end
