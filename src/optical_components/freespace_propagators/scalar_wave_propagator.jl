@@ -6,20 +6,25 @@ end
 
 Adapt.@adapt_structure BidirectionalKernel
 
+function BidirectionalKernel(u::ScalarWaveField, z::Real, n0::Number;
+                             conjugate::Bool = false)
+    a = im * compute_kz(u, n0)
+    exp_a_p = @. exp(a * z)
+    exp_a_m = conjugate ? (@. conj(exp_a_p)) : (@. exp(-a * z))
+    BidirectionalKernel(a, exp_a_p, exp_a_m)
+end
+
 struct ScalarWavePropagator{K, T}  <: AbstractBidirectionalComponent
     z::T
     n0::Complex{T}
     kernel::BidirectionalKernel{K}
 end
 
-function ScalarWavePropagator(u::ScalarWaveField{U}, z::Real, n0::Number
-                              ) where {T <: Real, U <: AbstractArray{Complex{T}}}
+function ScalarWavePropagator(u::ScalarWaveField{U}, z::Real, n0::Number;
+                              conjugate::Bool = false) where {T <: Real, U <: AbstractArray{Complex{T}}}
     z = T(z)
     n0 = Complex{T}(n0)
-    a = im * compute_kz(u, n0)
-    exp_a_p = @. exp(a * z)
-    exp_a_m = @. exp(-a * z)
-    kernel = BidirectionalKernel(a, exp_a_p, exp_a_m)
+    kernel = BidirectionalKernel(u, z, n0; conjugate)
     ScalarWavePropagator(z, n0, kernel)
 end
 

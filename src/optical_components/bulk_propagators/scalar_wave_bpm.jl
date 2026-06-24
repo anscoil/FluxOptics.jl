@@ -23,10 +23,7 @@ function ScalarWaveBPM(u::ScalarWaveField{U},
     copyto!(n_xyz_buf, n_xyz)
     u_plan = similar(u.electric)
     p_f, _ = make_fft_plans(u_plan, (1, 2); normalize = true)
-    a = im * compute_kz(u, n0)
-    exp_a_p = @. exp(a * dz)
-    exp_a_m = @. exp(-a * dz)
-    kernel = BidirectionalKernel(a, exp_a_p, exp_a_m)
+    kernel = BidirectionalKernel(u, dz, n0)
     ScalarWaveBPM(n_xyz_buf, n0, dz, p_f, kernel)
 end
 
