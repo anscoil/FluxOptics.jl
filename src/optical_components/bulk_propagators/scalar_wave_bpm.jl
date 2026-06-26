@@ -4,14 +4,15 @@ struct ScalarWaveBPM{K, T, N, P}  <: AbstractBidirectionalComponent
     dz::T
     p_f::P
     kernel::BidirectionalKernel{K}
+    conjugate::Bool
 end
 
 Functors.@functor ScalarWaveBPM (n_xyz,)
 
 function ScalarWaveBPM(u::ScalarWaveField{U},
                        thickness::Real,
-                       n_xyz::AbstractArray{<:Number, 3},
-                       n0::Number) where {T <: Real, U <: AbstractArray{Complex{T}}}
+                       n_xyz::AbstractArray{<:Number, 3}, n0::Number;
+                       conjugate::Bool = false) where {T <: Real, U <: AbstractArray{Complex{T}}}
     ns = size(u)[1:2]
     n_slices = size(n_xyz, 3)
     @assert size(n_xyz)[1:2] == ns
@@ -23,23 +24,27 @@ function ScalarWaveBPM(u::ScalarWaveField{U},
     copyto!(n_xyz_buf, n_xyz)
     u_plan = similar(u.electric)
     p_f, _ = make_fft_plans(u_plan, (1, 2); normalize = true)
-    kernel = BidirectionalKernel(u, dz, n0)
-    ScalarWaveBPM(n_xyz_buf, n0, dz, p_f, kernel)
+    kernel = BidirectionalKernel(u, dz, n0; conjugate)
+    ScalarWaveBPM(n_xyz_buf, n0, dz, p_f, kernel, conjugate)
 end
 
 get_n0(p::ScalarWaveBPM) = p.n0
 
 function initial_state(u::ScalarWaveField, p::ScalarWaveBPM)
-    n_slices = size(p.n_xyz, 3)
-    E_state = similar(u.electric, (size(u.electric)..., n_slices))
-    E_state .= 0
-    (; E_state = collect(E_state))
+    if p.conjugate
+        nothing
+    else
+        n_slices = size(p.n_xyz, 3)
+        E_state = similar(u.electric, (size(u.electric)..., n_slices))
+        E_state .= 0
+        (; E_state = collect(E_state))
+    end
 end
 
 function propagate_slice!(u::ScalarWaveField, state, p::ScalarWaveBPM, k::Integer)
     backend = get_backend(u.electric)
     n_xy = view(p.n_xyz, :, :, k)
-    E_state = selectdim(state.E_state, ndims(state.E_state), k)
+    E_state = isnothing(state) ? nothing : selectdim(state.E_state, ndims(state.E_state), k)
     compute_ift!(p.p_f, u)
     @. u.electric_dz += ((2π/u.lambdas.val)^2 * (p.n0^2 - n_xy^2) * p.dz * u.electric)
     compute_ft!(p.p_f, u)
@@ -52,7 +57,7 @@ end
 function inverse_propagate_slice!(u::ScalarWaveField, state, p::ScalarWaveBPM, k::Integer)
     backend = get_backend(u.electric)
     n_xy = view(p.n_xyz, :, :, k)
-    E_state = selectdim(state.E_state, ndims(state.E_state), k)
+    E_state = isnothing(state) ? nothing : selectdim(state.E_state, ndims(state.E_state), k)    
     propagate_scalar_wave_kernel!(backend)(
         u.electric, u.electric_dz, E_state, p.kernel, Val(false);
         ndrange = size(u.electric)[1:2])
@@ -65,7 +70,7 @@ end
 function propagate_slice_adjoint!(u::ScalarWaveField, state, p::ScalarWaveBPM, k::Integer)
     backend = get_backend(u.electric)
     n_xy = view(p.n_xyz, :, :, k)
-    E_state = selectdim(state.E_state, ndims(state.E_state), k)
+    E_state = isnothing(state) ? nothing : selectdim(state.E_state, ndims(state.E_state), k)
     propagate_scalar_wave_adjoint_kernel!(backend)(
         u.electric, u.electric_dz, E_state, p.kernel, Val(true);
         ndrange = size(u.electric)[1:2])
@@ -79,7 +84,7 @@ function inverse_propagate_slice_adjoint!(u::ScalarWaveField, state,
                                           p::ScalarWaveBPM, k::Integer)
     backend = get_backend(u.electric)
     n_xy = view(p.n_xyz, :, :, k)
-    E_state = selectdim(state.E_state, ndims(state.E_state), k)
+    E_state = isnothing(state) ? nothing : selectdim(state.E_state, ndims(state.E_state), k)
     compute_ift!(p.p_f, u)
     @. u.electric -= ((2π/u.lambdas.val)^2 * conj(p.n0^2 - n_xy^2) * p.dz * u.electric_dz)
     compute_ft!(p.p_f, u)

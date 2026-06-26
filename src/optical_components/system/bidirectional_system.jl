@@ -1,6 +1,8 @@
 struct BidirectionalSystem{S1, S2, C, P, K, J}
     start_source::S1
     end_source::S2
+    start_source_adj::S1
+    end_source_adj::S2
     components::C
     fp_state::P
     fp_state_keys::K
@@ -16,9 +18,16 @@ _interleave(ifaces, comps) =
 coalesce_state(s) = s
 coalesce_state(::Nothing) = []
 
+function state_view(fp_state::ComponentArray, k::Symbol)
+    v = getproperty(fp_state, k)
+    isempty(v) ? nothing : v
+end
+
 function BidirectionalSystem(start_source::AbstractBidirectionalSource{U},
                              end_source::AbstractBidirectionalSource{U},
                              components::Vararg{AbstractBidirectionalComponent}) where {U}
+    start_source_adj = zero(start_source)
+    end_source_adj = zero(end_source)
     u0 = get_source(start_source)
     all_nodes = (start_source, components..., end_source)
     flat_interfaces = map(
@@ -34,8 +43,8 @@ function BidirectionalSystem(start_source::AbstractBidirectionalSource{U},
                 map(c -> max(real(get_n0_left(c)), real(get_n0_right(c))), components)...)
     spectral_projector = real.(compute_kz(u0, n_max))
     @. spectral_projector = ifelse(spectral_projector > 0, 1, 0)
-    BidirectionalSystem(start_source, end_source, all_components,
-                        fp_state, state_keys, spectral_projector)
+    BidirectionalSystem(start_source, end_source, start_source_adj, end_source_adj,
+                        all_components, fp_state, state_keys, spectral_projector)
 end
 
 function BidirectionalSystem(start_source::AbstractBidirectionalSource,
@@ -59,12 +68,13 @@ function compute_roundtrip!(s::BidirectionalSystem, fp_state::ComponentArray;
     if spectral_projection
         apply_spectral_projection!(s, fp_state)
     end
-    fp_state_views = map(k -> getproperty(fp_state, k), s.fp_state_keys)
+    fp_state_views = map(k -> state_view(fp_state, k), s.fp_state_keys)
     u = propagate(s.start_source)
     for (p, state) in zip(s.components, fp_state_views)
         u = propagate!(u, state, p)
     end
     u = propagate!(u, s.end_source)
+    u = propagate(s.end_source)
     for (p, state) in zip(reverse(s.components), reverse(fp_state_views))
         u = inverse_propagate!(u, state, p)
     end
@@ -77,14 +87,17 @@ function compute_roundtrip_adjoint!(s::BidirectionalSystem, fp_state::ComponentA
     if spectral_projection
         apply_spectral_projection!(s, fp_state)
     end
-    fp_state_views = map(k -> getproperty(fp_state, k), s.fp_state_keys)
-    u = propagate_zero(s.start_source)
+    fp_state_views = map(k -> state_view(fp_state, k), s.fp_state_keys)
+    u = propagate(s.start_source_adj)
     for (p, state) in zip(s.components, fp_state_views)
         u = inverse_propagate_adjoint!(u, state, p)
     end
+    u = propagate_adjoint!(u, s.end_source_adj)
+    u = propagate(s.end_source_adj)
     for (p, state) in zip(reverse(s.components), reverse(fp_state_views))
         u = propagate_adjoint!(u, state, p)
     end
+    u = propagate_adjoint!(u, s.start_source_adj)
     nothing
 end
 
@@ -113,6 +126,8 @@ function compute_linear_operator(s::BidirectionalSystem, tmp_state::ComponentArr
     end
     function ctprod!(res, v, α, β)
         @. state = v
+        fill!(s.start_source_adj, 0, 0)
+        fill!(s.end_source_adj, 0, 0)
         compute_roundtrip_adjoint!(s, tmp_state; spectral_projection)
         if iszero(β)
             @. res = α * (v - state)
@@ -199,8 +214,11 @@ end
 
 function fp_solve!(solver::BidirectionalSolver;
                    return_stats = false, precondition = false,
-                   spectral_projection = false, kwargs...)
+                   spectral_projection = false, n_warm_start = 0, kwargs...)
     s = solver.system
+    if n_warm_start > 0
+        fp_solve!(s; itmax = n_warm_start, spectral_projection)
+    end
     copyto!(solver.r, s.fp_state)
     compute_roundtrip!(s, solver.r; spectral_projection)
     r = getdata(solver.r)

@@ -18,6 +18,7 @@ struct ScalarWavePropagator{K, T}  <: AbstractBidirectionalComponent
     z::T
     n0::Complex{T}
     kernel::BidirectionalKernel{K}
+    conjugate::Bool
 end
 
 function ScalarWavePropagator(u::ScalarWaveField{U}, z::Real, n0::Number;
@@ -25,13 +26,13 @@ function ScalarWavePropagator(u::ScalarWaveField{U}, z::Real, n0::Number;
     z = T(z)
     n0 = Complex{T}(n0)
     kernel = BidirectionalKernel(u, z, n0; conjugate)
-    ScalarWavePropagator(z, n0, kernel)
+    ScalarWavePropagator(z, n0, kernel, conjugate)
 end
 
 get_n0(p::ScalarWavePropagator) = p.n0
 
 function initial_state(u::ScalarWaveField, p::ScalarWavePropagator)
-    (; E_state = collect(zero(u.electric)))
+    p.conjugate ? nothing : (; E_state = collect(zero(u.electric)))
 end
 
 @kernel function propagate_scalar_wave_kernel!(electric, electric_dz, E_state,
@@ -44,13 +45,15 @@ end
         exp_a_m = _get_val(kernel.exp_a_m, I, J)
         E_val = electric[I,J]
         dE_val = electric_dz[I,J]
-        E2 = E_state[I,J]
         E1 = 0.5 * (E_val + s * dE_val / a)
+        E2 = isnothing(E_state) ? 0.5 * (E_val - s * dE_val / a) : E_state[I,J]
         E1 *= exp_a_p
         E2 *= exp_a_m
         electric[I,J] = E1 + E2
         electric_dz[I,J] = a * s * (E1 - E2)
-        E_state[I,J] = E1
+        if !isnothing(E_state)
+            E_state[I,J] = E1
+        end
     end
 end
 
@@ -65,44 +68,51 @@ end
         exp_a_m = _get_val(kernel.exp_a_m, I, J)
         ∂E_val = ∂electric[I,J]
         ∂dE_val = ∂electric_dz[I,J]
-        ∂E1 = ∂E_state[I,J] + ∂E_val + s * conj(a) * ∂dE_val
+        ∂E1 = isnothing(∂E_state) ? 0 : ∂E_state[I,J]
+        ∂E1 += ∂E_val + s * conj(a) * ∂dE_val
         ∂E2 = ∂E_val - s * conj(a) * ∂dE_val
         ∂E1 *= conj(exp_a_p)
         ∂E2 *= conj(exp_a_m)
         ∂electric[I,J] = 0.5 * ∂E1
         ∂electric_dz[I,J] = 0.5 / conj(a) * s * ∂E1
-        ∂E_state[I,J] = ∂E2
+        if !isnothing(∂E_state)
+            ∂E_state[I,J] = ∂E2
+        end
     end
 end
 
 function propagate!(u::ScalarWaveField, state, p::ScalarWavePropagator)
     backend = get_backend(u.electric)
+    E_state = isnothing(state) ? nothing : state.E_state
     propagate_scalar_wave_kernel!(backend)(
-        u.electric, u.electric_dz, state.E_state, p.kernel, Val(true);
+        u.electric, u.electric_dz, E_state, p.kernel, Val(true);
         ndrange = size(u.electric)[1:2])
     u
 end
 
 function inverse_propagate!(u::ScalarWaveField, state, p::ScalarWavePropagator)
     backend = get_backend(u.electric)
+    E_state = isnothing(state) ? nothing : state.E_state
     propagate_scalar_wave_kernel!(backend)(
-        u.electric, u.electric_dz, state.E_state, p.kernel, Val(false);
+        u.electric, u.electric_dz, E_state, p.kernel, Val(false);
         ndrange = size(u.electric)[1:2])
     u
 end
 
 function propagate_adjoint!(u::ScalarWaveField, state, p::ScalarWavePropagator)
     backend = get_backend(u.electric)
+    E_state = isnothing(state) ? nothing : state.E_state
     propagate_scalar_wave_adjoint_kernel!(backend)(
-        u.electric, u.electric_dz, state.E_state, p.kernel, Val(true);
+        u.electric, u.electric_dz, E_state, p.kernel, Val(true);
         ndrange = size(u.electric)[1:2])
     u
 end
 
 function inverse_propagate_adjoint!(u::ScalarWaveField, state, p::ScalarWavePropagator)
     backend = get_backend(u.electric)
+    E_state = isnothing(state) ? nothing : state.E_state
     propagate_scalar_wave_adjoint_kernel!(backend)(
-        u.electric, u.electric_dz, state.E_state, p.kernel, Val(false);
+        u.electric, u.electric_dz, E_state, p.kernel, Val(false);
         ndrange = size(u.electric)[1:2])
     u
 end

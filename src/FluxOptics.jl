@@ -103,7 +103,6 @@ export ScalarWaveSource
 export ScalarWavePropagator, ScalarWaveBPM
 export BidirectionalSystem, GmresSolver, fp_solve!
 export BicgstabSolver, BilqSolver, CgneSolver, CraigSolver
-export test_adjoint
 
 include("OptimisersExt.jl")
 using .OptimisersExt

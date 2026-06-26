@@ -19,10 +19,6 @@ end
 Base.size(p::ScalarWaveSource) = size(p.u0)
 Base.size(p::ScalarWaveSource, k::Integer) = size(p.u0, k)
 
-function Base.zero(p::ScalarWaveSource; n0::Number = p.n0)
-    ScalarWaveSource(zero(p.u0); n0)
-end
-
 get_n0(p::ScalarWaveSource) = p.n0
 
 @kernel function set_forward_field_kernel!(E, dE, Eref, dEref, kz)
@@ -59,7 +55,7 @@ end
 
 @kernel function set_backward_field_adjoint_kernel!(∂Eref, ∂dEref, kz)
     I = @index(Global, Cartesian)
-    for J in CartesianIndices(axes(Eref)[3:end])
+    for J in CartesianIndices(axes(∂Eref)[3:end])
         a = im * _get_val(kz, I, J)
         ∂E2 = ∂Eref[I,J] - conj(a) * ∂dEref[I,J]
         ∂Eref[I,J] = 0.5 * ∂E2
@@ -102,14 +98,21 @@ function propagate(p::ScalarWaveSource)
     p.uf
 end
 
-function propagate_zero(p::ScalarWaveSource)
-    fill!(p.uf.electric, 0)
-    fill!(p.uf.electric_dz, 0)
-    p.uf
+function Base.zero(p::ScalarWaveSource; n0::Number = p.n0)
+    ScalarWaveSource(zero(p.u0); n0)
 end
 
+function Base.copy(p::ScalarWaveSource; n0::Number = p.n0)
+    ScalarWaveSource(copy(p.u0); n0)
+end
+                   
 function Base.fill!(p::ScalarWaveSource, u0::ScalarWaveField)
     copyto!(p.u0, u0)
+end
+
+function Base.fill!(p::ScalarWaveSource, v::Number, v_dz::Number)
+    fill!(p.u0.electric, v)
+    fill!(p.u0.electric_dz, v_dz)
 end
 
 function get_source(p::ScalarWaveSource)
