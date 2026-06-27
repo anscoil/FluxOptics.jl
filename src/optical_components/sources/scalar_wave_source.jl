@@ -43,52 +43,52 @@ end
     end
 end
 
-@kernel function set_forward_field_adjoint_kernel!(∂Eref, ∂dEref, kz)
+@kernel function set_forward_field_adjoint_kernel!(∂E, ∂dE, kz)
     I = @index(Global, Cartesian)
-    for J in CartesianIndices(axes(∂Eref)[3:end])
+    for J in CartesianIndices(axes(∂E)[3:end])
         a = im * _get_val(kz, I, J)
-        ∂E1 = ∂Eref[I,J] + conj(a) * ∂dEref[I,J]
-        ∂Eref[I,J] = 0.5 * ∂E1
-        ∂dEref[I,J] = 0.5 / conj(a) * ∂E1
+        ∂E2 = ∂E[I,J] - conj(a) * ∂dE[I,J]
+        ∂E[I,J] = 0.5 * ∂E2
+        ∂dE[I,J] = -0.5 / conj(a) * ∂E2
     end
 end
 
-@kernel function set_backward_field_adjoint_kernel!(∂Eref, ∂dEref, kz)
+@kernel function set_backward_field_adjoint_kernel!(∂E, ∂dE, kz)
     I = @index(Global, Cartesian)
-    for J in CartesianIndices(axes(∂Eref)[3:end])
+    for J in CartesianIndices(axes(∂E)[3:end])
         a = im * _get_val(kz, I, J)
-        ∂E2 = ∂Eref[I,J] - conj(a) * ∂dEref[I,J]
-        ∂Eref[I,J] = 0.5 * ∂E2
-        ∂dEref[I,J] = -0.5 / conj(a) * ∂E2
+        ∂E1 = ∂E[I,J] + conj(a) * ∂dE[I,J]
+        ∂E[I,J] = 0.5 * ∂E1
+        ∂dE[I,J] = 0.5 / conj(a) * ∂E1
     end
 end
 
 function propagate!(u::ScalarWaveField, p::ScalarWaveSource)
     backend = get_backend(u.electric)
-    set_forward_field_kernel!(backend)(
-        p.u0.electric, p.u0.electric_dz, u.electric, u.electric_dz, p.kz;
+    set_backward_field_kernel!(backend)(
+        u.electric, u.electric_dz, p.u0.electric, p.u0.electric_dz, p.kz;
         ndrange = size(u.electric)[1:2])
     u
 end
 
 function inverse_propagate!(u::ScalarWaveField, p::ScalarWaveSource)
     backend = get_backend(u.electric)
-    set_backward_field_kernel!(backend)(
-        p.u0.electric, p.u0.electric_dz, u.electric, u.electric_dz, p.kz;
+    set_forward_field_kernel!(backend)(
+        u.electric, u.electric_dz, p.u0.electric, p.u0.electric_dz, p.kz;
         ndrange = size(u.electric)[1:2])
     u
 end
 
 function propagate_adjoint!(u::ScalarWaveField, p::ScalarWaveSource)
     backend = get_backend(u.electric)
-    set_forward_field_adjoint_kernel!(backend)(
+    set_backward_field_adjoint_kernel!(backend)(
         u.electric, u.electric_dz, p.kz; ndrange = size(u.electric)[1:2])
     u
 end
 
 function inverse_propagate_adjoint!(u::ScalarWaveField, p::ScalarWaveSource)
     backend = get_backend(u.electric)
-    set_backward_field_adjoint_kernel!(backend)(
+    set_forward_field_adjoint_kernel!(backend)(
         u.electric, u.electric_dz, p.kz; ndrange = size(u.electric)[1:2])
     u
 end

@@ -844,6 +844,7 @@ export OpticalSystem, get_source, get_components
 
 using LinearOperators
 using Krylov
+import ChainRulesCore: @ignore_derivatives
 
 abstract type AbstractBidirectionalComponent end
 

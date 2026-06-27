@@ -15,12 +15,15 @@ _interleave(ifaces::Tuple{T}, ::Tuple{}) where {T} = ifaces
 _interleave(ifaces, comps) =
     (first(ifaces), first(comps), _interleave(Base.tail(ifaces), Base.tail(comps))...)
 
-coalesce_state(s) = s
-coalesce_state(::Nothing) = []
+coalesce_state(s) = fmap(x -> isnothing(x) ? [] : x, s)
 
 function state_view(fp_state::ComponentArray, k::Symbol)
     v = getproperty(fp_state, k)
-    isempty(v) ? nothing : v
+    if Functors.isleaf(v) && isempty(v)
+        nothing
+    else
+        fmap(x -> isempty(x) ? nothing : x, NamedTuple(v))
+    end
 end
 
 function BidirectionalSystem(start_source::AbstractBidirectionalSource{U},
@@ -63,60 +66,75 @@ function apply_spectral_projection!(s::BidirectionalSystem, fp_state::ComponentA
     @. state *= s.spectral_projector
 end
 
-function compute_roundtrip!(s::BidirectionalSystem, fp_state::ComponentArray;
+function compute_roundtrip!(s::BidirectionalSystem,
+                            start_source::AbstractBidirectionalSource,
+                            end_source::AbstractBidirectionalSource,
+                            fp_state::ComponentArray;
                             spectral_projection::Bool = false)
     if spectral_projection
         apply_spectral_projection!(s, fp_state)
     end
-    fp_state_views = map(k -> state_view(fp_state, k), s.fp_state_keys)
-    u = propagate(s.start_source)
+    fp_state_views = @ignore_derivatives map(k -> state_view(fp_state, k), s.fp_state_keys)
+    u = propagate(start_source)
     for (p, state) in zip(s.components, fp_state_views)
         u = propagate!(u, state, p)
     end
-    u = propagate!(u, s.end_source)
-    u = propagate(s.end_source)
+    uf = propagate!(u, end_source)
+    u = propagate(end_source)
     for (p, state) in zip(reverse(s.components), reverse(fp_state_views))
         u = inverse_propagate!(u, state, p)
     end
-    u = inverse_propagate!(u, s.start_source)
-    nothing
+    ur = inverse_propagate!(u, start_source)
+    (uf, ur)
 end
 
-function compute_roundtrip_adjoint!(s::BidirectionalSystem, fp_state::ComponentArray;
+function compute_roundtrip_adjoint!(s::BidirectionalSystem,
+                                    start_source_adj::AbstractBidirectionalSource,
+                                    end_source_adj::AbstractBidirectionalSource,
+                                    fp_state::ComponentArray;
                                     spectral_projection::Bool = false)
-    if spectral_projection
-        apply_spectral_projection!(s, fp_state)
-    end
     fp_state_views = map(k -> state_view(fp_state, k), s.fp_state_keys)
-    u = propagate(s.start_source_adj)
+    u = propagate(start_source_adj)
+    u = inverse_propagate_adjoint!(u, start_source_adj)
     for (p, state) in zip(s.components, fp_state_views)
         u = inverse_propagate_adjoint!(u, state, p)
     end
-    u = propagate_adjoint!(u, s.end_source_adj)
-    u = propagate(s.end_source_adj)
+    ∂uf = u
+    u = propagate(end_source_adj)
+    u = propagate_adjoint!(u, end_source_adj)
     for (p, state) in zip(reverse(s.components), reverse(fp_state_views))
         u = propagate_adjoint!(u, state, p)
     end
-    u = propagate_adjoint!(u, s.start_source_adj)
-    nothing
+    ∂ur = u
+    if spectral_projection
+        apply_spectral_projection!(s, fp_state)
+    end
+    (∂uf, ∂ur)
 end
 
-struct BidirectionalSolver{W, S, P}
-    system::S
+struct BidirectionalSolver{W, P}
     workspace::W
     tmp_state::P
     r::P
 end
 
-function compute_linear_operator(s::BidirectionalSystem, tmp_state::ComponentArray, v0, r;
+function compute_linear_operator(s::BidirectionalSystem,
+                                 s_in::AbstractBidirectionalSource,
+                                 s_out::AbstractBidirectionalSource,
+                                 s_in_adj::AbstractBidirectionalSource,
+                                 s_out_adj::AbstractBidirectionalSource,
+                                 tmp_state::ComponentArray, v0, r;
+                                 adjoint::Bool = false,
                                  spectral_projection::Bool = false)
     state = getdata(tmp_state)
     T = eltype(state)
     n = length(state)
     S = typeof(state)
+    s_in, s_out, s_in_adj, s_out_adj = adjoint ?
+        (s_in_adj, s_out_adj, s_in, s_out) : (s_in, s_out, s_in_adj, s_out_adj)
     function prod!(res, v, α, β)
         @. state = v + v0
-        compute_roundtrip!(s, tmp_state; spectral_projection)
+        compute_roundtrip!(s, s_in, s_out, tmp_state; spectral_projection)
         if iszero(β)
             @. res = α * (v + v0 + r - state)
         else
@@ -126,9 +144,8 @@ function compute_linear_operator(s::BidirectionalSystem, tmp_state::ComponentArr
     end
     function ctprod!(res, v, α, β)
         @. state = v
-        fill!(s.start_source_adj, 0, 0)
-        fill!(s.end_source_adj, 0, 0)
-        compute_roundtrip_adjoint!(s, tmp_state; spectral_projection)
+        compute_roundtrip_adjoint!(s, s_in_adj, s_out_adj,
+                                   tmp_state; spectral_projection)
         if iszero(β)
             @. res = α * (v - state)
         else
@@ -136,35 +153,21 @@ function compute_linear_operator(s::BidirectionalSystem, tmp_state::ComponentArr
         end
         res
     end
-    LinearOperator(T, n, n, false, false, prod!, nothing, ctprod!; S)
-end
-
-function compute_preconditioner(s::BidirectionalSystem, tmp_state::ComponentArray, v0, r)
-    state = getdata(tmp_state)
-    T = eltype(state)
-    n = length(state)
-    S = typeof(state)
-    LinearOperator(T, n, n, false, false,
-                   (res, v, α, β) -> begin
-                       @. state = v + v0
-                       compute_roundtrip!(s, tmp_state)
-                       if iszero(β)
-                           @. res = α * (v - v0 - r + state)
-                       else
-                           @. res = α * (v - v0 - r + state) + β * res
-                       end
-                       res
-                   end; S)
+    if adjoint
+        LinearOperator(T, n, n, false, false, ctprod!, nothing, prod!; S)
+    else
+        LinearOperator(T, n, n, false, false, prod!, nothing, ctprod!; S)
+    end
 end
 
 function FixedPointSolver(s::BidirectionalSystem, Workspace; kwargs...)
     tmp_state = similar(s.fp_state)
     r = similar(s.fp_state)
-    v = getdata(s.fp_state)
+    v = getdata(r)
     n = length(v)
     S = typeof(v)
     ws = Workspace(n, n, S; kwargs...)
-    BidirectionalSolver(s, ws, tmp_state, r)
+    BidirectionalSolver(ws, tmp_state, r)
 end
 
 function GmresSolver(s::BidirectionalSystem; memory = 20)
@@ -212,56 +215,50 @@ function krylov_solve!(solver::BidirectionalSolver{<:CraigWorkspace},
     craig!(solver.workspace, op, getdata(solver.r); kwargs...)
 end
 
-function fp_solve!(solver::BidirectionalSolver;
-                   return_stats = false, precondition = false,
+function fp_solve!(s::BidirectionalSystem, solver::BidirectionalSolver;
                    spectral_projection = false, n_warm_start = 0, kwargs...)
-    s = solver.system
     if n_warm_start > 0
         fp_solve!(s; itmax = n_warm_start, spectral_projection)
     end
+    s_in, s_out = s.start_source, s.end_source
+    s_in_adj, s_out_adj = zero(s_in), zero(s_out)
     copyto!(solver.r, s.fp_state)
-    compute_roundtrip!(s, solver.r; spectral_projection)
+    compute_roundtrip!(s, s_in, s_out, solver.r; spectral_projection)
     r = getdata(solver.r)
     v0 = getdata(s.fp_state)
     @. r = r - v0
-    op = compute_linear_operator(s, solver.tmp_state, v0, r; spectral_projection)
-    op_pre = precondition ? compute_preconditioner(s, solver.tmp_state, v0, solver.r) : I
-    krylov_solve!(solver, op; N = op_pre, kwargs...)
+    op = compute_linear_operator(s, s_in, s_out, s_in_adj, s_out_adj,
+                                 solver.tmp_state, v0, r; spectral_projection)
+    krylov_solve!(solver, op; kwargs...)
     res_state = Krylov.solution(solver.workspace)
     δ = getdata(res_state)
     δ = δ isa Tuple ? first(δ) : δ
     @. v0 = v0 + δ
-    copyto!(getdata(solver.tmp_state), v0)
-    compute_roundtrip!(s, solver.tmp_state; spectral_projection)
-    res = (reflected = get_source(s.start_source),
-           transmitted = get_source(s.end_source))
-    if return_stats
-        stats = solver.workspace.stats
-        (res, stats)
-    else
-        res
-    end
+    copyto!(solver.tmp_state, s.fp_state)
+    uf, ur = compute_roundtrip!(s, s_in, s_out, solver.tmp_state; spectral_projection)
+    (reflected = ur, transmitted = uf)
 end
 
 function fp_solve!(s::BidirectionalSystem; itmax = 100, spectral_projection = false)
-    fp = get_fp_state(s)
-    for i in 1:itmax
-        compute_roundtrip!(s, fp; spectral_projection)
+    s_in, s_out = s.start_source, s.end_source
+    s_in_adj, s_out_adj = zero(s_in), zero(s_out)
+    for i in 1:itmax-1
+        compute_roundtrip!(s, s_in, s_out, s.fp_state; spectral_projection)
     end
-    set_fp_state!(s, fp)
-    (reflected = get_source(s.start_source),
-     transmitted = get_source(s.end_source))
+    uf, ur = compute_roundtrip!(s, s_in, s_out, s.fp_state; spectral_projection)
+    (reflected = ur, transmitted = uf)
 end
 
-function test_adjoint(solver, rand!)
-    s = solver.system
-    
+function test_adjoint(s, solver, rand!)
+    s_in, s_out = s.start_source, s.end_source
+    s_in_adj, s_out_adj = zero(s_in), zero(s_out)
+
     copyto!(solver.r, s.fp_state)
-    compute_roundtrip!(s, solver.r)
+    compute_roundtrip!(s, s_in, s_out, solver.r)
     r = getdata(solver.r)
     v0 = getdata(s.fp_state)
     @. r = r - v0
-    op = compute_linear_operator(s, solver.tmp_state, v0, r)
+    op = compute_linear_operator(s, s_in, s_out, s_in_adj, s_out_adj, solver.tmp_state, v0, r)
     
     n = length(v0)
     S = typeof(v0)

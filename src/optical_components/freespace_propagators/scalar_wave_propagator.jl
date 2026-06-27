@@ -32,7 +32,7 @@ end
 get_n0(p::ScalarWavePropagator) = p.n0
 
 function initial_state(u::ScalarWaveField, p::ScalarWavePropagator)
-    p.conjugate ? nothing : (; E_state = collect(zero(u.electric)))
+    p.conjugate ? (; E_state = nothing) : (; E_state = collect(zero(u.electric)))
 end
 
 @kernel function propagate_scalar_wave_kernel!(electric, electric_dz, E_state,
@@ -83,36 +83,32 @@ end
 
 function propagate!(u::ScalarWaveField, state, p::ScalarWavePropagator)
     backend = get_backend(u.electric)
-    E_state = isnothing(state) ? nothing : state.E_state
     propagate_scalar_wave_kernel!(backend)(
-        u.electric, u.electric_dz, E_state, p.kernel, Val(true);
+        u.electric, u.electric_dz, state.E_state, p.kernel, Val(true);
         ndrange = size(u.electric)[1:2])
     u
 end
 
 function inverse_propagate!(u::ScalarWaveField, state, p::ScalarWavePropagator)
     backend = get_backend(u.electric)
-    E_state = isnothing(state) ? nothing : state.E_state
     propagate_scalar_wave_kernel!(backend)(
-        u.electric, u.electric_dz, E_state, p.kernel, Val(false);
+        u.electric, u.electric_dz,state. E_state, p.kernel, Val(false);
         ndrange = size(u.electric)[1:2])
     u
 end
 
 function propagate_adjoint!(u::ScalarWaveField, state, p::ScalarWavePropagator)
     backend = get_backend(u.electric)
-    E_state = isnothing(state) ? nothing : state.E_state
     propagate_scalar_wave_adjoint_kernel!(backend)(
-        u.electric, u.electric_dz, E_state, p.kernel, Val(true);
+        u.electric, u.electric_dz, state.E_state, p.kernel, Val(true);
         ndrange = size(u.electric)[1:2])
     u
 end
 
 function inverse_propagate_adjoint!(u::ScalarWaveField, state, p::ScalarWavePropagator)
     backend = get_backend(u.electric)
-    E_state = isnothing(state) ? nothing : state.E_state
     propagate_scalar_wave_adjoint_kernel!(backend)(
-        u.electric, u.electric_dz, E_state, p.kernel, Val(false);
+        u.electric, u.electric_dz, state.E_state, p.kernel, Val(false);
         ndrange = size(u.electric)[1:2])
     u
 end
