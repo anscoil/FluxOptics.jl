@@ -114,7 +114,7 @@ export PointwiseProx, IstaProx, ClampProx, PositiveProx, TVProx
 export TV_denoise!
 export ProximalOperators
 
-include("ChainRulesCoreExt.jl")
+include("chainrules/ChainRulesCoreExt.jl")
 
 # Plotting extension (loaded when Makie is available)
 function visualize end

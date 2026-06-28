@@ -337,4 +337,6 @@ function ChainRulesCore.rrule(::typeof(compute_metric),
     return c, pullback
 end
 
+include("bidirectional_chainrules.jl")
+
 end
