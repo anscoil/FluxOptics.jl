@@ -32,7 +32,7 @@ get_n0_left(p::ScalarFlatInterface) = p.n1
 get_n0_right(p::ScalarFlatInterface) = p.n2
 
 function initial_state(u::ScalarWaveField, p::ScalarFlatInterface)
-    (; E_state = collect(zero(u.electric)))
+    (; E_state = similar(u.electric))
 end
 
 @kernel function scalar_flat_interface_kernel!(electric, electric_dz, E_state,

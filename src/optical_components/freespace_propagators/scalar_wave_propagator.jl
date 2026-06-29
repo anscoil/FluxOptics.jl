@@ -32,7 +32,7 @@ end
 get_n0(p::ScalarWavePropagator) = p.n0
 
 function initial_state(u::ScalarWaveField, p::ScalarWavePropagator)
-    p.conjugate ? (; E_state = nothing) : (; E_state = collect(zero(u.electric)))
+    p.conjugate ? (; E_state = nothing) : (; E_state = similar(u.electric))
 end
 
 @kernel function propagate_scalar_wave_kernel!(electric, electric_dz, E_state,

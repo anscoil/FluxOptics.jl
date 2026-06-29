@@ -35,9 +35,7 @@ function initial_state(u::ScalarWaveField, p::ScalarWaveBPM)
         nothing
     else
         n_slices = size(p.n_xyz, 3)
-        E_state = similar(u.electric, (size(u.electric)..., n_slices))
-        E_state .= 0
-        (; E_state = collect(E_state))
+        (; E_state = similar(u.electric, (size(u.electric)..., n_slices)))
     end
 end
 

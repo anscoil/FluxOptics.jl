@@ -19,7 +19,7 @@ _interleave(ifaces::Tuple{T}, ::Tuple{}) where {T} = ifaces
 _interleave(ifaces, comps) =
     (first(ifaces), first(comps), _interleave(Base.tail(ifaces), Base.tail(comps))...)
 
-coalesce_state(s) = fmap(x -> isnothing(x) ? [] : x, s)
+coalesce_state(s) = fmap(x -> isnothing(x) ? [] : collect(x), s)
 
 function state_view(fp_state::ComponentArray, k::Symbol)
     v = getproperty(fp_state, k)
@@ -121,6 +121,7 @@ end
 struct BidirectionalSolver{W, P}
     workspace::W
     r::P
+    r_ref::Ref{Float64}
 end
 
 function compute_linear_operator(s::BidirectionalSystem;
@@ -164,7 +165,7 @@ function FixedPointSolver(s::BidirectionalSystem, Workspace; kwargs...)
     n = length(v)
     S = typeof(v)
     ws = Workspace(n, n, S; kwargs...)
-    BidirectionalSolver(ws, r)
+    BidirectionalSolver(ws, r, Ref(0.0))
 end
 
 function GmresSolver(s::BidirectionalSystem; memory = 20)
@@ -218,14 +219,23 @@ function fp_solve!(s::BidirectionalSystem, solver::BidirectionalSolver;
         fp_solve!(s; itmax = n_warm_start, spectral_projection)
     end
     s_in, s_out = s.s_in, s.s_out
-    solver.r .= 0
+    v0 = getdata(s.fp_state)
+    vr = getdata(solver.r)
+    @. vr = v0
     compute_roundtrip!(s, s_in, s_out, solver.r; spectral_projection)
+    @. vr -= v0
+    if norm(vr) <= solver.r_ref[]
+        return s.fp_state
+    end
     op = compute_linear_operator(s; spectral_projection)
     krylov_solve!(solver, op; kwargs...)
     res_state = Krylov.solution(solver.workspace)
     res = getdata(res_state)
     res = res isa Tuple ? first(res) : res
-    copyto!(getdata(s.fp_state), res)
+    if solver.workspace.stats.solved && iszero(solver.r_ref[])
+        solver.r_ref[] = norm(res)
+    end
+    @. v0 += res
     s.fp_state
 end
 
@@ -248,14 +258,23 @@ function fp_solve_adjoint!(s::BidirectionalSystem, solver::BidirectionalSolver;
         fp_solve_adjoint!(s; itmax = n_warm_start, spectral_projection)
     end
     s_in, s_out = s.s_in_adj, s.s_out_adj
-    solver.r .= 0
+    v0 = getdata(s.fp_state_adj)
+    vr = getdata(solver.r)
+    @. vr = v0
     compute_roundtrip_adjoint!(s, s_in, s_out, solver.r; spectral_projection)
+    @. vr -= v0
+    if norm(vr) <= solver.r_ref[]
+        return s.fp_state_adj
+    end
     op = compute_linear_operator(s; spectral_projection, adjoint = true)
     krylov_solve!(solver, op; kwargs...)
     res_state = Krylov.solution(solver.workspace)
     res = getdata(res_state)
     res = res isa Tuple ? first(res) : res
-    copyto!(getdata(s.fp_state_adj), res)
+    if solver.workspace.stats.solved && iszero(solver.r_ref[])
+        solver.r_ref[] = norm(res)
+    end
+    @. v0 += res
     s.fp_state_adj
 end
 
