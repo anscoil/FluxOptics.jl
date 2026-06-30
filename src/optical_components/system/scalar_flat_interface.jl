@@ -8,7 +8,8 @@ end
 
 Adapt.@adapt_structure ScalarFresnelKernel
 
-struct ScalarFlatInterface{K, T}  <: AbstractBidirectionalComponent
+struct ScalarFlatInterface{M, K, T}  <: AbstractBidirectionalComponent{M}
+    trainability::Val{M}
     n1::Complex{T}
     n2::Complex{T}
     kernel::ScalarFresnelKernel{K}
@@ -24,14 +25,16 @@ function ScalarFlatInterface(u::ScalarWaveField{U}, n1::Number, n2::Number,
     t12 = compute_fresnel_t12(u, n1, n2)
     t21 = compute_fresnel_t12(u, n2, n1)
     kernel = ScalarFresnelKernel(a1, a2, r21, t12, t21)
-    ScalarFlatInterface(n1, n2, kernel)
+    ScalarFlatInterface(Val(Static), n1, n2, kernel)
 end
+
+Functors.@functor ScalarFlatInterface ()
 
 get_n0_left(p::ScalarFlatInterface) = p.n1
 
 get_n0_right(p::ScalarFlatInterface) = p.n2
 
-function initial_state(u::ScalarWaveField, p::ScalarFlatInterface)
+function alloc_fp_state(u::ScalarWaveField, p::ScalarFlatInterface)
     (; E_state = similar(u.electric))
 end
 
@@ -82,7 +85,7 @@ end
     end
 end
 
-function propagate!(u::ScalarWaveField, state, p::ScalarFlatInterface)
+function propagate!(u::ScalarWaveField, state, ::Nothing, p::ScalarFlatInterface)
     backend = get_backend(u.electric)
     scalar_flat_interface_kernel!(backend)(
         u.electric, u.electric_dz, state.E_state, p.kernel, Val(true);
@@ -90,7 +93,7 @@ function propagate!(u::ScalarWaveField, state, p::ScalarFlatInterface)
     u
 end 
 
-function inverse_propagate!(u::ScalarWaveField, state, p::ScalarFlatInterface)
+function inverse_propagate!(u::ScalarWaveField, state, ::Nothing, p::ScalarFlatInterface)
     backend = get_backend(u.electric)
     scalar_flat_interface_kernel!(backend)(
         u.electric, u.electric_dz, state.E_state, p.kernel, Val(false);
@@ -98,7 +101,9 @@ function inverse_propagate!(u::ScalarWaveField, state, p::ScalarFlatInterface)
     u
 end
 
-function propagate_adjoint!(u::ScalarWaveField, state, p::ScalarFlatInterface)
+function propagate_adjoint!(u::ScalarWaveField, ::Nothing,
+                            state, ::Nothing,
+                            p::ScalarFlatInterface)
     backend = get_backend(u.electric)
     scalar_flat_interface_adjoint_kernel!(backend)(
         u.electric, u.electric_dz, state.E_state, p.kernel, Val(true);
@@ -106,7 +111,9 @@ function propagate_adjoint!(u::ScalarWaveField, state, p::ScalarFlatInterface)
     u
 end 
 
-function inverse_propagate_adjoint!(u::ScalarWaveField, state, p::ScalarFlatInterface)
+function inverse_propagate_adjoint!(u::ScalarWaveField, ::Nothing,
+                                    state, ::Nothing,
+                                    p::ScalarFlatInterface)
     backend = get_backend(u.electric)
     scalar_flat_interface_adjoint_kernel!(backend)(
         u.electric, u.electric_dz, state.E_state, p.kernel, Val(false);

@@ -46,7 +46,7 @@ function BidirectionalSystem(s_in::AbstractBidirectionalSource{U},
     )
     all_components = _interleave(flat_interfaces, components)
     state_keys = ntuple(i -> Symbol(:c, i), length(all_components))
-    states = map(c -> coalesce_state(initial_state(u0, c)), all_components)
+    states = map(c -> coalesce_state(alloc_fp_state(u0, c)), all_components)
     fp_state = adapt(similar(U, 1), ComponentArray(NamedTuple{state_keys}(states)))
     fp_state .= 0
     fp_state_adj = copy(fp_state)
@@ -118,10 +118,10 @@ function compute_roundtrip_adjoint!(s::BidirectionalSystem,
     (∂uf, ∂ur)
 end
 
-struct BidirectionalSolver{W, P}
+struct BidirectionalSolver{W, P, T}
     workspace::W
     r::P
-    r_ref::Ref{Float64}
+    atol::Ref{T}
 end
 
 function compute_linear_operator(s::BidirectionalSystem;
@@ -165,7 +165,8 @@ function FixedPointSolver(s::BidirectionalSystem, Workspace; kwargs...)
     n = length(v)
     S = typeof(v)
     ws = Workspace(n, n, S; kwargs...)
-    BidirectionalSolver(ws, r, Ref(0.0))
+    T = real(eltype(v))
+    BidirectionalSolver(ws, r, Ref(T(0.0)))
 end
 
 function GmresSolver(s::BidirectionalSystem; memory = 20)
@@ -224,18 +225,18 @@ function fp_solve!(s::BidirectionalSystem, solver::BidirectionalSolver;
     @. vr = v0
     compute_roundtrip!(s, s_in, s_out, solver.r; spectral_projection)
     @. vr -= v0
-    if norm(vr) <= solver.r_ref[]
-        return s.fp_state
-    end
     op = compute_linear_operator(s; spectral_projection)
-    krylov_solve!(solver, op; kwargs...)
+    krylov_solve!(solver, op; atol = solver.atol[], kwargs...)
     res_state = Krylov.solution(solver.workspace)
     res = getdata(res_state)
     res = res isa Tuple ? first(res) : res
-    if solver.workspace.stats.solved && iszero(solver.r_ref[])
-        solver.r_ref[] = norm(res)
-    end
     @. v0 += res
+    if solver.workspace.stats.solved && iszero(solver.atol[])
+        @. vr = res
+        compute_roundtrip!(s, s_in, s_out, solver.r; spectral_projection)
+        @. vr -= res
+        solver.atol[] = norm(vr)
+    end
     s.fp_state
 end
 
@@ -263,18 +264,18 @@ function fp_solve_adjoint!(s::BidirectionalSystem, solver::BidirectionalSolver;
     @. vr = v0
     compute_roundtrip_adjoint!(s, s_in, s_out, solver.r; spectral_projection)
     @. vr -= v0
-    if norm(vr) <= solver.r_ref[]
-        return s.fp_state_adj
-    end
     op = compute_linear_operator(s; spectral_projection, adjoint = true)
     krylov_solve!(solver, op; kwargs...)
     res_state = Krylov.solution(solver.workspace)
     res = getdata(res_state)
     res = res isa Tuple ? first(res) : res
-    if solver.workspace.stats.solved && iszero(solver.r_ref[])
-        solver.r_ref[] = norm(res)
-    end
     @. v0 += res
+    if solver.workspace.stats.solved && iszero(solver.atol[])
+        @. vr = res
+        compute_roundtrip_adjoint!(s, s_in, s_out, solver.r; spectral_projection)
+        @. vr -= res
+        solver.atol[] = norm(vr)
+    end
     s.fp_state_adj
 end
 
@@ -299,6 +300,8 @@ function combine_implicit(uf, ur, ufi, uri)
     (uf, ur)
 end
 
+reset_state!(s::BidirectionalSystem, state::ComponentArray) = nothing
+
 function propagate(s::BidirectionalSystem,
                    solver::Union{Nothing, BidirectionalSolver};
                    spectral_projection = false, kwargs...)
@@ -306,10 +309,11 @@ function propagate(s::BidirectionalSystem,
     s_in, s_out = s.s_in, s.s_out
     @ignore_derivatives copyto!(s.tmp_state, fp_state)
     uf, ur = compute_roundtrip!(s, s_in, s_out, s.tmp_state; spectral_projection)
+    reset_state!(s, fp_state)
     ufi, uri = apply_implicit(uf, ur, s, solver; spectral_projection, kwargs...)
     uf, ur = combine_implicit(uf, ur, ufi, uri)
-    @ignore_derivatives fill!(s_in, ur)
-    @ignore_derivatives fill!(s_out, uf)
+    # @ignore_derivatives fill!(s_in, ur)
+    # @ignore_derivatives fill!(s_out, uf)
     (reflected = ur, transmitted = uf)
 end
 

@@ -846,7 +846,16 @@ using LinearOperators
 using Krylov
 import ChainRulesCore: @ignore_derivatives
 
-abstract type AbstractBidirectionalComponent end
+export AbstractBidirectionalComponent
+export propagate!, inverse_propagate!, propagate_adjoint!, inverse_propagate_adjoint!
+
+abstract type AbstractBidirectionalComponent{M <: Trainability} end
+
+trainable(p::AbstractBidirectionalComponent{Static}) = NamedTuple{}()
+
+function trainable(p::AbstractBidirectionalComponent{Trainable})
+    error("Not implemented")
+end
 
 function get_n0(p::AbstractBidirectionalComponent)
     error("Not implemented")
@@ -856,24 +865,49 @@ get_n0_left(p::AbstractBidirectionalComponent) = get_n0(p)
 
 get_n0_right(p::AbstractBidirectionalComponent) = get_n0(p)
 
-function initial_state(u, p::AbstractBidirectionalComponent)
+function alloc_fp_state(u, p::AbstractBidirectionalComponent)
+    error("Not implemented")
+end
+
+function alloc_activations(u, p::AbstractBidirectionalComponent{Trainable})
+    error("Not implemented")
+end
+
+function alloc_gradient(p::AbstractBidirectionalComponent{Trainable})
+    map(similar, trainable(p))
+end
+
+function propagate!(u, state, activations, p::AbstractBidirectionalComponent)
     error("Not implemented")
 end
 
 function propagate!(u, state, p::AbstractBidirectionalComponent)
+    propagate!(u, state, nothing, p)
+end
+
+function inverse_propagate!(u, state, activations, p::AbstractBidirectionalComponent)
     error("Not implemented")
 end
 
 function inverse_propagate!(u, state, p::AbstractBidirectionalComponent)
+    inverse_propagate!(u, state, nothing, p)
+end
+
+function propagate_adjoint!(∂v, ∂p, state, activations, p::AbstractBidirectionalComponent)
     error("Not implemented")
 end
 
 function propagate_adjoint!(u, state, p::AbstractBidirectionalComponent)
+    propagate_adjoint!(u, nothing, state, nothing, p)
+end
+
+function inverse_propagate_adjoint!(∂v, ∂p, state, activations,
+                                    p::AbstractBidirectionalComponent)
     error("Not implemented")
 end
 
 function inverse_propagate_adjoint!(u, state, p::AbstractBidirectionalComponent)
-    error("Not implemented")
+    inverse_propagate_adjoint!(u, nothing, state, nothing, p)
 end
 
 abstract type AbstractBidirectionalSource{U} end

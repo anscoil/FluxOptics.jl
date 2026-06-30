@@ -14,7 +14,8 @@ function BidirectionalKernel(u::ScalarWaveField, z::Real, n0::Number;
     BidirectionalKernel(a, exp_a_p, exp_a_m)
 end
 
-struct ScalarWavePropagator{K, T}  <: AbstractBidirectionalComponent
+struct ScalarWavePropagator{M, K, T}  <: AbstractBidirectionalComponent{M}
+    trainability::Val{M}
     z::T
     n0::Complex{T}
     kernel::BidirectionalKernel{K}
@@ -26,12 +27,12 @@ function ScalarWavePropagator(u::ScalarWaveField{U}, z::Real, n0::Number;
     z = T(z)
     n0 = Complex{T}(n0)
     kernel = BidirectionalKernel(u, z, n0; conjugate)
-    ScalarWavePropagator(z, n0, kernel, conjugate)
+    ScalarWavePropagator(Val(Static), z, n0, kernel, conjugate)
 end
 
 get_n0(p::ScalarWavePropagator) = p.n0
 
-function initial_state(u::ScalarWaveField, p::ScalarWavePropagator)
+function alloc_fp_state(u::ScalarWaveField, p::ScalarWavePropagator)
     p.conjugate ? (; E_state = nothing) : (; E_state = similar(u.electric))
 end
 
@@ -97,7 +98,9 @@ function inverse_propagate!(u::ScalarWaveField, state, p::ScalarWavePropagator)
     u
 end
 
-function propagate_adjoint!(u::ScalarWaveField, state, p::ScalarWavePropagator)
+function propagate_adjoint!(u::ScalarWaveField, ::Nothing,
+                            state, ::Nothing,
+                            p::ScalarWavePropagator)
     backend = get_backend(u.electric)
     propagate_scalar_wave_adjoint_kernel!(backend)(
         u.electric, u.electric_dz, state.E_state, p.kernel, Val(true);
@@ -105,7 +108,9 @@ function propagate_adjoint!(u::ScalarWaveField, state, p::ScalarWavePropagator)
     u
 end
 
-function inverse_propagate_adjoint!(u::ScalarWaveField, state, p::ScalarWavePropagator)
+function inverse_propagate_adjoint!(u::ScalarWaveField, ::Nothing,
+                                    state, ::Nothing,
+                                    p::ScalarWavePropagator)
     backend = get_backend(u.electric)
     propagate_scalar_wave_adjoint_kernel!(backend)(
         u.electric, u.electric_dz, state.E_state, p.kernel, Val(false);
