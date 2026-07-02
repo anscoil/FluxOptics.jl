@@ -88,31 +88,50 @@ function inverse_propagate_slice!(u::ScalarWaveField, state, activations,
     u
 end
 
-function propagate_slice_adjoint!(u::ScalarWaveField, state, p::ScalarWaveBPM, k::Integer)
-    backend = get_backend(u.electric)
-    n_xy = view(p.n_xyz, :, :, k)
-    E_state = isnothing(state) ? nothing : selectdim(state.E_state, ndims(state.E_state), k)
-    propagate_scalar_wave_adjoint_kernel!(backend)(
-        u.electric, u.electric_dz, E_state, p.kernel, Val(true);
-        ndrange = size(u.electric)[1:2])
-    compute_ift!(p.p_f, u)
-    @. u.electric += ((2π/u.lambdas.val)^2 * conj(p.n0^2 - n_xy^2) * p.dz * u.electric_dz)
-    compute_ft!(p.p_f, u)
-    u
+function compute_gradient_forward!(∂n_xy, n_xy, u_fwd, ∂u, p::ScalarWaveBPM)
+    @. ∂n_xy = -2 * (2π/∂u.lambdas.val)^2 * p.dz * real(conj(n_xy * u_fwd) * ∂u.electric_dz)
 end
 
-function inverse_propagate_slice_adjoint!(u::ScalarWaveField, state,
-                                          p::ScalarWaveBPM, k::Integer)
-    backend = get_backend(u.electric)
+function propagate_slice_adjoint!(∂u::ScalarWaveField, ∂p,
+                                  state, activations, p::ScalarWaveBPM, k::Integer)
+    backend = get_backend(∂u.electric)
     n_xy = view(p.n_xyz, :, :, k)
     E_state = isnothing(state) ? nothing : selectdim(state.E_state, ndims(state.E_state), k)
-    compute_ift!(p.p_f, u)
-    @. u.electric -= ((2π/u.lambdas.val)^2 * conj(p.n0^2 - n_xy^2) * p.dz * u.electric_dz)
-    compute_ft!(p.p_f, u)
     propagate_scalar_wave_adjoint_kernel!(backend)(
-        u.electric, u.electric_dz, E_state, p.kernel, Val(false);
-        ndrange = size(u.electric)[1:2])
-    u
+        ∂u.electric, ∂u.electric_dz, E_state, p.kernel, Val(true);
+        ndrange = size(∂u.electric)[1:2])
+    compute_ift!(p.p_f, ∂u)
+    if !isnothing(activations)
+        u_fwd = selectdim(activations.u_fwd, ndims(activations.u_fwd), k)
+        ∂n_xy = selectdim(∂p.n_xyz, ndims(∂p.n_xyz), k)
+        compute_gradient_forward!(∂n_xy, n_xy, u_fwd, ∂u, p)
+    end
+    @. ∂u.electric += ((2π/∂u.lambdas.val)^2 * conj(p.n0^2 - n_xy^2) * p.dz * ∂u.electric_dz)
+    compute_ft!(p.p_f, ∂u)
+    ∂u
+end
+
+function compute_gradient_backward!(∂n_xy, n_xy, u_bwd, ∂u, p::ScalarWaveBPM)
+    @. ∂n_xy = 2 * (2π/∂u.lambdas.val)^2 * p.dz * real(conj(n_xy * u_bwd) * ∂u.electric_dz)
+end
+
+function inverse_propagate_slice_adjoint!(∂u::ScalarWaveField, ∂p,
+                                          state, activations, p::ScalarWaveBPM, k::Integer)
+    backend = get_backend(∂u.electric)
+    n_xy = view(p.n_xyz, :, :, k)
+    E_state = isnothing(state) ? nothing : selectdim(state.E_state, ndims(state.E_state), k)
+    compute_ift!(p.p_f, ∂u)
+    if !isnothing(activations)
+        u_bwd = selectdim(activations.u_bwd, ndims(activations.u_bwd), k)
+        ∂n_xy = selectdim(∂p.n_xyz, ndims(∂p.n_xyz), k)
+        compute_gradient_backward!(∂n_xy, n_xy, u_bwd, ∂u, p)
+    end
+    @. ∂u.electric -= ((2π/∂u.lambdas.val)^2 * conj(p.n0^2 - n_xy^2) * p.dz * ∂u.electric_dz)
+    compute_ft!(p.p_f, ∂u)
+    propagate_scalar_wave_adjoint_kernel!(backend)(
+        ∂u.electric, ∂u.electric_dz, E_state, p.kernel, Val(false);
+        ndrange = size(∂u.electric)[1:2])
+    ∂u
 end
 
 function propagate!(u::ScalarWaveField, state, activations, p::ScalarWaveBPM)
@@ -131,21 +150,20 @@ function inverse_propagate!(u::ScalarWaveField, state, activations, p::ScalarWav
     u
 end
 
-function propagate_adjoint!(u::ScalarWaveField, ::Nothing,
-                            state, ::Nothing,
-                            p::ScalarWaveBPM)
+function propagate_adjoint!(u::ScalarWaveField, ∂p,
+                            state, activations, p::ScalarWaveBPM)
     n_slices = size(p.n_xyz, 3)
     for k in reverse(1:n_slices)
-        propagate_slice_adjoint!(u, state, p, k)
+        propagate_slice_adjoint!(u, ∂p, state, activations, p, k)
     end
     u
 end
 
-function inverse_propagate_adjoint!(u::ScalarWaveField, ::Nothing,
-                                    state, ::Nothing, p::ScalarWaveBPM)
+function inverse_propagate_adjoint!(u::ScalarWaveField, ∂p,
+                                    state, activations, p::ScalarWaveBPM)
     n_slices = size(p.n_xyz, 3)
     for k in 1:n_slices
-        inverse_propagate_slice_adjoint!(u, state, p, k)
+        inverse_propagate_slice_adjoint!(u, ∂p, state, activations, p, k)
     end
     u
 end
