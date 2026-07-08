@@ -18,7 +18,7 @@ function ScalarWaveBPM(u::ScalarWaveField{U},
     ns = size(u)[1:2]
     n_slices = size(n_xyz, 3)
     @assert size(n_xyz)[1:2] == ns
-    @assert n_slices >= 2
+    @assert n_slices >= 1
     dz = T(thickness / n_slices)
     n0 = Complex{T}(n0)
     N = isreal(n_xyz) ? T : Complex{T}

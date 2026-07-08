@@ -940,10 +940,6 @@ function propagate(p::AbstractBidirectionalSource)
     error("Not implemented")
 end
 
-function propagate_zero(p::AbstractBidirectionalSource)
-    error("Not implemented")
-end
-
 function get_source(p::AbstractBidirectionalSource)
     error("Not implemented")
 end

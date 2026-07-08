@@ -67,8 +67,8 @@ function BidirectionalSystem(s_in::AbstractBidirectionalSource,
 end
 
 function apply_spectral_projection!(s::BidirectionalSystem, fp_state::ComponentArray)
-    nx, ny = size(s.spectral_projector)
-    state = reshape(getdata(fp_state), (nx, ny, length(fp_state) ÷ (nx * ny)))
+    ns = size(s.spectral_projector)
+    state = reshape(getdata(fp_state), (ns..., length(fp_state) ÷ prod(ns)))
     @. state *= s.spectral_projector
 end
 

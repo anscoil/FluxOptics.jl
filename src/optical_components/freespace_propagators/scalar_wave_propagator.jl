@@ -93,7 +93,7 @@ end
 function inverse_propagate!(u::ScalarWaveField, state, p::ScalarWavePropagator)
     backend = get_backend(u.electric)
     propagate_scalar_wave_kernel!(backend)(
-        u.electric, u.electric_dz,state. E_state, p.kernel, Val(false);
+        u.electric, u.electric_dz, state.E_state, p.kernel, Val(false);
         ndrange = size(u.electric)[1:2])
     u
 end
