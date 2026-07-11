@@ -100,7 +100,7 @@ export OpticalSystem, get_components
 export get_data
 
 export ScalarWaveSource
-export ScalarWavePropagator, ScalarWaveBPM
+export ScalarWavePropagator, ScalarWaveBPM, ScalarWaveBiProp
 export BidirectionalSystem, GmresSolver, fp_solve!
 export BicgstabSolver, BilqSolver, CgneSolver, CraigSolver
 

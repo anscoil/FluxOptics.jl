@@ -956,6 +956,9 @@ export ScalarWaveBPM
 include("system/scalar_flat_interface.jl")
 export FlatInterface
 
+include("bulk_propagators/scalar_wave_binary_propagator.jl")
+export ScalarWaveBiProp
+
 include("system/bidirectional_system.jl")
 export BidirectionalSystem, GmresSolver, fp_solve!
 export BicgstabSolver, BilqSolver, CgneSolver, CraigSolver

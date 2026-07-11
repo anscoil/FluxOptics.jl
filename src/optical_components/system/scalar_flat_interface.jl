@@ -15,7 +15,7 @@ struct ScalarFlatInterface{M, K, T}  <: AbstractBidirectionalComponent{M}
     kernel::ScalarFresnelKernel{K}
 end
 
-function ScalarFlatInterface(u::ScalarWaveField{U}, n1::Number, n2::Number,
+function ScalarFlatInterface(u::ScalarWaveField{U}, n1::Number, n2::Number
                              ) where {T <: Real, U <: AbstractArray{Complex{T}}}
     n1 = Complex{T}(n1)
     n2 = Complex{T}(n2)
