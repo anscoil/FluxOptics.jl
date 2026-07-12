@@ -30,6 +30,9 @@ function state_view(fp_state::ComponentArray, k::Symbol)
     end
 end
 
+real_n(n0::Number) = real(n0)
+real_n(::Nothing) = 0
+
 function BidirectionalSystem(s_in::AbstractBidirectionalSource{U},
                              s_out::AbstractBidirectionalSource{U},
                              components::Vararg{AbstractBidirectionalComponent}) where {U}
@@ -52,7 +55,7 @@ function BidirectionalSystem(s_in::AbstractBidirectionalSource{U},
     fp_state_adj = copy(fp_state)
     tmp_state = copy(fp_state)
     n_max = max(real(get_n0(s_in)), real(get_n0(s_out)),
-                map(c -> max(real(get_n0_left(c)), real(get_n0_right(c))), components)...)
+                map(c -> max(real_n(get_n0_left(c)), real_n(get_n0_right(c))), components)...)
     spectral_projector = real.(compute_kz(u0, n_max))
     @. spectral_projector = ifelse(spectral_projector > 0, 1, 0)
     BidirectionalSystem(s_in, s_out, s_in_adj, s_out_adj, s_in_zero, s_out_zero,

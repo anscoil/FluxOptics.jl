@@ -121,6 +121,34 @@ function inverse_propagate_adjoint!(u::ScalarWaveField, ::Nothing,
     u
 end
 
+struct NoInterface{M} <: AbstractBidirectionalComponent{M}
+    trainability::Val{M}
+end
+
+NoInterface() = NoInterface(Val(Static))
+
+alloc_fp_state(u::ScalarWaveField, p::NoInterface) = nothing
+
+propagate!(u::ScalarWaveField, state, ::Nothing, p::NoInterface) = u
+
+inverse_propagate!(u::ScalarWaveField, state, ::Nothing, p::NoInterface) = u
+
+propagate_adjoint!(u::ScalarWaveField, state, ::Nothing, p::NoInterface) = u
+
+inverse_propagate_adjoint!(u::ScalarWaveField, state, ::Nothing, p::NoInterface) = u
+
 function FlatInterface(u::ScalarWaveField, n1::Number, n2::Number)
     ScalarFlatInterface(u, n1, n2)
+end
+
+function FlatInterface(u::ScalarWaveField, n1::Number, n2::Nothing)
+    ScalarFlatInterface(u, n1, n1)
+end
+
+function FlatInterface(u::ScalarWaveField, n1::Nothing, n2::Number)
+    ScalarFlatInterface(u, n2, n2)
+end
+
+function FlatInterface(u::ScalarWaveField, n1::Nothing, n2::Nothing)
+    NoInterface()
 end
