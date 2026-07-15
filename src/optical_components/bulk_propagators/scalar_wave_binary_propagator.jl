@@ -1,6 +1,7 @@
-struct ScalarWaveBiProp{M, K, A, P, U, T}  <: AbstractBidirectionalComponent{M}
+struct ScalarWaveBiProp{M, K, A, E, P, U, T}  <: AbstractBidirectionalComponent{M}
     trainability::Val{M}
     mask_xyz::A
+    mask_eps::E
     n1::Complex{T}
     n2::Complex{T}
     dz::T
@@ -11,7 +12,8 @@ struct ScalarWaveBiProp{M, K, A, P, U, T}  <: AbstractBidirectionalComponent{M}
 end
 
 function ScalarWaveBiProp(u::ScalarWaveField{U}, thickness::Real,
-                          mask_xyz::AbstractArray{<:Number, 3}, n1::Number, n2::Number
+                          mask_xyz::AbstractArray{<:Number, 3}, n1::Number, n2::Number;
+                          mask_eps = nothing
                           ) where {T <: Real, U <: AbstractArray{Complex{T}}}
     ns = size(u)[1:2]
     n_slices = size(mask_xyz, 3)
@@ -24,10 +26,17 @@ function ScalarWaveBiProp(u::ScalarWaveField{U}, thickness::Real,
     n2 = Complex{T}(n2)
     mask_buf = similar(u.electric, T, size(mask_xyz))
     copyto!(mask_buf, mask_xyz)
+    mask_eps_buf = similar(u.electric, Complex{T}, size(mask_xyz))
+    if !isnothing(mask_eps)
+        copyto!(mask_eps_buf, mask_eps)
+    else
+        @. mask_eps_buf = n1^2 * mask_buf + n2^2 * (1 - mask_buf)
+    end
     u_tmp = similar(u)
     u_plan = similar(u.electric)
     p_f, _ = make_fft_plans(u_plan, (1, 2); normalize = true)
-    ScalarWaveBiProp(Val(Static), mask_buf, n1, n2, dz, kernel_n1, kernel_n2, u_tmp, p_f)
+    ScalarWaveBiProp(Val(Static), mask_buf, mask_eps_buf, n1, n2, dz,
+                     kernel_n1, kernel_n2, u_tmp, p_f)
 end
 
 get_n0(p::ScalarWaveBiProp) = nothing
@@ -45,32 +54,35 @@ end
 function apply_mask!(u::ScalarWaveField, p::ScalarWaveBiProp,
                      k::Integer, conjugate::Bool = false)
     mask = view(p.mask_xyz, :, :, k)
-    # apply_mask!(u.electric, mask, conjugate)
-    # apply_mask!(u.electric_dz, mask, conjugate)
+    apply_mask!(u.electric, mask, conjugate)
+    apply_mask!(u.electric_dz, mask, conjugate)
+end
+
+function apply_correction!(u::ScalarWaveField, p::ScalarWaveBiProp,
+                           k::Integer, conjugate::Bool = false)
+    mask_eps = view(p.mask_eps, :, :, k)
     if !conjugate
-        @. u.electric *= mask
-        @. u.electric_dz = (u.electric_dz * mask +
-            ((2π/u.lambdas.val)^2 * (p.n1^2 - p.n2^2) * (1 - mask) * p.dz * u.electric))
+        @. u.electric_dz += ((2π/u.lambdas.val)^2 * (p.n1^2 - mask_eps) * p.dz * u.electric)
+        # @. u.electric *= cis(2π/u.lambdas.val * (1 - mask_bin) * (p.n2 - p.n1) * p.dz)
+        # @. u.electric_dz *= cis(2π/u.lambdas.val * (1 - mask_bin) * (p.n2 - p.n1) * p.dz)
     else
-        @. u.electric *= 1 - mask
-        @. u.electric_dz = (u.electric_dz * (1 - mask) +
-            ((2π/u.lambdas.val)^2 * (p.n2^2 - p.n1^2) * mask * p.dz * u.electric))
+        @. u.electric_dz += ((2π/u.lambdas.val)^2 * (p.n2^2 - mask_eps) *  p.dz * u.electric)
+        # @. u.electric *= cis(2π/u.lambdas.val * mask_bin * (p.n1 - p.n2) * p.dz)
+        # @. u.electric_dz *= cis(2π/u.lambdas.val * mask_bin * (p.n1 - p.n2) * p.dz)
     end
 end
 
-function inverse_apply_mask!(u::ScalarWaveField, p::ScalarWaveBiProp,
-                             k::Integer, conjugate::Bool = false)
-    mask = view(p.mask_xyz, :, :, k)
-    # apply_mask!(u.electric, mask, conjugate)
-    # apply_mask!(u.electric_dz, mask, conjugate)
+function inverse_apply_correction!(u::ScalarWaveField, p::ScalarWaveBiProp,
+                                   k::Integer, conjugate::Bool = false)
+    mask_eps = view(p.mask_eps, :, :, k)
     if !conjugate
-        @. u.electric *= mask
-        @. u.electric_dz = (u.electric_dz * mask -
-            ((2π/u.lambdas.val)^2 * (p.n1^2 - p.n2^2) * (1 - mask) * p.dz * u.electric))
+        @. u.electric_dz -= ((2π/u.lambdas.val)^2 * (p.n1^2 - mask_eps) * p.dz * u.electric)
+        # @. u.electric *= cis(-2π/u.lambdas.val * (1 - mask_bin) * (p.n2 - p.n1) * p.dz)
+        # @. u.electric_dz *= cis(-2π/u.lambdas.val * (1 - mask_bin) * (p.n2 - p.n1) * p.dz)
     else
-        @. u.electric *= 1 - mask
-        @. u.electric_dz = (u.electric_dz * (1 - mask) -
-            ((2π/u.lambdas.val)^2 * (p.n2^2 - p.n1^2) * mask * p.dz * u.electric))
+        @. u.electric_dz -= ((2π/u.lambdas.val)^2 * (p.n2^2 - mask_eps) * p.dz * u.electric)
+        # @. u.electric *= cis(-2π/u.lambdas.val * mask_bin * (p.n1 - p.n2) * p.dz)
+        # @. u.electric_dz *= cis(-2π/u.lambdas.val * mask_bin * (p.n1 - p.n2) * p.dz)
     end
 end
 
@@ -132,6 +144,8 @@ function propagate_slice!(u::ScalarWaveField, state, activations,
 
     apply_mask!(u, p, k)
     apply_mask!(v, p, k, true)
+    apply_correction!(u, p, k)
+    apply_correction!(v, p, k, true)
     compute_ft!(p.p_f, u)
     compute_ft!(p.p_f, v)
     
@@ -140,7 +154,17 @@ function propagate_slice!(u::ScalarWaveField, state, activations,
         v.electric, v.electric_dz,
         p.kernel_n1, p.kernel_n2, Val(true);
         ndrange = size(u.electric)[1:2])
-    
+
+    # propagate_scalar_wave_kernel!(backend)(
+    #     u.electric, u.electric_dz, nothing, p.kernel_n1, Val(true);
+    #     ndrange = size(u.electric)[1:2])
+
+    # propagate_scalar_wave_kernel!(backend)(
+    #     v.electric, v.electric_dz, nothing, p.kernel_n2, Val(true);
+    #     ndrange = size(u.electric)[1:2])
+
+    # add!(u, v)
+        
     u
 end
 
@@ -152,16 +176,28 @@ function inverse_propagate_slice!(u::ScalarWaveField, state, activations,
     copyto!(p.u_tmp, u)
     v = p.u_tmp
 
-    inverse_apply_mask!(u, p, k)
-    inverse_apply_mask!(v, p, k, true)
+    apply_mask!(u, p, k)
+    apply_mask!(v, p, k, true)
+    inverse_apply_correction!(u, p, k)
+    inverse_apply_correction!(v, p, k, true)
     compute_ft!(p.p_f, u)
     compute_ft!(p.p_f, v)
-
+    
     propagate_binary_kernel!(backend)(
         u.electric, u.electric_dz,
         v.electric, v.electric_dz,
         p.kernel_n1, p.kernel_n2, Val(false);
         ndrange = size(u.electric)[1:2])
+
+    # propagate_scalar_wave_kernel!(backend)(
+    #     u.electric, u.electric_dz, nothing, p.kernel_n1, Val(false);
+    #     ndrange = size(u.electric)[1:2])
+
+    # propagate_scalar_wave_kernel!(backend)(
+    #     v.electric, v.electric_dz, nothing, p.kernel_n2, Val(false);
+    #     ndrange = size(u.electric)[1:2])
+
+    # add!(u, v)
     
     u
 end

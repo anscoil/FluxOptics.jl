@@ -159,7 +159,7 @@ end
 
 function normalize_poynting!(u::ScalarWaveField, S_out = 1)
     S_in = poynting_flux(u)
-    ratio = @. sqrt(S_out / S_in)
+    ratio = @. sqrt(abs(S_out / S_in))
     @. u.electric *= ratio
     @. u.electric_dz *= ratio
     u
