@@ -1,13 +1,41 @@
 using ..OpticalComponents: apply_implicit, combine_implicit, apply_spectral_projection!
-using ..OpticalComponents: reset_state!
+using ..OpticalComponents: reset_state!, fp_solve_adjoint!, compute_roundtrip_adjoint!
+using ..OpticalComponents: alloc_activations, alloc_gradient
+
+function Base.:+(a::NamedTuple{(:electric, :electric_dz, :ds, :lambdas)}, b::ScalarWaveField)
+    electric = isnothing(a.electric) ? b.electric : a.electric + b.electric
+    electric_dz = isnothing(a.electric_dz) ? b.electric_dz : a.electric_dz + b.electric_dz
+    ScalarWaveField(electric, electric_dz, b.ds, b.lambdas)
+end
+
+Base.:+(b::ScalarWaveField, a::NamedTuple{(:electric, :electric_dz, :ds, :lambdas)}) = a + b
+
+function set_adjoint_source!(p::ScalarWaveSource, ∂u)
+    if ∂u isa Union{ZeroTangent, NoTangent}
+        fill!(p.u0.electric, 0)
+        fill!(p.u0.electric_dz, 0)
+        return p.u0
+    end
+    if ∂u.electric isa AbstractArray
+        copyto!(p.u0.electric, ∂u.electric)
+    else
+        fill!(p.u0.electric, 0)
+    end
+    if ∂u.electric_dz isa AbstractArray
+        copyto!(p.u0.electric_dz, ∂u.electric_dz)
+    else
+        fill!(p.u0.electric_dz, 0)
+    end
+    p.u0
+end
 
 function ChainRulesCore.rrule(::typeof(apply_implicit), uf, ur, s, solver;
                               spectral_projection = false, kwargs...)
     function pullback(∂u_out)
         ∂uf, ∂ur = ∂u_out
         s_in, s_out = s.s_in_adj, s.s_out_adj
-        fill!(s_in, ∂ur)
-        fill!(s_out, ∂uf)
+        set_adjoint_source!(s_in, ∂ur)
+        set_adjoint_source!(s_out, ∂uf)
         fp_state_adj = fp_solve_adjoint!(s, solver; spectral_projection, kwargs...)
         copyto!(s.tmp_state, fp_state_adj)
         ∂uf, ∂ur = compute_roundtrip_adjoint!(s, s_in, s_out, s.tmp_state;
@@ -42,6 +70,15 @@ function ChainRulesCore.rrule(::typeof(reset_state!), s, state)
     return nothing, pullback
 end
 
+function full_component_tangent(p::P, ∂p) where P
+    fields = fieldnames(P)
+    vals = map(fields) do k
+        haskey(∂p, k) ? getfield(∂p, k) : ZeroTangent()
+    end
+    Tangent{P}(; NamedTuple{fields}(vals)...)
+end
+
+
 function ChainRulesCore.rrule(::typeof(propagate!), u, state, p::P
                               ) where {P <: AbstractBidirectionalComponent{Trainable}}
     activations = alloc_activations(u, p)
@@ -50,7 +87,8 @@ function ChainRulesCore.rrule(::typeof(propagate!), u, state, p::P
     function pullback(∂v)
         ∂p = alloc_gradient(p)
         ∂u = propagate_adjoint!(∂v, ∂p, state, activations, p)
-        return (NoTangent(), ∂u, Tangent{P}(; ∂p...))
+        return (NoTangent(), ∂u, NoTangent(), Tangent{P}(; ∂p...))
+        # return (NoTangent(), ∂u, NoTangent(), full_component_tangent(p, ∂p))
     end
 
     return v, pullback
@@ -62,7 +100,7 @@ function ChainRulesCore.rrule(::typeof(propagate!), u, state, p::P
 
     function pullback(∂v)
         ∂u = propagate_adjoint!(∂v, state, p)
-        return (NoTangent(), ∂u, NoTangent())
+        return (NoTangent(), ∂u, NoTangent(), NoTangent())
     end
 
     return v, pullback
@@ -76,7 +114,8 @@ function ChainRulesCore.rrule(::typeof(inverse_propagate!), u, state, p::P
     function pullback(∂v)
         ∂p = alloc_gradient(p)
         ∂u = inverse_propagate_adjoint!(∂v, ∂p, state, activations, p)
-        return (NoTangent(), ∂u, Tangent{P}(; ∂p...))
+        return (NoTangent(), ∂u, NoTangent(), Tangent{P}(; ∂p...))
+        # return (NoTangent(), ∂u, NoTangent(), full_component_tangent(p, ∂p))
     end
 
     return v, pullback
@@ -88,8 +127,66 @@ function ChainRulesCore.rrule(::typeof(inverse_propagate!), u, state, p::P
 
     function pullback(∂v)
         ∂u = inverse_propagate_adjoint!(∂v, state, p)
+        return (NoTangent(), ∂u, NoTangent(), NoTangent())
+    end
+
+    return v, pullback
+end
+
+function ChainRulesCore.rrule(::typeof(propagate!), u, p::P
+                              ) where {P <: AbstractBidirectionalSource}
+    v = propagate!(u, p)
+
+    function pullback(∂v)
+        ∂u = propagate_adjoint!(∂v, p)
         return (NoTangent(), ∂u, NoTangent())
     end
 
     return v, pullback
 end
+
+function ChainRulesCore.rrule(::typeof(inverse_propagate!), u, p::P
+                              ) where {P <: AbstractBidirectionalSource}
+    v = inverse_propagate!(u, p)
+
+    function pullback(∂v)
+        ∂u = inverse_propagate_adjoint!(∂v, p)
+        return (NoTangent(), ∂u, NoTangent())
+    end
+
+    return v, pullback
+end
+
+function ChainRulesCore.rrule(::typeof(propagate), p::P
+                              ) where {P <: AbstractBidirectionalSource}
+    u = propagate(p)
+    pullback(∂u) = NoTangent(), NoTangent()
+    return u, pullback
+end
+
+Base.:+(::Nothing, b) = b
+Base.:+(a::ZeroTangent, ::Nothing) = a
+Base.:+(::Nothing, ::Nothing) = nothing
+
+function Base.:+(a::ChainRulesCore.Tangent{T,<:NamedTuple}, b::Union{Tuple,NamedTuple}) where T
+    backing_a = ChainRulesCore.backing(a)
+    fields = propertynames(backing_a)
+    vals = ntuple(length(fields)) do i
+        k = fields[i]
+        av = getfield(backing_a, k)
+        bv = b isa NamedTuple ? getfield(b, k) : b[i]
+        av + bv
+    end
+    ChainRulesCore.Tangent{T}(; NamedTuple{fields}(vals)...)
+end
+Base.:+(b::Union{Tuple,NamedTuple}, a::ChainRulesCore.Tangent{T,<:NamedTuple}) where T = a + b
+
+function Base.:+(a::ChainRulesCore.Tangent{T,<:Tuple}, b::Tuple) where T
+    backing_a = ChainRulesCore.backing(a)
+    n = length(backing_a)
+    vals = ntuple(n) do i
+        backing_a[i] + b[i]
+    end
+    ChainRulesCore.Tangent{T}(vals...)
+end
+Base.:+(b::Tuple, a::ChainRulesCore.Tangent{T,<:Tuple}) where T = a + b

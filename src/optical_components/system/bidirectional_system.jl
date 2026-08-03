@@ -84,6 +84,7 @@ function compute_roundtrip!(s::BidirectionalSystem,
         apply_spectral_projection!(s, fp_state)
     end
     fp_state_views = @ignore_derivatives map(k -> state_view(fp_state, k), s.fp_state_keys)
+    # components = @ignore_derivatives s.components
     u = propagate(s_in)
     for (p, state) in zip(s.components, fp_state_views)
         u = propagate!(u, state, p)
@@ -309,7 +310,7 @@ function propagate(s::BidirectionalSystem,
                    solver::Union{Nothing, BidirectionalSolver};
                    spectral_projection = false, kwargs...)
     fp_state = @ignore_derivatives fp_solve!(s, solver; spectral_projection, kwargs...)
-    s_in, s_out = s.s_in, s.s_out
+    s_in, s_out = @ignore_derivatives s.s_in, s.s_out
     @ignore_derivatives copyto!(s.tmp_state, fp_state)
     uf, ur = compute_roundtrip!(s, s_in, s_out, s.tmp_state; spectral_projection)
     reset_state!(s, fp_state)

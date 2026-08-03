@@ -124,7 +124,7 @@ end
 
 function set_field_data(u::ScalarWaveField,
                         electric::AbstractArray, electric_dz::AbstractArray)
-    ScalarWaveField(electric, electric_dz, u.ds, u.lambdas.collection)
+    ScalarWaveField(electric, electric_dz, u.ds, deepcopy(u.lambdas))
 end
 
 function poynting_flux(u::ScalarWaveField)

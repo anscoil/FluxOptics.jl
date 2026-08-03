@@ -846,7 +846,7 @@ using LinearOperators
 using Krylov
 import ChainRulesCore: @ignore_derivatives
 
-export AbstractBidirectionalComponent
+export AbstractBidirectionalComponent, AbstractBidirectionalSource
 export propagate!, inverse_propagate!, propagate_adjoint!, inverse_propagate_adjoint!
 
 abstract type AbstractBidirectionalComponent{M <: Trainability} end

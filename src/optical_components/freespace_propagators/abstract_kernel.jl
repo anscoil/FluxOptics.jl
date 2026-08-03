@@ -58,17 +58,20 @@ function apply_kernel!(u::AbstractArray,
                        kernel_key_args::A,
                        kernel_args::B,
                        direction::Type{<:Direction}) where {K <: AbstractArray, F, A, B}
-    Nd = length(get_kernel_vectors(kernel))
-    inds = CartesianIndices(size(u)[(Nd + 1):end])
-    for (i, key_args...) in bzip(inds, kernel_key_args...)
-        kernel_key = hash(key_args)
-        all_args = (key_args..., kernel_args...)
-        apply_kernel!(@view(u[.., i]),
-                      kernel,
-                      kernel_key,
-                      compute_kernel,
-                      all_args,
-                      direction)
+    if allequal(zip(kernel_key_args...))
+        key_arg = first(kernel_key_args)
+        kernel_key = hash(key_arg)
+        all_args = (key_arg, kernel_args...)
+        apply_kernel!(u, kernel, kernel_key, compute_kernel, all_args, direction)
+    else
+        Nd = length(get_kernel_vectors(kernel))
+        inds = CartesianIndices(size(u)[(Nd + 1):end])
+        for (i, key_args...) in bzip(inds, kernel_key_args...)
+            kernel_key = hash(key_args)
+            all_args = (key_args..., kernel_args...)
+            apply_kernel!(@view(u[.., i]),
+                          kernel, kernel_key, compute_kernel, all_args, direction)
+        end
     end
     u
 end

@@ -163,8 +163,15 @@ function propagate_slice!(u::ScalarWaveField, state, activations,
     #     v.electric, v.electric_dz, nothing, p.kernel_n2, Val(true);
     #     ndrange = size(u.electric)[1:2])
 
+    # compute_ift!(p.p_f, u)
+    # compute_ift!(p.p_f, v)
+    # apply_mask!(u, p, k)
+    # apply_mask!(v, p, k, true)
+    # apply_correction!(u, p, k)
+    # apply_correction!(v, p, k, true)
     # add!(u, v)
-        
+    # compute_ft!(p.p_f, u)
+
     u
 end
 
@@ -197,7 +204,14 @@ function inverse_propagate_slice!(u::ScalarWaveField, state, activations,
     #     v.electric, v.electric_dz, nothing, p.kernel_n2, Val(false);
     #     ndrange = size(u.electric)[1:2])
 
+    # compute_ift!(p.p_f, u)
+    # compute_ift!(p.p_f, v)
+    # apply_mask!(u, p, k)
+    # apply_mask!(v, p, k, true)
+    # inverse_apply_correction!(u, p, k)
+    # inverse_apply_correction!(v, p, k, true)
     # add!(u, v)
+    # compute_ft!(p.p_f, u)
     
     u
 end
