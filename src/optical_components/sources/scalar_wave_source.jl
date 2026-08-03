@@ -93,12 +93,6 @@ function inverse_propagate_adjoint!(u::ScalarWaveField, p::ScalarWaveSource)
     u
 end
 
-# function inverse_propagate_adjoint!(u, p::ScalarWaveSource)
-#     u = set_field_data(p.u0, u.electric, zero(u.electric))
-#     inverse_propagate_adjoint!(u, p)
-#     u
-# end
-
 function propagate(p::ScalarWaveSource)
     copyto!(p.uf, p.u0)
     p.uf

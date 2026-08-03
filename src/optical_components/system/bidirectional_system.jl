@@ -84,14 +84,13 @@ function compute_roundtrip!(s::BidirectionalSystem,
         apply_spectral_projection!(s, fp_state)
     end
     fp_state_views = @ignore_derivatives map(k -> state_view(fp_state, k), s.fp_state_keys)
-    # components = @ignore_derivatives s.components
     u = propagate(s_in)
     for (p, state) in zip(s.components, fp_state_views)
         u = propagate!(u, state, p)
     end
     uf = propagate!(u, s_out)
     u = propagate(s_out)
-    for (p, state) in zip(reverse(s.components), reverse(fp_state_views))
+    for (p, state) in zip(s.components[end:-1:1], reverse(fp_state_views))
         u = inverse_propagate!(u, state, p)
     end
     ur = inverse_propagate!(u, s_in)
@@ -112,7 +111,7 @@ function compute_roundtrip_adjoint!(s::BidirectionalSystem,
     ∂uf = u
     u = propagate(s_out_adj)
     u = propagate_adjoint!(u, s_out_adj)
-    for (p, state) in zip(reverse(s.components), reverse(fp_state_views))
+    for (p, state) in zip(s.components[end:-1:1], reverse(fp_state_views))
         u = propagate_adjoint!(u, state, p)
     end
     ∂ur = u
