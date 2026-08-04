@@ -1,6 +1,5 @@
 using ..OpticalComponents: apply_implicit, combine_implicit, apply_spectral_projection!
-using ..OpticalComponents: reset_state!, fp_solve_adjoint!
-using ..OpticalComponents: compute_roundtrip!, compute_roundtrip_adjoint!
+using ..OpticalComponents: fp_solve_adjoint!, compute_roundtrip_adjoint!
 using ..OpticalComponents: alloc_activations, alloc_gradient
 
 function Base.:+(a::NamedTuple{(:electric, :electric_dz, :ds, :lambdas)}, b::ScalarWaveField)
@@ -61,14 +60,6 @@ function ChainRulesCore.rrule(::typeof(apply_spectral_projection!), s, fp_state)
         return NoTangent(), NoTangent(), ∂state
     end
     return state, pullback
-end
-
-function ChainRulesCore.rrule(::typeof(reset_state!), s, state)
-    function pullback(_)
-        fill!(s.tmp_state, 0)
-        return NoTangent(), NoTangent(), NoTangent()
-    end
-    return nothing, pullback
 end
 
 function ChainRulesCore.rrule(::typeof(propagate!), u, state, p::P

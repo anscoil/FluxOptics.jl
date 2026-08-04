@@ -303,8 +303,6 @@ function combine_implicit(uf, ur, ufi, uri)
     (uf, ur)
 end
 
-reset_state!(s::BidirectionalSystem, state::ComponentArray) = nothing
-
 function propagate(s::BidirectionalSystem,
                    solver::Union{Nothing, BidirectionalSolver};
                    spectral_projection = false, kwargs...)
@@ -312,7 +310,6 @@ function propagate(s::BidirectionalSystem,
     s_in, s_out = @ignore_derivatives s.s_in, s.s_out
     @ignore_derivatives copyto!(s.tmp_state, fp_state)
     uf, ur = compute_roundtrip!(s, s_in, s_out, s.tmp_state; spectral_projection)
-    reset_state!(s, fp_state)
     ufi, uri = apply_implicit(uf, ur, s, solver; spectral_projection, kwargs...)
     uf, ur = combine_implicit(uf, ur, ufi, uri)
     # @ignore_derivatives fill!(s_in, ur)
