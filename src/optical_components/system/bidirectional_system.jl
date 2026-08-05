@@ -295,13 +295,9 @@ function fp_solve_adjoint!(s::BidirectionalSystem, ::Nothing; kwargs...)
     fp_solve_adjoint!(s; itmax = 1, kwargs...)
 end
 
-function apply_implicit(uf, ur, s, solver; spectral_projection = false, kwargs...)
-    (uf, ur)
-end
+apply_implicit(ufr, s, solver; spectral_projection = false, kwargs...) = ufr
 
-function combine_implicit(uf, ur, ufi, uri)
-    (uf, ur)
-end
+combine_implicit(ufr, ufri) = ufr
 
 function propagate(s::BidirectionalSystem,
                    solver::Union{Nothing, BidirectionalSolver};
@@ -309,9 +305,9 @@ function propagate(s::BidirectionalSystem,
     fp_state = @ignore_derivatives fp_solve!(s, solver; spectral_projection, kwargs...)
     s_in, s_out = @ignore_derivatives s.s_in, s.s_out
     @ignore_derivatives copyto!(s.tmp_state, fp_state)
-    uf, ur = compute_roundtrip!(s, s_in, s_out, s.tmp_state; spectral_projection)
-    ufi, uri = apply_implicit(uf, ur, s, solver; spectral_projection, kwargs...)
-    uf, ur = combine_implicit(uf, ur, ufi, uri)
+    ufr = compute_roundtrip!(s, s_in, s_out, s.tmp_state; spectral_projection)
+    ufri = apply_implicit(ufr, s, solver; spectral_projection, kwargs...)
+    uf, ur = combine_implicit(ufr, ufri)
     # @ignore_derivatives fill!(s_in, ur)
     # @ignore_derivatives fill!(s_out, uf)
     (reflected = ur, transmitted = uf)

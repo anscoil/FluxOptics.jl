@@ -29,7 +29,7 @@ function set_adjoint_source!(p::ScalarWaveSource, ∂u)
     p.u0
 end
 
-function ChainRulesCore.rrule(::typeof(apply_implicit), uf, ur, s, solver;
+function ChainRulesCore.rrule(::typeof(apply_implicit), ufr, s, solver;
                               spectral_projection = false, kwargs...)
     function pullback(∂u_out)
         ∂uf, ∂ur = ∂u_out
@@ -38,19 +38,17 @@ function ChainRulesCore.rrule(::typeof(apply_implicit), uf, ur, s, solver;
         set_adjoint_source!(s_out, ∂uf)
         fp_state_adj = fp_solve_adjoint!(s, solver; spectral_projection, kwargs...)
         copyto!(s.tmp_state, fp_state_adj)
-        ∂uf, ∂ur = compute_roundtrip_adjoint!(s, s_in, s_out, s.tmp_state;
-                                              spectral_projection)
-        return NoTangent(), ∂uf, ∂ur, NoTangent(), NoTangent()
+        ∂ufr = compute_roundtrip_adjoint!(s, s_in, s_out, s.tmp_state; spectral_projection)
+        return NoTangent(), ∂ufr, NoTangent(), NoTangent()
     end
-    return (uf, ur), pullback
+    return ufr, pullback
 end
 
-function ChainRulesCore.rrule(::typeof(combine_implicit), uf, ur, ufi, uri)
-    function pullback(∂u_out)
-        ∂uf, ∂ur = ∂u_out
-        return NoTangent(), ∂uf, ∂ur, ∂uf, ∂ur
+function ChainRulesCore.rrule(::typeof(combine_implicit), ufr, ufri)
+    function pullback(∂ufr)
+        return NoTangent(), ∂ufr, ∂ufr
     end
-    return (uf, ur), pullback
+    return ufr, pullback
 end
 
 function ChainRulesCore.rrule(::typeof(apply_spectral_projection!), s, fp_state)
