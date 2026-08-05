@@ -57,8 +57,7 @@ end
 
 function alloc_activations(u, p::ScalarWaveBPM)
     n_slices = size(p.n_xyz, 3)
-    (; u_fwd = similar(u.electric, (size(u.electric)..., n_slices)),
-     u_bwd = similar(u.electric, (size(u.electric)..., n_slices)))
+    (; u = similar(u.electric, (size(u.electric)..., n_slices)))
 end
 
 function normalize_fourier(u::ScalarWaveField, p::ScalarWaveBPM)
@@ -74,11 +73,11 @@ function propagate_slice!(u::ScalarWaveField, state, activations,
     kernel = loc ? p.kernel_loc : p.kernel
     E_state = isnothing(state) ? nothing : selectdim(state.E_state, ndims(state.E_state), k)
     u_fwd = isnothing(activations) ? nothing :
-        selectdim(activations.u_fwd, ndims(activations.u_fwd), k)
+        selectdim(activations.u, ndims(activations.u), k)
     normalize_fourier(u, p)
     compute_ift!(p.p_f, u)
     if !isnothing(activations)
-        u_fwd = selectdim(activations.u_fwd, ndims(activations.u_fwd), k)
+        u_fwd = selectdim(activations.u, ndims(activations.u), k)
         copyto!(u_fwd, u.electric)
     end
     @. u.electric_dz += ((2π/u.lambdas.val)^2 * (n0^2 - n_xy^2) * p.dz * u.electric)
@@ -102,7 +101,7 @@ function inverse_propagate_slice!(u::ScalarWaveField, state, activations,
     normalize_fourier(u, p)
     compute_ift!(p.p_f, u)
     if !isnothing(activations)
-        u_bwd = selectdim(activations.u_bwd, ndims(activations.u_bwd), k)
+        u_bwd = selectdim(activations.u, ndims(activations.u), k)
         copyto!(u_bwd, u.electric)
     end
     @. u.electric_dz -= ((2π/u.lambdas.val)^2 * (n0^2 - n_xy^2) * p.dz * u.electric)
@@ -127,7 +126,7 @@ function propagate_slice_adjoint!(∂u::ScalarWaveField, ∂p,
         ndrange = size(∂u.electric)[1:2])
     compute_ift!(p.p_f, ∂u)
     if !isnothing(activations)
-        u_fwd = selectdim(activations.u_fwd, ndims(activations.u_fwd), k)
+        u_fwd = selectdim(activations.u, ndims(activations.u), k)
         ∂n_xy = selectdim(∂p.n_xyz, ndims(∂p.n_xyz), k)
         compute_gradient_forward!(∂n_xy, n_xy, u_fwd, ∂u, p)
     end
@@ -151,7 +150,7 @@ function inverse_propagate_slice_adjoint!(∂u::ScalarWaveField, ∂p,
     E_state = isnothing(state) ? nothing : selectdim(state.E_state, ndims(state.E_state), k)
     compute_ift!(p.p_f, ∂u)
     if !isnothing(activations)
-        u_bwd = selectdim(activations.u_bwd, ndims(activations.u_bwd), k)
+        u_bwd = selectdim(activations.u, ndims(activations.u), k)
         ∂n_xy = selectdim(∂p.n_xyz, ndims(∂p.n_xyz), k)
         compute_gradient_backward!(∂n_xy, n_xy, u_bwd, ∂u, p)
     end

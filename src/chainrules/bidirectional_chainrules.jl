@@ -1,6 +1,6 @@
 using ..OpticalComponents: apply_implicit, combine_implicit, apply_spectral_projection!
 using ..OpticalComponents: fp_solve_adjoint!, compute_roundtrip_adjoint!
-using ..OpticalComponents: alloc_activations, alloc_gradient
+using ..OpticalComponents: alloc_activations, alloc_activations_inverse, alloc_gradient
 
 function Base.:+(a::NamedTuple{(:electric, :electric_dz, :ds, :lambdas)}, b::ScalarWaveField)
     electric = isnothing(a.electric) ? b.electric : a.electric + b.electric
@@ -88,7 +88,7 @@ end
 
 function ChainRulesCore.rrule(::typeof(inverse_propagate!), u, state, p::P
                               ) where {P <: AbstractBidirectionalComponent{Trainable}}
-    activations = alloc_activations(u, p)
+    activations = alloc_activations_inverse(u, p)
     v = inverse_propagate!(u, state, activations, p)
 
     function pullback(∂v)

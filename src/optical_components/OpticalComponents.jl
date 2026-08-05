@@ -873,6 +873,10 @@ function alloc_activations(u, p::AbstractBidirectionalComponent{Trainable})
     error("Not implemented")
 end
 
+function alloc_activations_inverse(u, p::AbstractBidirectionalComponent{Trainable})
+    alloc_activations(u, p)
+end
+
 function alloc_gradient(p::AbstractBidirectionalComponent{Trainable})
     map(similar, trainable(p))
 end
