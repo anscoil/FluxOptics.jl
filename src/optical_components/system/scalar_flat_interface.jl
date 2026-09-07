@@ -85,41 +85,24 @@ end
     end
 end
 
-function propagate!(u::ScalarWaveField, state, ::Nothing, p::ScalarFlatInterface)
+function propagate!(u::ScalarWaveField, state, ::Nothing, p::ScalarFlatInterface,
+                    direction::Direction)
     backend = get_backend(u.electric)
     scalar_flat_interface_kernel!(backend)(
-        u.electric, u.electric_dz, state.E_state, p.kernel, Val(true);
+        u.electric, u.electric_dz, state.E_state, p.kernel, Val(isforward(direction));
         ndrange = size(u.electric)[1:2])
     u
 end 
-
-function inverse_propagate!(u::ScalarWaveField, state, ::Nothing, p::ScalarFlatInterface)
-    backend = get_backend(u.electric)
-    scalar_flat_interface_kernel!(backend)(
-        u.electric, u.electric_dz, state.E_state, p.kernel, Val(false);
-        ndrange = size(u.electric)[1:2])
-    u
-end
 
 function propagate_adjoint!(u::ScalarWaveField, ::Nothing,
                             state, ::Nothing,
-                            p::ScalarFlatInterface)
+                            p::ScalarFlatInterface, direction::Direction)
     backend = get_backend(u.electric)
     scalar_flat_interface_adjoint_kernel!(backend)(
-        u.electric, u.electric_dz, state.E_state, p.kernel, Val(true);
+        u.electric, u.electric_dz, state.E_state, p.kernel, Val(isforward(direction));
         ndrange = size(u.electric)[1:2])
     u
 end 
-
-function inverse_propagate_adjoint!(u::ScalarWaveField, ::Nothing,
-                                    state, ::Nothing,
-                                    p::ScalarFlatInterface)
-    backend = get_backend(u.electric)
-    scalar_flat_interface_adjoint_kernel!(backend)(
-        u.electric, u.electric_dz, state.E_state, p.kernel, Val(false);
-        ndrange = size(u.electric)[1:2])
-    u
-end
 
 struct NoInterface{M} <: AbstractBidirectionalComponent{M}
     trainability::Val{M}
@@ -129,13 +112,9 @@ NoInterface() = NoInterface(Val(Static))
 
 alloc_fp_state(u::ScalarWaveField, p::NoInterface) = nothing
 
-propagate!(u::ScalarWaveField, state, ::Nothing, p::NoInterface) = u
+propagate!(u::ScalarWaveField, state, ::Nothing, p::NoInterface, ::Direction) = u
 
-inverse_propagate!(u::ScalarWaveField, state, ::Nothing, p::NoInterface) = u
-
-propagate_adjoint!(u::ScalarWaveField, state, ::Nothing, p::NoInterface) = u
-
-inverse_propagate_adjoint!(u::ScalarWaveField, state, ::Nothing, p::NoInterface) = u
+propagate_adjoint!(u::ScalarWaveField, state, ::Nothing, p::NoInterface, ::Direction) = u
 
 function FlatInterface(u::ScalarWaveField, n1::Number, n2::Number)
     ScalarFlatInterface(u, n1, n2)

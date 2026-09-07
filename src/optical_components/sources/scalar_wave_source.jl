@@ -63,7 +63,7 @@ end
     end
 end
 
-function propagate!(u::ScalarWaveField, p::ScalarWaveSource)
+function propagate!(u::ScalarWaveField, p::ScalarWaveSource, ::Forward)
     backend = get_backend(u.electric)
     set_backward_field_kernel!(backend)(
         u.electric, u.electric_dz, p.u0.electric, p.u0.electric_dz, p.kz;
@@ -71,7 +71,7 @@ function propagate!(u::ScalarWaveField, p::ScalarWaveSource)
     u
 end
 
-function inverse_propagate!(u::ScalarWaveField, p::ScalarWaveSource)
+function propagate!(u::ScalarWaveField, p::ScalarWaveSource, ::Backward)
     backend = get_backend(u.electric)
     set_forward_field_kernel!(backend)(
         u.electric, u.electric_dz, p.u0.electric, p.u0.electric_dz, p.kz;
@@ -79,21 +79,21 @@ function inverse_propagate!(u::ScalarWaveField, p::ScalarWaveSource)
     u
 end
 
-function propagate_adjoint!(u::ScalarWaveField, p::ScalarWaveSource)
+function propagate_adjoint!(u::ScalarWaveField, p::ScalarWaveSource, ::Forward)
     backend = get_backend(u.electric)
     set_backward_field_adjoint_kernel!(backend)(
         u.electric, u.electric_dz, p.kz; ndrange = size(u.electric)[1:2])
     u
 end
 
-function inverse_propagate_adjoint!(u::ScalarWaveField, p::ScalarWaveSource)
+function propagate_adjoint!(u::ScalarWaveField, p::ScalarWaveSource, ::Backward)
     backend = get_backend(u.electric)
     set_forward_field_adjoint_kernel!(backend)(
         u.electric, u.electric_dz, p.kz; ndrange = size(u.electric)[1:2])
     u
 end
 
-function propagate(p::ScalarWaveSource)
+function emit(p::ScalarWaveSource)
     copyto!(p.uf, p.u0)
     p.uf
 end

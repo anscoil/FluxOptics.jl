@@ -82,38 +82,21 @@ end
     end
 end
 
-function propagate!(u::ScalarWaveField, state, p::ScalarWavePropagator)
+function propagate!(u::ScalarWaveField, state, p::ScalarWavePropagator,
+                    direction::Direction)
     backend = get_backend(u.electric)
     propagate_scalar_wave_kernel!(backend)(
-        u.electric, u.electric_dz, state.E_state, p.kernel, Val(true);
-        ndrange = size(u.electric)[1:2])
-    u
-end
-
-function inverse_propagate!(u::ScalarWaveField, state, p::ScalarWavePropagator)
-    backend = get_backend(u.electric)
-    propagate_scalar_wave_kernel!(backend)(
-        u.electric, u.electric_dz, state.E_state, p.kernel, Val(false);
+        u.electric, u.electric_dz, state.E_state, p.kernel, Val(isforward(direction));
         ndrange = size(u.electric)[1:2])
     u
 end
 
 function propagate_adjoint!(u::ScalarWaveField, ::Nothing,
                             state, ::Nothing,
-                            p::ScalarWavePropagator)
+                            p::ScalarWavePropagator, direction::Direction)
     backend = get_backend(u.electric)
     propagate_scalar_wave_adjoint_kernel!(backend)(
-        u.electric, u.electric_dz, state.E_state, p.kernel, Val(true);
-        ndrange = size(u.electric)[1:2])
-    u
-end
-
-function inverse_propagate_adjoint!(u::ScalarWaveField, ::Nothing,
-                                    state, ::Nothing,
-                                    p::ScalarWavePropagator)
-    backend = get_backend(u.electric)
-    propagate_scalar_wave_adjoint_kernel!(backend)(
-        u.electric, u.electric_dz, state.E_state, p.kernel, Val(false);
+        u.electric, u.electric_dz, state.E_state, p.kernel, Val(isforward(direction));
         ndrange = size(u.electric)[1:2])
     u
 end

@@ -31,9 +31,20 @@ struct Backward <: Direction end
 
 Base.reverse(::Type{Forward}) = Backward
 Base.reverse(::Type{Backward}) = Forward
+Base.reverse(::Forward) = Backward()
+Base.reverse(::Backward) = Forward()
+Base.reverse(l, ::Forward) = l
+Base.reverse(l, ::Backward) = reverse(l)
 
 Base.sign(::Type{Forward}) = 1
 Base.sign(::Type{Backward}) = -1
+Base.sign(::Forward) = 1
+Base.sign(::Backward) = -1
+
+isforward(::Forward) = true
+isforward(::Backward) = false
+isbackward(::Forward) = false
+isbackward(::Backward) = true
 
 """
     Buffering
@@ -847,7 +858,7 @@ using Krylov
 import ChainRulesCore: @ignore_derivatives
 
 export AbstractBidirectionalComponent, AbstractBidirectionalSource
-export propagate!, inverse_propagate!, propagate_adjoint!, inverse_propagate_adjoint!
+export propagate!, inverse_propagate!, propagate_adjoint!, inverse_propagate_adjoint!, emit
 
 abstract type AbstractBidirectionalComponent{M <: Trainability} end
 
@@ -857,61 +868,40 @@ function trainable(p::AbstractBidirectionalComponent{Trainable})
     error("Not implemented")
 end
 
-function get_n0(p::AbstractBidirectionalComponent)
-    error("Not implemented")
-end
+get_n0(p::AbstractBidirectionalComponent) = nothing
 
 get_n0_left(p::AbstractBidirectionalComponent) = get_n0(p)
 
 get_n0_right(p::AbstractBidirectionalComponent) = get_n0(p)
 
-function alloc_fp_state(u, p::AbstractBidirectionalComponent)
-    error("Not implemented")
-end
+alloc_fp_state(u, p::AbstractBidirectionalComponent) = nothing
 
-function alloc_activations(u, p::AbstractBidirectionalComponent{Trainable})
+function alloc_activations(u, p::AbstractBidirectionalComponent{Trainable},
+                           direction::Direction)
     error("Not implemented")
-end
-
-function alloc_activations_inverse(u, p::AbstractBidirectionalComponent{Trainable})
-    alloc_activations(u, p)
 end
 
 function alloc_gradient(p::AbstractBidirectionalComponent{Trainable})
     map(similar, trainable(p))
 end
 
-function propagate!(u, state, activations, p::AbstractBidirectionalComponent)
+function propagate!(u, state, activations, p::AbstractBidirectionalComponent,
+                    direction::Direction)
     error("Not implemented")
 end
 
-function propagate!(u, state, p::AbstractBidirectionalComponent)
-    propagate!(u, state, nothing, p)
+function propagate!(u, state, p::AbstractBidirectionalComponent, direction::Direction)
+    propagate!(u, state, nothing, p, direction)
 end
 
-function inverse_propagate!(u, state, activations, p::AbstractBidirectionalComponent)
+function propagate_adjoint!(∂v, ∂p, state, activations, p::AbstractBidirectionalComponent,
+                            direction::Direction)
     error("Not implemented")
 end
 
-function inverse_propagate!(u, state, p::AbstractBidirectionalComponent)
-    inverse_propagate!(u, state, nothing, p)
-end
-
-function propagate_adjoint!(∂v, ∂p, state, activations, p::AbstractBidirectionalComponent)
-    error("Not implemented")
-end
-
-function propagate_adjoint!(u, state, p::AbstractBidirectionalComponent)
-    propagate_adjoint!(u, nothing, state, nothing, p)
-end
-
-function inverse_propagate_adjoint!(∂v, ∂p, state, activations,
-                                    p::AbstractBidirectionalComponent)
-    error("Not implemented")
-end
-
-function inverse_propagate_adjoint!(u, state, p::AbstractBidirectionalComponent)
-    inverse_propagate_adjoint!(u, nothing, state, nothing, p)
+function propagate_adjoint!(u, state, p::AbstractBidirectionalComponent,
+                            direction::Direction)
+    propagate_adjoint!(u, nothing, state, nothing, p, direction)
 end
 
 abstract type AbstractBidirectionalSource{U} end
@@ -924,23 +914,15 @@ get_n0_left(p::AbstractBidirectionalSource) = get_n0(p)
 
 get_n0_right(p::AbstractBidirectionalSource) = get_n0(p)
 
-function propagate!(u, p::AbstractBidirectionalSource)
+function propagate!(u, p::AbstractBidirectionalSource, direction::Direction)
     error("Not implemented")
 end
 
-function inverse_propagate!(u, p::AbstractBidirectionalSource)
+function propagate_adjoint!(u, p::AbstractBidirectionalSource, direction::Direction)
     error("Not implemented")
 end
 
-function propagate_adjoint!(u, p::AbstractBidirectionalSource)
-    error("Not implemented")
-end
-
-function inverse_propagate_adjoint!(u, p::AbstractBidirectionalSource)
-    error("Not implemented")
-end
-
-function propagate(p::AbstractBidirectionalSource)
+function emit(p::AbstractBidirectionalSource)
     error("Not implemented")
 end
 

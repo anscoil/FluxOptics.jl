@@ -1,4 +1,4 @@
-struct BidirectionalSystem{S1, S2, C, P, K, J}
+struct BidirectionalSystem{S1, S2, C, P, K}
     s_in::S1
     s_out::S2
     s_in_adj::S1
@@ -10,7 +10,6 @@ struct BidirectionalSystem{S1, S2, C, P, K, J}
     fp_state_adj::P
     tmp_state::P
     fp_state_keys::K
-    spectral_projector::J
 end
 
 Functors.@functor BidirectionalSystem (components,)
@@ -54,13 +53,8 @@ function BidirectionalSystem(s_in::AbstractBidirectionalSource{U},
     fp_state .= 0
     fp_state_adj = copy(fp_state)
     tmp_state = copy(fp_state)
-    n_max = max(real(get_n0(s_in)), real(get_n0(s_out)),
-                map(c -> max(real_n(get_n0_left(c)), real_n(get_n0_right(c))), components)...)
-    spectral_projector = real.(compute_kz(u0, n_max))
-    @. spectral_projector = ifelse(spectral_projector > 0, 1, 0)
     BidirectionalSystem(s_in, s_out, s_in_adj, s_out_adj, s_in_zero, s_out_zero,
-                        all_components, fp_state, fp_state_adj, tmp_state, state_keys,
-                        spectral_projector)
+                        all_components, fp_state, fp_state_adj, tmp_state, state_keys)
 end
 
 function BidirectionalSystem(s_in::AbstractBidirectionalSource,
@@ -69,55 +63,41 @@ function BidirectionalSystem(s_in::AbstractBidirectionalSource,
     BidirectionalSystem(s_in, s_out, components...)
 end
 
-function apply_spectral_projection!(s::BidirectionalSystem, fp_state::ComponentArray)
-    ns = size(s.spectral_projector)
-    state = reshape(getdata(fp_state), (ns..., length(fp_state) ÷ prod(ns)))
-    @. state *= s.spectral_projector
-end
-
 function compute_roundtrip!(s::BidirectionalSystem,
                             s_in::AbstractBidirectionalSource,
                             s_out::AbstractBidirectionalSource,
-                            fp_state::ComponentArray;
-                            spectral_projection::Bool = false)
-    if spectral_projection
-        apply_spectral_projection!(s, fp_state)
-    end
+                            fp_state::ComponentArray)
     fp_state_views = @ignore_derivatives map(k -> state_view(fp_state, k), s.fp_state_keys)
-    u = propagate(s_in)
+    u = emit(s_in)
     for (p, state) in zip(s.components, fp_state_views)
-        u = propagate!(u, state, p)
+        u = propagate!(u, state, p, Forward())
     end
-    uf = propagate!(u, s_out)
-    u = propagate(s_out)
+    uf = propagate!(u, s_out, Forward())
+    u = emit(s_out)
     for (p, state) in zip(s.components[end:-1:1], reverse(fp_state_views))
-        u = inverse_propagate!(u, state, p)
+        u = propagate!(u, state, p, Backward())
     end
-    ur = inverse_propagate!(u, s_in)
+    ur = propagate!(u, s_in, Backward())
     (uf, ur)
 end
 
 function compute_roundtrip_adjoint!(s::BidirectionalSystem,
                                     s_in_adj::AbstractBidirectionalSource,
                                     s_out_adj::AbstractBidirectionalSource,
-                                    fp_state::ComponentArray;
-                                    spectral_projection::Bool = false)
+                                    fp_state::ComponentArray)
     fp_state_views = map(k -> state_view(fp_state, k), s.fp_state_keys)
-    u = propagate(s_in_adj)
-    u = inverse_propagate_adjoint!(u, s_in_adj)
+    u = emit(s_in_adj)
+    u = propagate_adjoint!(u, s_in_adj, Backward())
     for (p, state) in zip(s.components, fp_state_views)
-        u = inverse_propagate_adjoint!(u, state, p)
+        u = propagate_adjoint!(u, state, p, Backward())
     end
     ∂uf = u
-    u = propagate(s_out_adj)
-    u = propagate_adjoint!(u, s_out_adj)
+    u = emit(s_out_adj)
+    u = propagate_adjoint!(u, s_out_adj, Forward())
     for (p, state) in zip(s.components[end:-1:1], reverse(fp_state_views))
-        u = propagate_adjoint!(u, state, p)
+        u = propagate_adjoint!(u, state, p, Forward())
     end
     ∂ur = u
-    if spectral_projection
-        apply_spectral_projection!(s, fp_state)
-    end
     (∂uf, ∂ur)
 end
 
@@ -127,9 +107,7 @@ struct BidirectionalSolver{W, P, T}
     atol::Ref{T}
 end
 
-function compute_linear_operator(s::BidirectionalSystem;
-                                 adjoint::Bool = false,
-                                 spectral_projection::Bool = false)
+function compute_linear_operator(s::BidirectionalSystem; adjoint::Bool = false)
     state = getdata(s.tmp_state)
     T = eltype(state)
     n = length(state)
@@ -137,7 +115,7 @@ function compute_linear_operator(s::BidirectionalSystem;
     s_in, s_out = s.s_in_zero, s.s_out_zero
     function prod!(res, v, α, β)
         @. state = v
-        compute_roundtrip!(s, s_in, s_out, s.tmp_state; spectral_projection)
+        compute_roundtrip!(s, s_in, s_out, s.tmp_state)
         if iszero(β)
             @. res = α * (v - state)
         else
@@ -147,7 +125,7 @@ function compute_linear_operator(s::BidirectionalSystem;
     end
     function ctprod!(res, v, α, β)
         @. state = v
-        compute_roundtrip_adjoint!(s, s_in, s_out, s.tmp_state; spectral_projection)
+        compute_roundtrip_adjoint!(s, s_in, s_out, s.tmp_state)
         if iszero(β)
             @. res = α * (v - state)
         else
@@ -218,17 +196,17 @@ function krylov_solve!(solver::BidirectionalSolver{<:CraigWorkspace},
 end
 
 function fp_solve!(s::BidirectionalSystem, solver::BidirectionalSolver;
-                   spectral_projection = false, n_warm_start = 0, kwargs...)
+                   n_warm_start = 0, kwargs...)
     if n_warm_start > 0
-        fp_solve!(s; itmax = n_warm_start, spectral_projection)
+        fp_solve!(s; itmax = n_warm_start)
     end
     s_in, s_out = s.s_in, s.s_out
     v0 = getdata(s.fp_state)
     vr = getdata(solver.r)
     @. vr = v0
-    compute_roundtrip!(s, s_in, s_out, solver.r; spectral_projection)
+    compute_roundtrip!(s, s_in, s_out, solver.r)
     @. vr -= v0
-    op = compute_linear_operator(s; spectral_projection)
+    op = compute_linear_operator(s)
     krylov_solve!(solver, op; atol = solver.atol[], kwargs...)
     res_state = Krylov.solution(solver.workspace)
     res = getdata(res_state)
@@ -236,18 +214,17 @@ function fp_solve!(s::BidirectionalSystem, solver::BidirectionalSolver;
     @. v0 += res
     if solver.workspace.stats.solved && iszero(solver.atol[])
         @. vr = res
-        compute_roundtrip!(s, s_in, s_out, solver.r; spectral_projection)
+        compute_roundtrip!(s, s_in, s_out, solver.r)
         @. vr -= res
         solver.atol[] = norm(vr)
     end
     s.fp_state
 end
 
-function fp_solve!(s::BidirectionalSystem;
-                   itmax = 20, spectral_projection = false, kwargs...)
+function fp_solve!(s::BidirectionalSystem; itmax = 20, kwargs...)
     s_in, s_out = s.s_in, s.s_out
     for i in 1:itmax
-        compute_roundtrip!(s, s_in, s_out, s.fp_state; spectral_projection)
+        compute_roundtrip!(s, s_in, s_out, s.fp_state)
     end
     s.fp_state
 end
@@ -257,17 +234,17 @@ function fp_solve!(s::BidirectionalSystem, ::Nothing; kwargs...)
 end
 
 function fp_solve_adjoint!(s::BidirectionalSystem, solver::BidirectionalSolver;
-                           spectral_projection = false, n_warm_start = 0, kwargs...)
+                           n_warm_start = 0, kwargs...)
     if n_warm_start > 0
-        fp_solve_adjoint!(s; itmax = n_warm_start, spectral_projection)
+        fp_solve_adjoint!(s; itmax = n_warm_start)
     end
     s_in, s_out = s.s_in_adj, s.s_out_adj
     v0 = getdata(s.fp_state_adj)
     vr = getdata(solver.r)
     @. vr = v0
-    compute_roundtrip_adjoint!(s, s_in, s_out, solver.r; spectral_projection)
+    compute_roundtrip_adjoint!(s, s_in, s_out, solver.r)
     @. vr -= v0
-    op = compute_linear_operator(s; spectral_projection, adjoint = true)
+    op = compute_linear_operator(s; adjoint = true)
     krylov_solve!(solver, op; kwargs...)
     res_state = Krylov.solution(solver.workspace)
     res = getdata(res_state)
@@ -275,18 +252,17 @@ function fp_solve_adjoint!(s::BidirectionalSystem, solver::BidirectionalSolver;
     @. v0 += res
     if solver.workspace.stats.solved && iszero(solver.atol[])
         @. vr = res
-        compute_roundtrip_adjoint!(s, s_in, s_out, solver.r; spectral_projection)
+        compute_roundtrip_adjoint!(s, s_in, s_out, solver.r)
         @. vr -= res
         solver.atol[] = norm(vr)
     end
     s.fp_state_adj
 end
 
-function fp_solve_adjoint!(s::BidirectionalSystem;
-                           itmax = 20, spectral_projection = false, kwargs...)
+function fp_solve_adjoint!(s::BidirectionalSystem; itmax = 20, kwargs...)
     s_in, s_out = s.s_in_adj, s.s_out_adj
     for i in 1:itmax
-        compute_roundtrip_adjoint!(s, s_in, s_out, s.fp_state_adj; spectral_projection)
+        compute_roundtrip_adjoint!(s, s_in, s_out, s.fp_state_adj)
     end
     s.fp_state_adj
 end
@@ -295,18 +271,17 @@ function fp_solve_adjoint!(s::BidirectionalSystem, ::Nothing; kwargs...)
     fp_solve_adjoint!(s; itmax = 1, kwargs...)
 end
 
-apply_implicit(ufr, s, solver; spectral_projection = false, kwargs...) = ufr
+apply_implicit(ufr, s, solver; kwargs...) = ufr
 
 combine_implicit(ufr, ufri) = ufr
 
 function propagate(s::BidirectionalSystem,
-                   solver::Union{Nothing, BidirectionalSolver};
-                   spectral_projection = false, kwargs...)
-    fp_state = @ignore_derivatives fp_solve!(s, solver; spectral_projection, kwargs...)
+                   solver::Union{Nothing, BidirectionalSolver}; kwargs...)
+    fp_state = @ignore_derivatives fp_solve!(s, solver; kwargs...)
     s_in, s_out = @ignore_derivatives s.s_in, s.s_out
     @ignore_derivatives copyto!(s.tmp_state, fp_state)
-    ufr = compute_roundtrip!(s, s_in, s_out, s.tmp_state; spectral_projection)
-    ufri = apply_implicit(ufr, s, solver; spectral_projection, kwargs...)
+    ufr = compute_roundtrip!(s, s_in, s_out, s.tmp_state)
+    ufri = apply_implicit(ufr, s, solver; kwargs...)
     uf, ur = combine_implicit(ufr, ufri)
     # @ignore_derivatives fill!(s_in, ur)
     # @ignore_derivatives fill!(s_out, uf)
