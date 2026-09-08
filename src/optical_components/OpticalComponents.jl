@@ -876,6 +876,11 @@ get_n0_right(p::AbstractBidirectionalComponent) = get_n0(p)
 
 alloc_fp_state(u, p::AbstractBidirectionalComponent) = nothing
 
+function alloc_activations(u, p::AbstractBidirectionalComponent{Static},
+                           direction::Direction)
+    nothing
+end
+
 function alloc_activations(u, p::AbstractBidirectionalComponent{Trainable},
                            direction::Direction)
     error("Not implemented")

@@ -82,7 +82,7 @@ end
     end
 end
 
-function propagate!(u::ScalarWaveField, state, p::ScalarWavePropagator,
+function propagate!(u::ScalarWaveField, state, ::Nothing, p::ScalarWavePropagator,
                     direction::Direction)
     backend = get_backend(u.electric)
     propagate_scalar_wave_kernel!(backend)(

@@ -1,4 +1,4 @@
-struct BidirectionalSystem{S1, S2, C, P, K}
+struct BidirectionalSystem{S1, S2, C, P, A, K}
     s_in::S1
     s_out::S2
     s_in_adj::S1
@@ -9,7 +9,9 @@ struct BidirectionalSystem{S1, S2, C, P, K}
     fp_state::P
     fp_state_adj::P
     tmp_state::P
-    fp_state_keys::K
+    activations_fwd::A
+    activations_bwd::A
+    keys::K
 end
 
 Functors.@functor BidirectionalSystem (components,)
@@ -18,16 +20,18 @@ _interleave(ifaces::Tuple{T}, ::Tuple{}) where {T} = ifaces
 _interleave(ifaces, comps) =
     (first(ifaces), first(comps), _interleave(Base.tail(ifaces), Base.tail(comps))...)
 
-coalesce_state(s) = fmap(x -> isnothing(x) ? [] : collect(x), s)
+coalesce(s) = fmap(x -> isnothing(x) ? [] : collect(x), s)
 
-function state_view(fp_state::ComponentArray, k::Symbol)
-    v = getproperty(fp_state, k)
+function ca_view(ca::ComponentArray, k::Symbol)
+    v = getproperty(ca, k)
     if Functors.isleaf(v) && isempty(v)
         nothing
     else
         fmap(x -> isempty(x) ? nothing : x, NamedTuple(v))
     end
 end
+
+ca_view(::Nothing, ::Symbol) = nothing
 
 real_n(n0::Number) = real(n0)
 real_n(::Nothing) = 0
@@ -47,14 +51,19 @@ function BidirectionalSystem(s_in::AbstractBidirectionalSource{U},
         Base.tail(all_nodes)
     )
     all_components = _interleave(flat_interfaces, components)
-    state_keys = ntuple(i -> Symbol(:c, i), length(all_components))
-    states = map(c -> coalesce_state(alloc_fp_state(u0, c)), all_components)
-    fp_state = adapt(similar(U, 1), ComponentArray(NamedTuple{state_keys}(states)))
+    keys = ntuple(i -> Symbol(:c, i), length(all_components))
+    states = map(c -> coalesce(alloc_fp_state(u0, c)), all_components)
+    fp_state = adapt(similar(U, 1), ComponentArray(NamedTuple{keys}(states)))
     fp_state .= 0
     fp_state_adj = copy(fp_state)
     tmp_state = copy(fp_state)
+    activations = map(c -> coalesce(alloc_activations(u0, c, Forward())), all_components)
+    activations_fwd = adapt(similar(U, 1), ComponentArray(NamedTuple{keys}(activations)))
+    activations = map(c -> coalesce(alloc_activations(u0, c, Backward())), all_components)
+    activations_bwd = adapt(similar(U, 1), ComponentArray(NamedTuple{keys}(activations)))
     BidirectionalSystem(s_in, s_out, s_in_adj, s_out_adj, s_in_zero, s_out_zero,
-                        all_components, fp_state, fp_state_adj, tmp_state, state_keys)
+                        all_components, fp_state, fp_state_adj, tmp_state,
+                        activations_fwd, activations_bwd, keys)
 end
 
 function BidirectionalSystem(s_in::AbstractBidirectionalSource,
@@ -66,35 +75,48 @@ end
 function compute_roundtrip!(s::BidirectionalSystem,
                             s_in::AbstractBidirectionalSource,
                             s_out::AbstractBidirectionalSource,
-                            fp_state::ComponentArray)
-    fp_state_views = @ignore_derivatives map(k -> state_view(fp_state, k), s.fp_state_keys)
+                            fp_state::ComponentArray,
+                            activations_fwd::Union{Nothing, ComponentArray},
+                            activations_bwd::Union{Nothing, ComponentArray})
+    fp_states = @ignore_derivatives map(k -> ca_view(fp_state, k), s.keys)
+    activations_fwd = @ignore_derivatives map(k -> ca_view(activations_fwd, k), s.keys)
+    activations_bwd = @ignore_derivatives map(k -> ca_view(activations_bwd, k), s.keys)
     u = emit(s_in)
-    for (p, state) in zip(s.components, fp_state_views)
-        u = propagate!(u, state, p, Forward())
+    for (p, state, activations) in zip(s.components, fp_states, activations_fwd)
+        u = propagate!(u, state, activations, p, Forward())
     end
     uf = propagate!(u, s_out, Forward())
     u = emit(s_out)
-    for (p, state) in zip(s.components[end:-1:1], reverse(fp_state_views))
-        u = propagate!(u, state, p, Backward())
+    for (p, state, activations) in zip(s.components[end:-1:1],
+                          reverse(fp_states),
+                          reverse(activations_bwd))
+        u = propagate!(u, state, activations, p, Backward())
     end
     ur = propagate!(u, s_in, Backward())
     (uf, ur)
+end
+
+function compute_roundtrip!(s::BidirectionalSystem,
+                            s_in::AbstractBidirectionalSource,
+                            s_out::AbstractBidirectionalSource,
+                            fp_state::ComponentArray)
+    compute_roundtrip!(s, s_in, s_out, fp_state, nothing, nothing)
 end
 
 function compute_roundtrip_adjoint!(s::BidirectionalSystem,
                                     s_in_adj::AbstractBidirectionalSource,
                                     s_out_adj::AbstractBidirectionalSource,
                                     fp_state::ComponentArray)
-    fp_state_views = map(k -> state_view(fp_state, k), s.fp_state_keys)
+    fp_states = map(k -> ca_view(fp_state, k), s.keys)
     u = emit(s_in_adj)
     u = propagate_adjoint!(u, s_in_adj, Backward())
-    for (p, state) in zip(s.components, fp_state_views)
+    for (p, state) in zip(s.components, fp_states)
         u = propagate_adjoint!(u, state, p, Backward())
     end
     ∂uf = u
     u = emit(s_out_adj)
     u = propagate_adjoint!(u, s_out_adj, Forward())
-    for (p, state) in zip(s.components[end:-1:1], reverse(fp_state_views))
+    for (p, state) in zip(s.components[end:-1:1], reverse(fp_states))
         u = propagate_adjoint!(u, state, p, Forward())
     end
     ∂ur = u
@@ -280,7 +302,8 @@ function propagate(s::BidirectionalSystem,
     fp_state = @ignore_derivatives fp_solve!(s, solver; kwargs...)
     s_in, s_out = @ignore_derivatives s.s_in, s.s_out
     @ignore_derivatives copyto!(s.tmp_state, fp_state)
-    ufr = compute_roundtrip!(s, s_in, s_out, s.tmp_state)
+    ufr = compute_roundtrip!(s, s_in, s_out, s.tmp_state,
+                             s.activations_fwd, s.activations_bwd)
     ufri = apply_implicit(ufr, s, solver; kwargs...)
     uf, ur = combine_implicit(ufr, ufri)
     # @ignore_derivatives fill!(s_in, ur)

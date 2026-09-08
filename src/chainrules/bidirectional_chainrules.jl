@@ -50,27 +50,29 @@ function ChainRulesCore.rrule(::typeof(combine_implicit), ufr, ufri)
     return ufr, pullback
 end
 
-function ChainRulesCore.rrule(::typeof(propagate!), u, state, p::P, direction::Direction
+function ChainRulesCore.rrule(::typeof(propagate!), u, state, activations,
+                              p::P, direction::Direction
                               ) where {P <: AbstractBidirectionalComponent{Trainable}}
-    activations = alloc_activations(u, p, direction)
+    activations = isnothing(activations) ? alloc_activations(u, p, direction) : activations
     v = propagate!(u, state, activations, p, direction)
 
     function pullback(∂v)
         ∂p = alloc_gradient(p)
         ∂u = propagate_adjoint!(∂v, ∂p, state, activations, p, direction)
-        return (NoTangent(), ∂u, NoTangent(), Tangent{P}(; ∂p...), NoTangent())
+        return (NoTangent(), ∂u, NoTangent(), NoTangent(), Tangent{P}(; ∂p...), NoTangent())
     end
 
     return v, pullback
 end
 
-function ChainRulesCore.rrule(::typeof(propagate!), u, state, p::P, direction::Direction
+function ChainRulesCore.rrule(::typeof(propagate!), u, state, ::Nothing,
+                              p::P, direction::Direction
                               ) where {P <: AbstractBidirectionalComponent{Static}}
     v = propagate!(u, state, p, direction)
 
     function pullback(∂v)
         ∂u = propagate_adjoint!(∂v, state, p, direction)
-        return (NoTangent(), ∂u, NoTangent(), NoTangent(), NoTangent())
+        return (NoTangent(), ∂u, NoTangent(), NoTangent(), NoTangent(), NoTangent())
     end
 
     return v, pullback
