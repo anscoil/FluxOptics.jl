@@ -47,4 +47,6 @@ include("scalar_field.jl")
 
 include("scalar_wave_field.jl")
 
+include("vectorial_field.jl")
+
 end

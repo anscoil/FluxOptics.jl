@@ -1,7 +1,7 @@
 struct ScalarWaveField{U, L} <: AbstractField{U, 2}
-    electric:: U
-    electric_dz:: U
-    ds:: NTuple{2, Float64}
+    electric::U
+    electric_dz::U
+    ds::NTuple{2, Float64}
     lambdas::L
 end
 

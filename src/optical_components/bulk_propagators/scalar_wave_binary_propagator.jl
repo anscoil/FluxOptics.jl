@@ -98,7 +98,6 @@ end
 function propagate_slice!(u::ScalarWaveField, state, activations,
                           p::ScalarWaveBiProp, k::Integer, direction::Direction)
     backend = get_backend(u.electric)
-    is_fwd = isforward(direction)
     
     compute_ift!(p.p_f, u)
     copyto!(p.u_tmp, u)
@@ -106,15 +105,15 @@ function propagate_slice!(u::ScalarWaveField, state, activations,
 
     apply_mask!(u, p, k, false)
     apply_mask!(v, p, k, true)
-    apply_correction!(u, p, k, false, is_fwd)
-    apply_correction!(v, p, k, true, is_fwd)
+    apply_correction!(u, p, k, false, direction)
+    apply_correction!(v, p, k, true, direction)
     compute_ft!(p.p_f, u)
     compute_ft!(p.p_f, v)
     
     propagate_binary_kernel!(backend)(
         u.electric, u.electric_dz,
         v.electric, v.electric_dz,
-        p.kernel_n1, p.kernel_n2, Val(is_fwd);
+        p.kernel_n1, p.kernel_n2, Val(isforward(direction));
         ndrange = size(u.electric)[1:2])
 
     u
