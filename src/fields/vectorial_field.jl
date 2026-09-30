@@ -1,10 +1,10 @@
-struct VectorialField{U} <: AbstractField{U, 2}
+struct VectorialField{U, T} <: AbstractField{U, 2}
     Ex::U
     Ey::U
     Hx::U
     Hy::U
-    ds:: NTuple{2, Float64}
-    lambda::Float64
+    ds:: NTuple{2, T}
+    lambda::T
 end
 
 Functors.@functor VectorialField (Ex, Ey, Hx, Hy)
@@ -118,7 +118,7 @@ function eigen_modes(fx::Real, fy::Real, λ::T, ϵ) where {T <: Real}
     q(v) = abs(imag(v)) <= tol ? 0 : (imag(v) > 0 ? -1 : 1)
     F = eigen(M; sortby = λ -> (q(λ), -real(λ)))
     V = SMatrix{4, 4, Complex{T}}(F.vectors)
-    SVector{4, Complex{T}}(F.values), V, inv(V)
+    (; kz = SVector{4, Complex{T}}(F.values), P = V, P_inv = inv(V))
 end
 
 function eigen_modes(u::U, ds::NTuple{2, Real}, λ::Real, ϵ
@@ -127,11 +127,45 @@ function eigen_modes(u::U, ds::NTuple{2, Real}, λ::Real, ϵ
     ns = size(u)[1:2]
     fx = fftfreq(ns[1], 1/ds[1])
     fy = fftfreq(ns[2], 1/ds[2])
-    M = eigen_modes.(fx, fy', T(λ), ϵ)
-    adapt(get_backend(u),
-          (; kz = getindex.(M, 1), P = getindex.(M, 2), P_inv = getindex.(M, 3)))
+    modes = StructArray(eigen_modes(x, y, T(λ), ϵ) for x in fx, y in fy)
+    adapt(get_backend(u), modes)
 end
 
-function eigen_modes(u::VectorialField{U}, λ::Real, ϵ) where {U}
-    eigen_modes(u.Ex, u.ds, λ, ϵ)
+function eigen_modes(u::VectorialField{U}, ϵ) where {U}
+    eigen_modes(u.Ex, u.ds, u.lambda, ϵ)
+end
+
+function admittance(P::SMatrix{4, 4}, forward::Bool)
+    c = forward ? SVector(1, 2) : SVector(3, 4)
+    P[SVector(3, 4), c] * inv(P[SVector(1, 2), c])
+end
+
+function apply_admittance(P::SMatrix{4, 4}, forward::Bool, ex::Number, ey::Number)
+    Tuple(admittance(P, forward) * SVector(ex, ey))
+end
+
+function VectorialField(Ex::U, Ey::U, ds::NTuple{2, Real}, λ::Real;
+                        ϵ = 1.0, forward::Bool = true,
+                        modes = eigen_modes(Ex, ds, λ, ϵ)
+                        ) where {N, T, U <: AbstractArray{Complex{T}, N}}
+    @assert N >= 2 && size(Ex) == size(Ey)
+    Ex_f = fft(Ex, (1, 2))
+    Ey_f = fft(Ey, (1, 2))
+    Hx_f, Hy_f = similar(Ex_f), similar(Ey_f)
+    StructArray((Hx_f, Hy_f)) .= apply_admittance.(modes.P, forward, Ex_f, Ey_f)
+    VectorialField(Ex_f, Ey_f, Hx_f, Hy_f, T.(ds), T(λ))
+end
+
+function split_state(m, ex, ey, hx, hy)
+    Ψ = SVector(ex, ey, hx, hy)
+    Ψ_fwd = m.P[:, SVector(1, 2)] * (m.P_inv[SVector(1, 2), :] * Ψ)
+    Tuple(vcat(Ψ_fwd, Ψ - Ψ_fwd))
+end
+
+function split_field(u::VectorialField; ϵ = 1.0,
+                     modes = eigen_modes(u.Ex, u.ds, u.lambda, ϵ))
+    fwd = map(similar, (u.Ex, u.Ey, u.Hx, u.Hy))
+    bwd = map(similar, (u.Ex, u.Ey, u.Hx, u.Hy))
+    StructArray((fwd..., bwd...)) .= split_state.(modes, u.Ex, u.Ey, u.Hx, u.Hy)
+    VectorialField(fwd..., u.ds, u.lambda), VectorialField(bwd..., u.ds, u.lambda)
 end

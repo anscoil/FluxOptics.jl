@@ -4,6 +4,7 @@ using Functors
 using AbstractFFTs
 using LinearAlgebra
 using StaticArrays
+using StructArrays
 using ..FluxOptics
 using ..FluxOptics: isbroadcastable, bzip
 
