@@ -14,7 +14,6 @@ using ..GridUtils
 using ..Fields
 using ..FFTutils
 
-export Direction, Forward, Backward
 export Trainability, Trainable, Static, Buffering, Buffered, Unbuffered
 export AbstractOpticalComponent, AbstractPipeComponent, AbstractOpticalSource
 export AbstractCustomComponent, AbstractCustomSource
@@ -22,29 +21,6 @@ export AbstractPureComponent, AbstractPureSource
 export propagate!, propagate
 export get_data
 export trainable, istrainable, isbuffered
-
-abstract type Direction end
-
-struct Forward <: Direction end
-
-struct Backward <: Direction end
-
-Base.reverse(::Type{Forward}) = Backward
-Base.reverse(::Type{Backward}) = Forward
-Base.reverse(::Forward) = Backward()
-Base.reverse(::Backward) = Forward()
-Base.reverse(l, ::Forward) = l
-Base.reverse(l, ::Backward) = reverse(l)
-
-Base.sign(::Type{Forward}) = 1
-Base.sign(::Type{Backward}) = -1
-Base.sign(::Forward) = 1
-Base.sign(::Backward) = -1
-
-isforward(::Forward) = true
-isforward(::Backward) = false
-isbackward(::Forward) = false
-isbackward(::Backward) = true
 
 """
     Buffering

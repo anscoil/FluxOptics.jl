@@ -104,65 +104,28 @@ Base.size(u::ScalarWaveField, k::Integer) = size(u.electric, k)
 
 Base.eltype(u::ScalarWaveField) = eltype(u.electric)
 
-function Base.zero(u::ScalarWaveField)
-    ScalarWaveField(zero(u.electric), zero(u.electric_dz), u.ds, deepcopy(u.lambdas))
-end
-
-function Base.copy(u::ScalarWaveField)
-    ScalarWaveField(copy(u.electric), copy(u.electric_dz), u.ds, deepcopy(u.lambdas))
-end
-
-function Base.similar(u::ScalarWaveField)
-    ScalarWaveField(similar(u.electric), similar(u.electric_dz), u.ds, deepcopy(u.lambdas))
-end
-
-function Base.copyto!(u::ScalarWaveField, v::ScalarWaveField)
-    copyto!(u.electric, v.electric)
-    copyto!(u.electric_dz, v.electric_dz)
-    u
-end
-
 function set_field_data(u::ScalarWaveField,
                         electric::AbstractArray, electric_dz::AbstractArray)
     ScalarWaveField(electric, electric_dz, u.ds, deepcopy(u.lambdas))
 end
 
 function poynting_flux(u::ScalarWaveField)
-    T = real(eltype(u.electric))
-    ns = prod(size(u)[1:2])
-    ds = T(prod(u.ds))
-    imag.(sum(conj.(u.electric) .* u.electric_dz; dims = (1, 2))) .* (ds / ns)
+    T = real(eltype(u))
+    c = T(prod(u.ds)) / prod(size(u)[1:2])
+    k0 = T.(2π ./ u.lambdas.val)
+    S = imag.(sum(conj.(u.electric) .* u.electric_dz; dims = (1, 2)))
+    S .* c ./ k0
 end
 
 function power(u::ScalarWaveField; n0::Number = 1.0)
-    T = real(eltype(u.electric))
-    ns = prod(size(u)[1:2])
-    ds = T(prod(u.ds))
+    T = real(eltype(u))
+    c = T(prod(u.ds)) / prod(size(u)[1:2])
+    k0 = T.(2π ./ u.lambdas.val)
     kz = compute_kz(u, n0)
-    dEdz_f = @. u.electric_dz / (im * kz)
-    Eplus = @. (u.electric + dEdz_f) / 2
-    Eminus = @. (u.electric - dEdz_f) / 2
-    Pplus = sum(real.(kz) .* abs2.(Eplus);  dims = (1, 2)) .* (ds / ns)
-    Pminus = sum(real.(kz) .* abs2.(Eminus); dims = (1, 2)) .* (ds / ns)
-    (Pplus, Pminus)
-end
-
-function normalize_power!(u::ScalarWaveField, target_power = 1;
-                          n0::Number = 1.0, forward::Bool = true)
-    Pplus, Pminus = power(u; n0)
-    P = forward ? Pplus : Pminus
-    scale = sqrt.(target_power ./ P)
-    u.electric .*= scale
-    u.electric_dz .*= scale
-    u
-end
-
-function normalize_poynting!(u::ScalarWaveField, S_out = 1)
-    S_in = poynting_flux(u)
-    ratio = @. sqrt(abs(S_out / S_in))
-    @. u.electric *= ratio
-    @. u.electric_dz *= ratio
-    u
+    E, dE = u.electric, u.electric_dz
+    P_fwd = sum(@. real(kz) * abs2((E + dE / (im * kz)) / 2); dims = (1, 2))
+    P_bwd = sum(@. real(kz) * abs2((E - dE / (im * kz)) / 2); dims = (1, 2))
+    (P_fwd .* c ./ k0, P_bwd .* c ./ k0)
 end
 
 function +(u::ScalarWaveField, v::ScalarWaveField)

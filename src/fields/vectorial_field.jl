@@ -135,30 +135,50 @@ function eigen_modes(u::VectorialField{U}, ϵ) where {U}
     eigen_modes(u.Ex, u.ds, u.lambda, ϵ)
 end
 
-function admittance(P::SMatrix{4, 4}, forward::Bool)
-    c = forward ? SVector(1, 2) : SVector(3, 4)
-    P[SVector(3, 4), c] * inv(P[SVector(1, 2), c])
+function fresnel_modal(P1::SMatrix{4, 4}, P2::SMatrix{4, 4})
+    fw, bw = SVector(1, 2), SVector(3, 4)
+    S = hcat(-P1[:, bw], P2[:, fw]) \ hcat(P1[:, fw], -P2[:, bw])
+    (; r12 = S[fw, fw], t21 = S[fw, bw], t12 = S[bw, fw], r21 = S[bw, bw])
 end
 
-function apply_admittance(P::SMatrix{4, 4}, forward::Bool, ex::Number, ey::Number)
-    Tuple(admittance(P, forward) * SVector(ex, ey))
+fresnel_modal(m1::NamedTuple, m2::NamedTuple) = fresnel_modal(m1.P, m2.P)
+
+compute_fresnel(modes_1::StructArray, modes_2::StructArray) = fresnel_modal.(modes_1, modes_2)
+
+mode_indices(::Forward) = SVector(1, 2)
+mode_indices(::Backward) = SVector(3, 4)
+
+decompose(m, Ψ::SVector{4}, direction::Direction) = m.P_inv[mode_indices(direction), :] * Ψ
+recompose(m, a::SVector{2}, direction::Direction) = m.P[:, mode_indices(direction)] * a
+
+function project(m, Ψ::SVector{4}, direction::Direction)
+    recompose(m, decompose(m, Ψ, direction), direction)
+end
+
+function admittance(m, direction::Direction)
+    c = mode_indices(direction)
+    m.P[SVector(3, 4), c] * inv(m.P[SVector(1, 2), c])
+end
+
+function apply_admittance(m, direction::Direction, ex::Number, ey::Number)
+    Tuple(admittance(m, direction) * SVector(ex, ey))
 end
 
 function VectorialField(Ex::U, Ey::U, ds::NTuple{2, Real}, λ::Real;
-                        ϵ = 1.0, forward::Bool = true,
+                        ϵ = 1.0, direction::Direction = Forward(),
                         modes = eigen_modes(Ex, ds, λ, ϵ)
                         ) where {N, T, U <: AbstractArray{Complex{T}, N}}
     @assert N >= 2 && size(Ex) == size(Ey)
     Ex_f = fft(Ex, (1, 2))
     Ey_f = fft(Ey, (1, 2))
     Hx_f, Hy_f = similar(Ex_f), similar(Ey_f)
-    StructArray((Hx_f, Hy_f)) .= apply_admittance.(modes.P, forward, Ex_f, Ey_f)
+    StructArray((Hx_f, Hy_f)) .= apply_admittance.(modes, direction, Ex_f, Ey_f)
     VectorialField(Ex_f, Ey_f, Hx_f, Hy_f, T.(ds), T(λ))
 end
 
 function split_state(m, ex, ey, hx, hy)
     Ψ = SVector(ex, ey, hx, hy)
-    Ψ_fwd = m.P[:, SVector(1, 2)] * (m.P_inv[SVector(1, 2), :] * Ψ)
+    Ψ_fwd = project(m, Ψ, Forward())
     Tuple(vcat(Ψ_fwd, Ψ - Ψ_fwd))
 end
 
@@ -168,4 +188,46 @@ function split_field(u::VectorialField; ϵ = 1.0,
     bwd = map(similar, (u.Ex, u.Ey, u.Hx, u.Hy))
     StructArray((fwd..., bwd...)) .= split_state.(modes, u.Ex, u.Ey, u.Hx, u.Hy)
     VectorialField(fwd..., u.ds, u.lambda), VectorialField(bwd..., u.ds, u.lambda)
+end
+
+function Base.ndims(u::VectorialField, spatial::Bool = false)
+    spatial ? 2 : ndims(u.Ex)
+end
+
+Base.size(u::VectorialField) = size(u.Ex)
+
+Base.size(u::VectorialField, k::Integer) = size(u.Ex, k)
+
+Base.eltype(u::VectorialField) = eltype(u.Ex)
+
+function set_field_data(u::VectorialField, Ex, Ey, Hx, Hy)
+    VectorialField(Ex, Ey, Hx, Hy, u.ds, u.lambda)
+end
+
+poynting_density(ex, ey, hx, hy) = real(ex * conj(hy) - ey * conj(hx))
+poynting_density(Ψ::SVector{4}) = poynting_density(Ψ...)
+
+function directional_fluxes(m, ex, ey, hx, hy)
+    Ψ = SVector(ex, ey, hx, hy)
+    Ψ_fwd = project(m, Ψ, Forward())
+    (poynting_density(Ψ_fwd), -poynting_density(Ψ - Ψ_fwd))
+end
+
+function poynting_flux(u::VectorialField)
+    T = real(eltype(u))
+    c = T(prod(u.ds)) / prod(size(u)[1:2])
+    sum(poynting_density.(u.Ex, u.Ey, u.Hx, u.Hy); dims = (1, 2)) .* c
+end
+
+function power(u::VectorialField; ϵ = 1.0,
+               modes = eigen_modes(u.Ex, u.ds, u.lambda, ϵ))
+    T = real(eltype(u))
+    c = T(prod(u.ds)) / prod(size(u)[1:2])
+    P_fwd, P_bwd = similar(u.Ex, T), similar(u.Ex, T)
+    StructArray((P_fwd, P_bwd)) .= directional_fluxes.(modes, u.Ex, u.Ey, u.Hx, u.Hy)
+    (sum(P_fwd; dims = (1, 2)) .* c, sum(P_bwd; dims = (1, 2)) .* c)
+end
+
+function +(u::VectorialField, v::VectorialField)
+    set_field_data(u, u.Ex + v.Ex, u.Ey + v.Ey, u.Hx + v.Hx, u.Hy + v.Hy)
 end

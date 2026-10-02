@@ -19,6 +19,7 @@ export power, normalize_power!, coupling_efficiency, intensity, phase
 export orthonormalize, unitary_transform, spatial_moments, spatial_centroids, spatial_variance
 export compute_kz, compute_fresnel_r12, compute_fresnel_t12
 export split_field, poynting_flux, normalize_poynting!
+export Direction, Forward, Backward, isforward, isbackward
 
 function parse_val(u::AbstractArray{Complex{T}, N},
                    val::AbstractArray,
@@ -43,6 +44,56 @@ function parse_tilts(u::U, tilts, Nd::Integer) where {T, U <: AbstractArray{Comp
 end
 
 abstract type AbstractField{U, Nd} end
+
+abstract type Direction end
+
+struct Forward <: Direction end
+
+struct Backward <: Direction end
+
+Base.broadcastable(d::Direction) = Ref(d)
+
+Base.reverse(::Type{Forward}) = Backward
+Base.reverse(::Type{Backward}) = Forward
+Base.reverse(::Forward) = Backward()
+Base.reverse(::Backward) = Forward()
+Base.reverse(l, ::Forward) = l
+Base.reverse(l, ::Backward) = reverse(l)
+
+Base.sign(::Type{Forward}) = 1
+Base.sign(::Type{Backward}) = -1
+Base.sign(::Forward) = 1
+Base.sign(::Backward) = -1
+
+isforward(::Forward) = true
+isforward(::Backward) = false
+isbackward(::Forward) = false
+isbackward(::Backward) = true
+
+Base.similar(u::AbstractField) = fmap(similar, u)
+Base.zero(u::AbstractField) = fmap(zero, u)
+Base.copy(u::AbstractField) = fmap(copy, u)
+
+function Base.copyto!(u::AbstractField, v::AbstractField)
+    fmap(copyto!, u, v)
+    u
+end
+
+function rescale!(u::AbstractField, s)
+    foreach(a -> a .*= s, Functors.children(u))
+    u
+end
+
+function normalize_power!(u::AbstractField, target_power = 1;
+                          direction::Direction = Forward(), kwargs...)
+    P_fwd, P_bwd = power(u; kwargs...)
+    rescale!(u, sqrt.(target_power ./ (forward ? P_fwd : P_bwd)))
+end
+
+function normalize_poynting!(u::AbstractField, S_out = 1)
+    S_in = poynting_flux(u)
+    rescale!(u, @. sqrt(abs(S_out / S_in)))
+end
 
 include("scalar_field.jl")
 
