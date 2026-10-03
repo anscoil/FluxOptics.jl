@@ -19,7 +19,7 @@ end
 Base.size(p::ScalarWaveSource) = size(p.u0)
 Base.size(p::ScalarWaveSource, k::Integer) = size(p.u0, k)
 
-get_n0(p::ScalarWaveSource) = p.n0
+reference_medium(p::ScalarWaveSource) = p.n0
 
 @kernel function set_forward_field_kernel!(E, dE, Eref, dEref, kz)
     I = @index(Global, Cartesian)
@@ -98,12 +98,12 @@ function emit(p::ScalarWaveSource)
     p.uf
 end
 
-function Base.zero(p::ScalarWaveSource; n0::Number = p.n0)
-    ScalarWaveSource(zero(p.u0); n0)
+function Base.zero(p::ScalarWaveSource)
+    ScalarWaveSource(zero(p.u0), similar(p.u0), p.kz, p.n0)
 end
 
-function Base.copy(p::ScalarWaveSource; n0::Number = p.n0)
-    ScalarWaveSource(copy(p.u0); n0)
+function Base.copy(p::ScalarWaveSource)
+    ScalarWaveSource(copy(p.u0), similar(p.u0), p.kz, p.n0)
 end
                    
 function Base.fill!(p::ScalarWaveSource, u0::ScalarWaveField)

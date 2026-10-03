@@ -844,11 +844,11 @@ function trainable(p::AbstractBidirectionalComponent{Trainable})
     error("Not implemented")
 end
 
-get_n0(p::AbstractBidirectionalComponent) = nothing
+reference_medium(p::AbstractBidirectionalComponent) = nothing
 
-get_n0_left(p::AbstractBidirectionalComponent) = get_n0(p)
+reference_medium_left(p::AbstractBidirectionalComponent) = reference_medium(p)
 
-get_n0_right(p::AbstractBidirectionalComponent) = get_n0(p)
+reference_medium_right(p::AbstractBidirectionalComponent) = reference_medium(p)
 
 alloc_fp_state(u, p::AbstractBidirectionalComponent) = nothing
 
@@ -887,13 +887,13 @@ end
 
 abstract type AbstractBidirectionalSource{U} end
 
-function get_n0(p::AbstractBidirectionalSource)
+function reference_medium(p::AbstractBidirectionalSource)
     error("Not implemented")
 end
 
-get_n0_left(p::AbstractBidirectionalSource) = get_n0(p)
+reference_medium_left(p::AbstractBidirectionalSource) = reference_medium(p)
 
-get_n0_right(p::AbstractBidirectionalSource) = get_n0(p)
+reference_medium_right(p::AbstractBidirectionalSource) = reference_medium(p)
 
 function propagate!(u, p::AbstractBidirectionalSource, direction::Direction)
     error("Not implemented")
@@ -920,7 +920,7 @@ export ScalarWavePropagator
 include("bulk_propagators/scalar_wave_bpm.jl")
 export ScalarWaveBPM
 
-include("system/scalar_flat_interface.jl")
+include("system/scalar_interfaces.jl")
 export FlatInterface
 
 include("bulk_propagators/scalar_wave_binary_propagator.jl")

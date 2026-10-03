@@ -17,8 +17,10 @@ export select_lambdas, select_tilts, set_field_ds!, set_field_data, set_field_ti
 export is_on_axis
 export power, normalize_power!, coupling_efficiency, intensity, phase
 export orthonormalize, unitary_transform, spatial_moments, spatial_centroids, spatial_variance
-export compute_kz, compute_fresnel_r12, compute_fresnel_t12
+export compute_kz, eigen_modes, compute_fresnel, compute_fresnel_r12, compute_fresnel_t12
+export Permittivity, ZDecEpsilon, Epsilon
 export split_field, poynting_flux, normalize_poynting!
+export decompose, recompose, decompose_adjoint, recompose_adjoint
 export Direction, Forward, Backward, isforward, isbackward
 
 function parse_val(u::AbstractArray{Complex{T}, N},

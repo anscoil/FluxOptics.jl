@@ -44,7 +44,7 @@ end
 
 trainable(p::ScalarWaveBPM{Trainable}) = (; n_xyz = p.n_xyz)
 
-get_n0(p::ScalarWaveBPM) = p.n0
+reference_medium(p::ScalarWaveBPM) = p.n0
 
 function alloc_fp_state(u::ScalarWaveField, p::ScalarWaveBPM)
     if p.conjugate

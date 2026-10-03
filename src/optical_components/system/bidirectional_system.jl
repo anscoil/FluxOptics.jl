@@ -46,7 +46,7 @@ function BidirectionalSystem(s_in::AbstractBidirectionalSource{U},
     u0 = get_source(s_in)
     all_nodes = (s_in, components..., s_out)
     flat_interfaces = map(
-        (l, r) -> FlatInterface(u0, get_n0_right(l), get_n0_left(r)),
+        (l, r) -> FlatInterface(u0, reference_medium_right(l), reference_medium_left(r)),
         Base.front(all_nodes),
         Base.tail(all_nodes)
     )
@@ -68,7 +68,7 @@ end
 
 function BidirectionalSystem(s_in::AbstractBidirectionalSource,
                              components::Vararg{AbstractBidirectionalComponent})
-    s_out = zero(s_in; n0 = get_n0_right(Base.last(components)))
+    s_out = zero(s_in; n0 = reference_medium_right(Base.last(components)))
     BidirectionalSystem(s_in, s_out, components...)
 end
 

@@ -9,6 +9,20 @@ end
 
 Functors.@functor VectorialField (Ex, Ey, Hx, Hy)
 
+function +(u::VectorialField, v::VectorialField)
+    VectorialField(u.Ex + v.Ex, u.Ey + v.Ey, u.Hx + v.Hx, u.Hy + v.Hy, u.ds, u.lambda)
+end
+
+function +(a::NamedTuple{(:Ex, :Ey, :Hx, :Hy, :ds, :lambda)}, b::VectorialField)
+    Ex = isnothing(a.Ex) ? b.Ex : a.Ex + b.Ex
+    Ey = isnothing(a.Ey) ? b.Ey : a.Ey + b.Ey
+    Hx = isnothing(a.Hx) ? b.Hx : a.Hx + b.Hx
+    Hy = isnothing(a.Hy) ? b.Hy : a.Hy + b.Hy
+    VectorialField(Ex, Ey, Hx, Hy, b.ds, b.lambda)
+end
+
++(b::VectorialField, a::NamedTuple{(:Ex, :Ey, :Hx, :Hy, :ds, :lambda)}) = a + b
+
 struct ZDecEpsilon{T}
     xx::T; xy::T
     yx::T; yy::T
@@ -20,6 +34,8 @@ struct Epsilon{T}
     yx::T; yy::T; yz::T
     zx::T; zy::T; zz::T
 end
+
+Permittivity = Union{Number, ZDecEpsilon, Epsilon}
 
 Base.broadcastable(ϵ::Union{ZDecEpsilon, Epsilon}) = Ref(ϵ)
 
@@ -148,8 +164,21 @@ compute_fresnel(modes_1::StructArray, modes_2::StructArray) = fresnel_modal.(mod
 mode_indices(::Forward) = SVector(1, 2)
 mode_indices(::Backward) = SVector(3, 4)
 
-decompose(m, Ψ::SVector{4}, direction::Direction) = m.P_inv[mode_indices(direction), :] * Ψ
-recompose(m, a::SVector{2}, direction::Direction) = m.P[:, mode_indices(direction)] * a
+function decompose(m, Ψ::SVector{4}, direction::Direction)
+    m.P_inv[mode_indices(direction), :] * Ψ
+end
+
+function recompose(m, a::SVector{2}, direction::Direction)
+    m.P[:, mode_indices(direction)] * a
+end
+
+function decompose_adjoint(m, ∂a::SVector{2}, direction::Direction)
+    m.P_inv[mode_indices(direction), :]' * ∂a
+end
+
+function recompose_adjoint(m, ∂Ψ::SVector{4}, direction::Direction)
+    m.P[:, mode_indices(direction)]' * ∂Ψ
+end
 
 function project(m, Ψ::SVector{4}, direction::Direction)
     recompose(m, decompose(m, Ψ, direction), direction)
@@ -164,8 +193,8 @@ function apply_admittance(m, direction::Direction, ex::Number, ey::Number)
     Tuple(admittance(m, direction) * SVector(ex, ey))
 end
 
-function VectorialField(Ex::U, Ey::U, ds::NTuple{2, Real}, λ::Real;
-                        ϵ = 1.0, direction::Direction = Forward(),
+function VectorialField(Ex::U, Ey::U, ds::NTuple{2, Real}, λ::Real, ϵ = 1.0;
+                        direction::Direction = Forward(),
                         modes = eigen_modes(Ex, ds, λ, ϵ)
                         ) where {N, T, U <: AbstractArray{Complex{T}, N}}
     @assert N >= 2 && size(Ex) == size(Ey)
@@ -182,7 +211,7 @@ function split_state(m, ex, ey, hx, hy)
     Tuple(vcat(Ψ_fwd, Ψ - Ψ_fwd))
 end
 
-function split_field(u::VectorialField; ϵ = 1.0,
+function split_field(u::VectorialField, ϵ = 1.0;
                      modes = eigen_modes(u.Ex, u.ds, u.lambda, ϵ))
     fwd = map(similar, (u.Ex, u.Ey, u.Hx, u.Hy))
     bwd = map(similar, (u.Ex, u.Ey, u.Hx, u.Hy))
@@ -219,15 +248,11 @@ function poynting_flux(u::VectorialField)
     sum(poynting_density.(u.Ex, u.Ey, u.Hx, u.Hy); dims = (1, 2)) .* c
 end
 
-function power(u::VectorialField; ϵ = 1.0,
+function power(u::VectorialField, ϵ = 1.0;
                modes = eigen_modes(u.Ex, u.ds, u.lambda, ϵ))
     T = real(eltype(u))
     c = T(prod(u.ds)) / prod(size(u)[1:2])
     P_fwd, P_bwd = similar(u.Ex, T), similar(u.Ex, T)
     StructArray((P_fwd, P_bwd)) .= directional_fluxes.(modes, u.Ex, u.Ey, u.Hx, u.Hy)
     (sum(P_fwd; dims = (1, 2)) .* c, sum(P_bwd; dims = (1, 2)) .* c)
-end
-
-function +(u::VectorialField, v::VectorialField)
-    set_field_data(u, u.Ex + v.Ex, u.Ey + v.Ey, u.Hx + v.Hx, u.Hy + v.Hy)
 end

@@ -2,14 +2,6 @@ using ..OpticalComponents: apply_implicit, combine_implicit
 using ..OpticalComponents: fp_solve_adjoint!, compute_roundtrip_adjoint!
 using ..OpticalComponents: alloc_activations, alloc_gradient
 
-function Base.:+(a::NamedTuple{(:electric, :electric_dz, :ds, :lambdas)}, b::ScalarWaveField)
-    electric = isnothing(a.electric) ? b.electric : a.electric + b.electric
-    electric_dz = isnothing(a.electric_dz) ? b.electric_dz : a.electric_dz + b.electric_dz
-    ScalarWaveField(electric, electric_dz, b.ds, b.lambdas)
-end
-
-Base.:+(b::ScalarWaveField, a::NamedTuple{(:electric, :electric_dz, :ds, :lambdas)}) = a + b
-
 function set_adjoint_source!(p::ScalarWaveSource, ∂u)
     if ∂u isa Union{ZeroTangent, NoTangent}
         fill!(p.u0.electric, 0)

@@ -7,6 +7,14 @@ end
 
 Functors.@functor ScalarWaveField (electric, electric_dz)
 
+function Base.:+(a::NamedTuple{(:electric, :electric_dz, :ds, :lambdas)}, b::ScalarWaveField)
+    electric = isnothing(a.electric) ? b.electric : a.electric + b.electric
+    electric_dz = isnothing(a.electric_dz) ? b.electric_dz : a.electric_dz + b.electric_dz
+    ScalarWaveField(electric, electric_dz, b.ds, b.lambdas)
+end
+
+Base.:+(b::ScalarWaveField, a::NamedTuple{(:electric, :electric_dz, :ds, :lambdas)}) = a + b
+
 function compute_kz(fx::Real, fy::Real, λ::T, n0::Number = 1.0) where {T <: Real}
     k0 = 2π / λ
     kx = 2π * fx

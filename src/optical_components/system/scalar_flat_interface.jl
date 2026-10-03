@@ -30,9 +30,9 @@ end
 
 Functors.@functor ScalarFlatInterface ()
 
-get_n0_left(p::ScalarFlatInterface) = p.n1
+reference_medium_left(p::ScalarFlatInterface) = p.n1
 
-get_n0_right(p::ScalarFlatInterface) = p.n2
+reference_medium_right(p::ScalarFlatInterface) = p.n2
 
 function alloc_fp_state(u::ScalarWaveField, p::ScalarFlatInterface)
     (; E_state = similar(u.electric))
@@ -102,32 +102,4 @@ function propagate_adjoint!(u::ScalarWaveField, ::Nothing,
         u.electric, u.electric_dz, state.E_state, p.kernel, Val(isforward(direction));
         ndrange = size(u.electric)[1:2])
     u
-end 
-
-struct NoInterface{M} <: AbstractBidirectionalComponent{M}
-    trainability::Val{M}
-end
-
-NoInterface() = NoInterface(Val(Static))
-
-alloc_fp_state(u::ScalarWaveField, p::NoInterface) = nothing
-
-propagate!(u::ScalarWaveField, state, ::Nothing, p::NoInterface, ::Direction) = u
-
-propagate_adjoint!(u::ScalarWaveField, state, ::Nothing, p::NoInterface, ::Direction) = u
-
-function FlatInterface(u::ScalarWaveField, n1::Number, n2::Number)
-    ScalarFlatInterface(u, n1, n2)
-end
-
-function FlatInterface(u::ScalarWaveField, n1::Number, n2::Nothing)
-    ScalarFlatInterface(u, n1, n1)
-end
-
-function FlatInterface(u::ScalarWaveField, n1::Nothing, n2::Number)
-    ScalarFlatInterface(u, n2, n2)
-end
-
-function FlatInterface(u::ScalarWaveField, n1::Nothing, n2::Nothing)
-    NoInterface()
 end

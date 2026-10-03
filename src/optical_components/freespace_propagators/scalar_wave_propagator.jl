@@ -30,7 +30,7 @@ function ScalarWavePropagator(u::ScalarWaveField{U}, z::Real, n0::Number;
     ScalarWavePropagator(Val(Static), z, n0, kernel, conjugate)
 end
 
-get_n0(p::ScalarWavePropagator) = p.n0
+reference_medium(p::ScalarWavePropagator) = p.n0
 
 function alloc_fp_state(u::ScalarWaveField, p::ScalarWavePropagator)
     p.conjugate ? (; E_state = nothing) : (; E_state = similar(u.electric))
