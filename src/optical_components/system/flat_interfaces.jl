@@ -41,25 +41,6 @@ function cross_interface_adjoint(m_in, m_out, f::FresnelCoefficients, direction:
     Tuple(∂Ψ), Tuple(∂a_st)
 end
 
-@kernel function interface_kernel!(f_cross, fields, stored, m_in, m_out, fresnel, direction)
-    I = @index(Global, Cartesian)
-    mi, mo, f = m_in[I], m_out[I], fresnel[I]
-    for J in CartesianIndices(axes(first(fields))[3:end])
-        ψ = map(a -> a[I, J], fields)
-        a_st = map(a -> a[I, J], stored)
-        ψ_out, a_out = f_cross(mi, mo, f, direction, ψ, a_st)
-        map((a, v) -> a[I, J] = v, fields, ψ_out)
-        map((a, v) -> a[I, J] = v, stored, a_out)
-    end
-end
-
-function launch_interface!(f_cross, fields::Tuple, stored::Tuple, m_in, m_out, fresnel,
-                           direction::Direction)
-    interface_kernel!(get_backend(first(fields)))(
-        f_cross, fields, stored, m_in, m_out, fresnel, direction;
-        ndrange = size(first(fields))[1:2])
-end
-
 # function propagate!(u::ScalarWaveField, state, ::Nothing, p::FlatInterface,
 #                     direction::Direction)
 #     m_in, m_out = interface_media(p, direction)
@@ -81,16 +62,16 @@ end
 function propagate!(u::ScalarWaveField, state, ::Nothing,
                     p::FlatInterface, direction::Direction)
     m_in, m_out = interface_media(p, direction)
-    launch_interface!(cross_interface, (u.E, u.dzE), (state.amp,),
-                      m_in, m_out, p.fresnel, direction)
+    launch_modal!(cross_interface, (u.E, u.dzE), (state.amp,),
+                  (m_in, m_out, p.fresnel), direction)
     u
 end
 
 function propagate_adjoint!(u::ScalarWaveField, ::Nothing, state, ::Nothing,
                             p::FlatInterface, direction::Direction)
     m_in, m_out = interface_media(p, direction)
-    launch_interface!(cross_interface_adjoint, (u.E, u.dzE), (state.amp,),
-                      m_in, m_out, p.fresnel, direction)
+    launch_modal!(cross_interface_adjoint, (u.E, u.dzE), (state.amp,),
+                  (m_in, m_out, p.fresnel), direction)
     u
 end
 
@@ -115,16 +96,16 @@ end
 function propagate!(u::VectorialField, state, ::Nothing,
                     p::FlatInterface, direction::Direction)
     m_in, m_out = interface_media(p, direction)
-    launch_interface!(cross_interface, (u.Ex, u.Ey, u.Hx, u.Hy), (state.amp1, state.amp2),
-                      m_in, m_out, p.fresnel, direction)
+    launch_modal!(cross_interface, (u.Ex, u.Ey, u.Hx, u.Hy),
+                  (state.amp1, state.amp2), (m_in, m_out, p.fresnel), direction)
     u
 end
 
 function propagate_adjoint!(u::VectorialField, ::Nothing, state, ::Nothing,
                             p::FlatInterface, direction::Direction)
     m_in, m_out = interface_media(p, direction)
-    launch_interface!(cross_interface_adjoint, (u.Ex, u.Ey, u.Hx, u.Hy), (state.amp1, state.amp2),
-                      m_in, m_out, p.fresnel, direction)
+    launch_modal!(cross_interface_adjoint, (u.Ex, u.Ey, u.Hx, u.Hy),
+                  (state.amp1, state.amp2), (m_in, m_out, p.fresnel), direction)
     u
 end
 

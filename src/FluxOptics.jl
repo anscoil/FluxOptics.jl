@@ -47,7 +47,7 @@ end
 
 include("fields/Fields.jl")
 using .Fields
-export ScalarField, ScalarWaveField
+export ScalarField, ScalarWaveField, VectorialField
 export set_field_data, set_field_tilts, offset_tilts!, is_on_axis
 export dot, power, normalize_power!, coupling_efficiency, intensity, phase
 export orthonormalize, unitary_transform, spatial_moments, spatial_centroids, spatial_variance
@@ -99,10 +99,9 @@ export AbstractSequence, OpticalSequence, FourierOperator, FourierWrapper, get_s
 export OpticalSystem, get_components
 export get_data
 
-export ScalarWaveSource
-export ScalarWavePropagator, ScalarWaveBPM, ScalarWaveBiProp
-
-export VectorialSource
+export ScalarWaveSource, VectorialSource
+export ScalarWavePropagator, VectorialPropagator
+export ScalarWaveBPM, ScalarWaveBiProp
 
 export BidirectionalSystem, GmresSolver, fp_solve!
 export BicgstabSolver, BilqSolver, CgneSolver, CraigSolver

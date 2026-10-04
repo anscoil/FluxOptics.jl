@@ -850,6 +850,9 @@ reference_medium_left(p::AbstractBidirectionalComponent) = reference_medium(p)
 
 reference_medium_right(p::AbstractBidirectionalComponent) = reference_medium(p)
 
+state_arrays(::Nothing) = ()
+state_arrays(state::NamedTuple) = Tuple(state)
+
 alloc_fp_state(u, p::AbstractBidirectionalComponent) = nothing
 
 function alloc_activations(u, p::AbstractBidirectionalComponent{Static},
@@ -911,11 +914,11 @@ function get_source(p::AbstractBidirectionalSource)
     error("Not implemented")
 end
 
-include("sources/sources.jl")
+include("sources/bidirectional_sources.jl")
 export ScalarWaveSource, VectorialSource
 
-include("freespace_propagators/scalar_wave_propagator.jl")
-export ScalarWavePropagator
+include("freespace_propagators/bidirectional_propagators.jl")
+export ScalarWavePropagator, VectorialPropagator
 
 include("bulk_propagators/scalar_wave_bpm.jl")
 export ScalarWaveBPM
