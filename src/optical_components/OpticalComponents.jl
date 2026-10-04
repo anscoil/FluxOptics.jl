@@ -911,8 +911,8 @@ function get_source(p::AbstractBidirectionalSource)
     error("Not implemented")
 end
 
-include("sources/scalar_wave_source.jl")
-export ScalarWaveSource
+include("sources/sources.jl")
+export ScalarWaveSource, VectorialSource
 
 include("freespace_propagators/scalar_wave_propagator.jl")
 export ScalarWavePropagator
@@ -920,7 +920,7 @@ export ScalarWavePropagator
 include("bulk_propagators/scalar_wave_bpm.jl")
 export ScalarWaveBPM
 
-include("system/scalar_interfaces.jl")
+include("system/flat_interfaces.jl")
 export FlatInterface
 
 include("bulk_propagators/scalar_wave_binary_propagator.jl")

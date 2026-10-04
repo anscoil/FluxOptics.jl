@@ -2,22 +2,23 @@ using ..OpticalComponents: apply_implicit, combine_implicit
 using ..OpticalComponents: fp_solve_adjoint!, compute_roundtrip_adjoint!
 using ..OpticalComponents: alloc_activations, alloc_gradient
 
+copy_tangent!(dest::AbstractArray, src::AbstractArray) = copyto!(dest, src)
+copy_tangent!(dest::AbstractArray, src) = fill!(dest, 0)
+
+tangent_component(∂u, name::Symbol) = getproperty(∂u, name)
+tangent_component(::AbstractZero, ::Symbol) = ZeroTangent()
+
 function set_adjoint_source!(p::ScalarWaveSource, ∂u)
-    if ∂u isa Union{ZeroTangent, NoTangent}
-        fill!(p.u0.electric, 0)
-        fill!(p.u0.electric_dz, 0)
-        return p.u0
-    end
-    if ∂u.electric isa AbstractArray
-        copyto!(p.u0.electric, ∂u.electric)
-    else
-        fill!(p.u0.electric, 0)
-    end
-    if ∂u.electric_dz isa AbstractArray
-        copyto!(p.u0.electric_dz, ∂u.electric_dz)
-    else
-        fill!(p.u0.electric_dz, 0)
-    end
+    copy_tangent!(p.u0.E, tangent_component(∂u, :E))
+    copy_tangent!(p.u0.dzE, tangent_component(∂u, :dzE))
+    p.u0
+end
+
+function set_adjoint_source!(p::VectorialSource, ∂u)
+    copy_tangent!(p.u0.Ex, tangent_component(∂u, :Ex))
+    copy_tangent!(p.u0.Ey, tangent_component(∂u, :Ey))
+    copy_tangent!(p.u0.Hx, tangent_component(∂u, :Hx))
+    copy_tangent!(p.u0.Hy, tangent_component(∂u, :Hy))
     p.u0
 end
 

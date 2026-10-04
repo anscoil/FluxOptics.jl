@@ -1,10 +1,10 @@
-struct VectorialField{U, T} <: AbstractField{U, 2}
+struct VectorialField{U} <: AbstractField{U, 2}
     Ex::U
     Ey::U
     Hx::U
     Hy::U
-    ds:: NTuple{2, T}
-    lambda::T
+    ds:: NTuple{2, Float64}
+    lambda::Float64
 end
 
 Functors.@functor VectorialField (Ex, Ey, Hx, Hy)
@@ -35,7 +35,7 @@ struct Epsilon{T}
     zx::T; zy::T; zz::T
 end
 
-Permittivity = Union{Number, ZDecEpsilon, Epsilon}
+const Permittivity = Union{Number, ZDecEpsilon, Epsilon}
 
 Base.broadcastable(ϵ::Union{ZDecEpsilon, Epsilon}) = Ref(ϵ)
 
@@ -125,98 +125,38 @@ function compute_M(kx::Real, ky::Real, k0::T, ϵ) where {T <: Real}
     [[D1 P]; [Q D2]]
 end
 
-function eigen_modes(fx::Real, fy::Real, λ::T, ϵ) where {T <: Real}
+function ModeBasis(fx::Real, fy::Real, λ::T, ϵ::Permittivity) where {T <: Real}
     k0 = 2π / λ
     kx = 2π * fx
     ky = 2π * fy
     M = Matrix(compute_M(kx, ky, k0, ϵ))
     tol = sqrt(eps(Float64)) * norm(M)
-    q(v) = abs(imag(v)) <= tol ? 0 : (imag(v) > 0 ? -1 : 1)
-    F = eigen(M; sortby = λ -> (q(λ), -real(λ)))
+    q(μ) = abs(imag(μ)) <= tol ? 0 : (imag(μ) > 0 ? -1 : 1)
+    F = eigen(M; sortby = μ -> (q(μ), -real(μ)))
     V = SMatrix{4, 4, Complex{T}}(F.vectors)
-    (; kz = SVector{4, Complex{T}}(F.values), P = V, P_inv = inv(V))
+    ModeBasis(SVector{4, Complex{T}}(F.values), V, inv(V))
 end
 
-function eigen_modes(u::U, ds::NTuple{2, Real}, λ::Real, ϵ
-                     ) where {N, T, U <: AbstractArray{Complex{T}, N}}
-    @assert N >= 2
-    ns = size(u)[1:2]
-    fx = fftfreq(ns[1], 1/ds[1])
-    fy = fftfreq(ns[2], 1/ds[2])
-    modes = StructArray(eigen_modes(x, y, T(λ), ϵ) for x in fx, y in fy)
-    adapt(get_backend(u), modes)
+function VectorialMediumModes(u::VectorialField, medium)
+    VectorialMediumModes(u.Ex, u.ds, u.lambda, medium)
 end
 
-function eigen_modes(u::VectorialField{U}, ϵ) where {U}
-    eigen_modes(u.Ex, u.ds, u.lambda, ϵ)
-end
-
-function fresnel_modal(P1::SMatrix{4, 4}, P2::SMatrix{4, 4})
-    fw, bw = SVector(1, 2), SVector(3, 4)
-    S = hcat(-P1[:, bw], P2[:, fw]) \ hcat(P1[:, fw], -P2[:, bw])
-    (; r12 = S[fw, fw], t21 = S[fw, bw], t12 = S[bw, fw], r21 = S[bw, bw])
-end
-
-fresnel_modal(m1::NamedTuple, m2::NamedTuple) = fresnel_modal(m1.P, m2.P)
-
-compute_fresnel(modes_1::StructArray, modes_2::StructArray) = fresnel_modal.(modes_1, modes_2)
-
-mode_indices(::Forward) = SVector(1, 2)
-mode_indices(::Backward) = SVector(3, 4)
-
-function decompose(m, Ψ::SVector{4}, direction::Direction)
-    m.P_inv[mode_indices(direction), :] * Ψ
-end
-
-function recompose(m, a::SVector{2}, direction::Direction)
-    m.P[:, mode_indices(direction)] * a
-end
-
-function decompose_adjoint(m, ∂a::SVector{2}, direction::Direction)
-    m.P_inv[mode_indices(direction), :]' * ∂a
-end
-
-function recompose_adjoint(m, ∂Ψ::SVector{4}, direction::Direction)
-    m.P[:, mode_indices(direction)]' * ∂Ψ
-end
-
-function project(m, Ψ::SVector{4}, direction::Direction)
-    recompose(m, decompose(m, Ψ, direction), direction)
-end
-
-function admittance(m, direction::Direction)
-    c = mode_indices(direction)
-    m.P[SVector(3, 4), c] * inv(m.P[SVector(1, 2), c])
-end
-
-function apply_admittance(m, direction::Direction, ex::Number, ey::Number)
-    Tuple(admittance(m, direction) * SVector(ex, ey))
-end
-
-function VectorialField(Ex::U, Ey::U, ds::NTuple{2, Real}, λ::Real, ϵ = 1.0;
-                        direction::Direction = Forward(),
-                        modes = eigen_modes(Ex, ds, λ, ϵ)
+function VectorialField(Ex::U, Ey::U, ds::NTuple{2, Real}, λ::Real,
+                        medium::Union{Permittivity, VectorialMediumModes} = 1.0;
+                        direction::Direction = Forward()
                         ) where {N, T, U <: AbstractArray{Complex{T}, N}}
     @assert N >= 2 && size(Ex) == size(Ey)
+    modes = VectorialMediumModes(Ex, ds, λ, medium).modes
     Ex_f = fft(Ex, (1, 2))
     Ey_f = fft(Ey, (1, 2))
     Hx_f, Hy_f = similar(Ex_f), similar(Ey_f)
     StructArray((Hx_f, Hy_f)) .= apply_admittance.(modes, direction, Ex_f, Ey_f)
-    VectorialField(Ex_f, Ey_f, Hx_f, Hy_f, T.(ds), T(λ))
+    VectorialField(Ex_f, Ey_f, Hx_f, Hy_f, ds, λ)
 end
 
-function split_state(m, ex, ey, hx, hy)
-    Ψ = SVector(ex, ey, hx, hy)
-    Ψ_fwd = project(m, Ψ, Forward())
-    Tuple(vcat(Ψ_fwd, Ψ - Ψ_fwd))
-end
-
-function split_field(u::VectorialField, ϵ = 1.0;
-                     modes = eigen_modes(u.Ex, u.ds, u.lambda, ϵ))
-    fwd = map(similar, (u.Ex, u.Ey, u.Hx, u.Hy))
-    bwd = map(similar, (u.Ex, u.Ey, u.Hx, u.Hy))
-    StructArray((fwd..., bwd...)) .= split_state.(modes, u.Ex, u.Ey, u.Hx, u.Hy)
-    VectorialField(fwd..., u.ds, u.lambda), VectorialField(bwd..., u.ds, u.lambda)
+function split_field(u::VectorialField,
+                     medium::Union{Permittivity, VectorialMediumModes} = 1.0)
+    split_field(u, VectorialMediumModes(u, medium).modes)
 end
 
 function Base.ndims(u::VectorialField, spatial::Bool = false)
@@ -233,26 +173,8 @@ function set_field_data(u::VectorialField, Ex, Ey, Hx, Hy)
     VectorialField(Ex, Ey, Hx, Hy, u.ds, u.lambda)
 end
 
-poynting_density(ex, ey, hx, hy) = real(ex * conj(hy) - ey * conj(hx))
-poynting_density(Ψ::SVector{4}) = poynting_density(Ψ...)
+flux_weight(u::VectorialField) = prod(u.ds) / prod(size(u)[1:2])
 
-function directional_fluxes(m, ex, ey, hx, hy)
-    Ψ = SVector(ex, ey, hx, hy)
-    Ψ_fwd = project(m, Ψ, Forward())
-    (poynting_density(Ψ_fwd), -poynting_density(Ψ - Ψ_fwd))
-end
-
-function poynting_flux(u::VectorialField)
-    T = real(eltype(u))
-    c = T(prod(u.ds)) / prod(size(u)[1:2])
-    sum(poynting_density.(u.Ex, u.Ey, u.Hx, u.Hy); dims = (1, 2)) .* c
-end
-
-function power(u::VectorialField, ϵ = 1.0;
-               modes = eigen_modes(u.Ex, u.ds, u.lambda, ϵ))
-    T = real(eltype(u))
-    c = T(prod(u.ds)) / prod(size(u)[1:2])
-    P_fwd, P_bwd = similar(u.Ex, T), similar(u.Ex, T)
-    StructArray((P_fwd, P_bwd)) .= directional_fluxes.(modes, u.Ex, u.Ey, u.Hx, u.Hy)
-    (sum(P_fwd; dims = (1, 2)) .* c, sum(P_bwd; dims = (1, 2)) .* c)
+function power(u::VectorialField, medium::Union{Permittivity, VectorialMediumModes} = 1.0)
+    power(u, VectorialMediumModes(u, medium).modes)
 end

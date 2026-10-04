@@ -33,9 +33,6 @@ end
 
 ca_view(::Nothing, ::Symbol) = nothing
 
-real_n(n0::Number) = real(n0)
-real_n(::Nothing) = 0
-
 function BidirectionalSystem(s_in::AbstractBidirectionalSource{U},
                              s_out::AbstractBidirectionalSource{U},
                              components::Vararg{AbstractBidirectionalComponent}) where {U}
@@ -46,7 +43,7 @@ function BidirectionalSystem(s_in::AbstractBidirectionalSource{U},
     u0 = get_source(s_in)
     all_nodes = (s_in, components..., s_out)
     flat_interfaces = map(
-        (l, r) -> FlatInterface(u0, reference_medium_right(l), reference_medium_left(r)),
+        (l, r) -> FlatInterface(reference_medium_right(l), reference_medium_left(r)),
         Base.front(all_nodes),
         Base.tail(all_nodes)
     )
@@ -68,7 +65,10 @@ end
 
 function BidirectionalSystem(s_in::AbstractBidirectionalSource,
                              components::Vararg{AbstractBidirectionalComponent})
-    s_out = zero(s_in; n0 = reference_medium_right(Base.last(components)))
+    medium = reference_medium_right(last(components))
+    isnothing(medium) && throw(ArgumentError(
+        "the last component must define a reference medium on its right side"))
+    s_out = zero(s_in; medium)
     BidirectionalSystem(s_in, s_out, components...)
 end
 

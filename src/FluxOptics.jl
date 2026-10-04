@@ -101,6 +101,9 @@ export get_data
 
 export ScalarWaveSource
 export ScalarWavePropagator, ScalarWaveBPM, ScalarWaveBiProp
+
+export VectorialSource
+
 export BidirectionalSystem, GmresSolver, fp_solve!
 export BicgstabSolver, BilqSolver, CgneSolver, CraigSolver
 
