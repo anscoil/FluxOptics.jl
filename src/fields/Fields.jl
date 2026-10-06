@@ -10,7 +10,8 @@ using ..FluxOptics: isbroadcastable, bzip
 
 import Base: +, -, *, /
 
-export AbstractField, ScalarField, ScalarWaveField
+export AbstractField, ScalarField, ScalarWaveField, VectorialField
+export ScalarWaveState, VectorialState
 export get_lambdas, get_lambdas_collection
 export get_tilts, get_tilts_collection, offset_tilts!
 export select_lambdas, select_tilts, set_field_ds!, set_field_data, set_field_tilts

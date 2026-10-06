@@ -51,25 +51,23 @@ function alloc_activations(u::ScalarWaveField, p::ScalarWaveBPM, ::Direction)
     (; u = similar(u.E, (size(u.E)..., size(p.n_xyz, 3))))
 end
 
-slice_at(a::AbstractArray, k::Integer) = selectdim(a, ndims(a), k)
-
-function kick_coefficient(u::ScalarWaveField, p::ScalarWaveBPM, direction::Direction)
-    sign(direction) * real(eltype(u.E))((2π / u.lambda)^2) * p.dz
+function kick_coefficient(u::ScalarWaveField, dz, direction::Direction)
+    sign(direction) * real(eltype(u.E))((2π / u.lambda)^2) * dz
 end
 
-function kick(E, dzE, n_xy, n0, c, nrm)
-    E_n = nrm * E
-    dzE_n = nrm * dzE + c * (n0^2 - n_xy^2) * E_n
-    E_n, dzE_n
+function kick(ψ::ScalarWaveState, w, ε, ε_ref, c)
+    E = w * ψ.E
+    ScalarWaveState(E, w * ψ.dzE + c * (ε_ref - ε) * E)
 end
 
-function kick_and_store(E, dzE, n_xy, n0, c, nrm)
-    E_n, dzE_n = kick(E, dzE, n_xy, n0, c, nrm)
-    E_n, dzE_n, E_n
+function kick_adjoint(∂ψ::ScalarWaveState, w, ε, ε_ref, c)
+    ∂E = conj(w) * (∂ψ.E + conj(c * (ε_ref - ε)) * ∂ψ.dzE)
+    ScalarWaveState(∂E, conj(w) * ∂ψ.dzE)
 end
 
-function kick_adjoint(∂E, ∂dzE, n_xy, n0, c, nrm)
-    nrm * (∂E + c * conj(n0^2 - n_xy^2) * ∂dzE), nrm * ∂dzE
+function kick_and_store(ψ::ScalarWaveState, w, ε, ε_ref, c)
+    ψ_out = kick(ψ, w, ε, ε_ref, c)
+    ψ_out, ψ_out.E
 end
 
 function compute_gradient!(∂n_xy, n_xy, u_act, ∂u::ScalarWaveField, c)
@@ -87,13 +85,14 @@ function propagate_slice_direct!(u::ScalarWaveField, activations, p::ScalarWaveB
                                  k::Integer, direction::Direction; loc::Bool = false)
     n_xy = view(p.n_xyz, :, :, k)
     n0 = loc ? p.n0_loc : p.n0
-    c = kick_coefficient(u, p, direction)
+    c = kick_coefficient(u, p.dz, direction)
+    ψ = StructArray(u)
     compute_ift!(p.p_f, u)
     if isnothing(activations)
-        StructArray((u.E, u.dzE)) .= kick.(u.E, u.dzE, n_xy, n0, c, p.nrm_f)
+        ψ .= kick.(ψ, p.nrm_f, n_xy .^ 2, n0^2, c)
     else
-        StructArray((u.E, u.dzE, slice_at(activations.u, k))) .=
-            kick_and_store.(u.E, u.dzE, n_xy, n0, c, p.nrm_f)
+        StructArray((ψ, slice_at(activations.u, k))) .=
+            kick_and_store.(ψ, p.nrm_f, n_xy .^ 2, n0^2, c)
     end
     compute_ft!(p.p_f, u)
 end
@@ -122,12 +121,13 @@ end
 function propagate_slice_adjoint_direct!(∂u::ScalarWaveField, ∂p, activations,
                                          p::ScalarWaveBPM, k::Integer, direction::Direction)
     n_xy = view(p.n_xyz, :, :, k)
-    c = kick_coefficient(∂u, p, direction)
+    c = kick_coefficient(∂u, p.dz, direction)
+    ∂ψ = StructArray(∂u)
     compute_ift!(p.p_f, ∂u)
     if !isnothing(activations)
         compute_gradient!(slice_at(∂p.n_xyz, k), n_xy, slice_at(activations.u, k), ∂u, c)
     end
-    StructArray((∂u.E, ∂u.dzE)) .= kick_adjoint.(∂u.E, ∂u.dzE, n_xy, p.n0, c, p.nrm_f)
+    ∂ψ .= kick_adjoint.(∂ψ, p.nrm_f, n_xy .^ 2, p.n0^2, c)
     compute_ft!(p.p_f, ∂u)
 end
 

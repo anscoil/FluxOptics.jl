@@ -65,3 +65,12 @@ flux_weight(u::ScalarWaveField) = prod(u.ds) / prod(size(u)[1:2]) * u.lambda / 2
 function power(u::ScalarWaveField, medium::Union{Number, ScalarMediumModes} = 1.0)
     power(u, ScalarMediumModes(u, medium).modes)
 end
+
+struct ScalarWaveState{C} <: FieldVector{2, C}
+    E::C
+    dzE::C
+end
+
+function StructArrays.StructArray(u::ScalarWaveField)
+    StructArray{ScalarWaveState{eltype(u.E)}}((u.E, u.dzE))
+end

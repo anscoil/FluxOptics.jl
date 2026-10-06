@@ -178,3 +178,14 @@ flux_weight(u::VectorialField) = prod(u.ds) / prod(size(u)[1:2])
 function power(u::VectorialField, medium::Union{Permittivity, VectorialMediumModes} = 1.0)
     power(u, VectorialMediumModes(u, medium).modes)
 end
+
+struct VectorialState{C} <: FieldVector{4, C}
+    Ex::C
+    Ey::C
+    Hx::C
+    Hy::C
+end
+
+function StructArrays.StructArray(u::VectorialField)
+    StructArray{VectorialState{eltype(u.Ex)}}((u.Ex, u.Ey, u.Hx, u.Hy))
+end

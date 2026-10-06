@@ -1,129 +1,34 @@
-struct ScalarWaveBiProp{M, K, A, E, P, U, T}  <: AbstractBidirectionalComponent{M}
+struct ScalarWaveBiProp{M, T, A, E, B, F, U, P} <: AbstractBinaryPropagator{M}
     trainability::Val{M}
     mask_xyz::A
     mask_eps::E
-    n1::Complex{T}
-    n2::Complex{T}
+    eps_1::Complex{T}
+    eps_2::Complex{T}
     dz::T
-    kernel_n1::BidirectionalKernel{K}
-    kernel_n2::BidirectionalKernel{K}
-    u_tmp::ScalarWaveField{U}
+    medium_1::B
+    medium_2::B
+    factors_1::F
+    factors_2::F
+    u_tmp::U
     p_f::P
+    nrm_f::T
 end
 
-function ScalarWaveBiProp(u::ScalarWaveField{U}, thickness::Real,
+function ScalarWaveBiProp(u::ScalarWaveField, thickness::Real,
                           mask_xyz::AbstractArray{<:Number, 3}, n1::Number, n2::Number;
-                          mask_eps = nothing
-                          ) where {T <: Real, U <: AbstractArray{Complex{T}}}
+                          mask_eps = nothing)
+    T = real(eltype(u.E))
     ns = size(u)[1:2]
     n_slices = size(mask_xyz, 3)
     @assert size(mask_xyz)[1:2] == ns
     @assert n_slices >= 1
     dz = T(thickness / n_slices)
-    kernel_n1 = BidirectionalKernel(u, dz, n1; conjugate = true)
-    kernel_n2 = BidirectionalKernel(u, dz, n2; conjugate = true)
-    n1 = Complex{T}(n1)
-    n2 = Complex{T}(n2)
-    mask_buf = similar(u.electric, T, size(mask_xyz))
-    copyto!(mask_buf, mask_xyz)
-    mask_eps_buf = similar(u.electric, Complex{T}, size(mask_xyz))
-    if !isnothing(mask_eps)
-        copyto!(mask_eps_buf, mask_eps)
-    else
-        @. mask_eps_buf = n1^2 * mask_buf + n2^2 * (1 - mask_buf)
-    end
-    u_tmp = similar(u)
-    u_plan = similar(u.electric)
-    p_f, _ = make_fft_plans(u_plan, (1, 2); normalize = true)
-    ScalarWaveBiProp(Val(Static), mask_buf, mask_eps_buf, n1, n2, dz,
-                     kernel_n1, kernel_n2, u_tmp, p_f)
-end
-
-function apply_mask!(u::AbstractArray, mask, conjugate::Bool = false)
-    if !conjugate
-        @. u *= mask
-    else
-        @. u *= 1 - mask
-    end
-end
-
-function apply_mask!(u::ScalarWaveField, p::ScalarWaveBiProp,
-                     k::Integer, conjugate::Bool)
-    mask = view(p.mask_xyz, :, :, k)
-    apply_mask!(u.electric, mask, conjugate)
-    apply_mask!(u.electric_dz, mask, conjugate)
-end
-
-function apply_correction!(u::ScalarWaveField, p::ScalarWaveBiProp,
-                           k::Integer, conjugate::Bool, direction::Direction)
-    s = sign(direction)
-    mask_eps = view(p.mask_eps, :, :, k)
-    if !conjugate
-        @. u.electric_dz += s * ((2π/u.lambdas.val)^2 * (p.n1^2 - mask_eps) * p.dz * u.electric)
-        # @. u.electric *= cis(s*2π/u.lambdas.val * (1 - mask_bin) * (p.n2 - p.n1) * p.dz)
-        # @. u.electric_dz *= cis(s*2π/u.lambdas.val * (1 - mask_bin) * (p.n2 - p.n1) * p.dz)
-    else
-        @. u.electric_dz += s * ((2π/u.lambdas.val)^2 * (p.n2^2 - mask_eps) *  p.dz * u.electric)
-        # @. u.electric *= cis(s*2π/u.lambdas.val * mask_bin * (p.n1 - p.n2) * p.dz)
-        # @. u.electric_dz *= cis(s*2π/u.lambdas.val * mask_bin * (p.n1 - p.n2) * p.dz)
-    end
-end
-
-@kernel function propagate_binary_kernel!(e1, e1_dz,
-                                          e2, e2_dz,
-                                          kernel_n1, kernel_n2,
-                                          ::Val{forward}) where {forward}
-    s = forward ? 1 : -1
-    I = @index(Global, Cartesian)
-    for J in CartesianIndices(axes(e1)[3:end])
-        a1 = _get_val(kernel_n1.a, I, J)
-        a2 = _get_val(kernel_n2.a, I, J)
-        exp_a1_p = _get_val(kernel_n1.exp_a_p, I, J)
-        exp_a1_m = _get_val(kernel_n1.exp_a_m, I, J)
-        exp_a2_p = _get_val(kernel_n2.exp_a_p, I, J)
-        exp_a2_m = _get_val(kernel_n2.exp_a_m, I, J)
-        E1_val = e1[I,J]
-        dE1_val = e1_dz[I,J]
-        E2_val = e2[I,J]
-        dE2_val = e2_dz[I,J]
-        E1 = 0.5 * (E1_val + s * dE1_val / a1) * exp_a1_p
-        E2 = 0.5 * (E1_val - s * dE1_val / a1) * exp_a1_m
-        E3 = 0.5 * (E2_val + s * dE2_val / a2) * exp_a2_p
-        E4 = 0.5 * (E2_val - s * dE2_val / a2) * exp_a2_m
-        e1[I,J] = E1 + E2 + E3 + E4
-        e1_dz[I,J] = s * (a1 * (E1 - E2) + a2 * (E3 - E4))
-    end
-end
-
-function propagate_slice!(u::ScalarWaveField, state, activations,
-                          p::ScalarWaveBiProp, k::Integer, direction::Direction)
-    backend = get_backend(u.electric)
-    
-    compute_ift!(p.p_f, u)
-    copyto!(p.u_tmp, u)
-    v = p.u_tmp
-
-    apply_mask!(u, p, k, false)
-    apply_mask!(v, p, k, true)
-    apply_correction!(u, p, k, false, direction)
-    apply_correction!(v, p, k, true, direction)
-    compute_ft!(p.p_f, u)
-    compute_ft!(p.p_f, v)
-    
-    propagate_binary_kernel!(backend)(
-        u.electric, u.electric_dz,
-        v.electric, v.electric_dz,
-        p.kernel_n1, p.kernel_n2, Val(isforward(direction));
-        ndrange = size(u.electric)[1:2])
-
-    u
-end
-
-function propagate!(u::ScalarWaveField, state, activations, p::ScalarWaveBiProp,
-                    direction::Direction)
-    n_slices = size(p.mask_xyz, 3)
-    for k in reverse(1:n_slices, direction)
-        propagate_slice!(u, state, activations, p, k, direction)
-    end
-    u
+    eps_1, eps_2 = Complex{T}(n1)^2, Complex{T}(n2)^2
+    mask, eps_xyz = binary_maps(u.E, mask_xyz, mask_eps, eps_1, eps_2)
+    medium_1, medium_2 = ScalarMediumModes(u, n1), ScalarMediumModes(u, n2)
+    factors_1 = PropagationFactors.(medium_1.modes, dz, true)
+    factors_2 = PropagationFactors.(medium_2.modes, dz, true)
+    p_f, _ = make_fft_plans(similar(u.E), (1, 2); normalize = false)
+    ScalarWaveBiProp(Val(Static), mask, eps_xyz, eps_1, eps_2, dz, medium_1, medium_2,
+                     factors_1, factors_2, similar(u), p_f, T(1 / prod(ns)))
 end

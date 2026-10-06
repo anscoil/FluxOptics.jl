@@ -771,6 +771,8 @@ function conj_direction(mask, ::Type{Backward})
     conj(mask)
 end
 
+slice_at(a::AbstractArray, k::Integer) = selectdim(a, ndims(a), k)
+
 include("sources/scalar_source.jl")
 export ScalarSource, get_source
 
@@ -926,7 +928,7 @@ export ScalarWaveBPM
 include("system/flat_interfaces.jl")
 export FlatInterface
 
-include("bulk_propagators/scalar_wave_binary_propagator.jl")
+include("bulk_propagators/binary_propagators.jl")
 export ScalarWaveBiProp
 
 include("system/bidirectional_system.jl")
