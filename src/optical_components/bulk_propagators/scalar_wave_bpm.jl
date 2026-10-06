@@ -1,4 +1,4 @@
-struct ScalarWaveBPM{M, K, T, N, P}  <: AbstractBidirectionalComponent{M}
+struct ScalarWaveBPM{M, T, N, P, E, F} <: AbstractBidirectionalComponent{M}
     trainability::Val{M}
     n_xyz::N
     n0::Complex{T}
@@ -6,211 +6,166 @@ struct ScalarWaveBPM{M, K, T, N, P}  <: AbstractBidirectionalComponent{M}
     dz::T
     n_sub::Int
     p_f::P
-    kernel::BidirectionalKernel{K}
-    kernel_loc::BidirectionalKernel{K}
+    medium::E
+    medium_loc::E
+    factors::F
+    factors_loc::F
     conjugate::Bool
     nrm_f::T
 end
 
 Functors.@functor ScalarWaveBPM (n_xyz,)
 
-function ScalarWaveBPM(u::ScalarWaveField{U},
-                       thickness::Real,
+function ScalarWaveBPM(u::ScalarWaveField, thickness::Real,
                        n_xyz::AbstractArray{<:Number, 3}, n0::Number;
-                       n_sub::Integer = 1,
-                       n0_loc::Number = real(n0),
-                       trainable::Bool = false,
-                       conjugate::Bool = false
-                       ) where {T <: Real, U <: AbstractArray{Complex{T}}}
+                       n_sub::Integer = 1, n0_loc::Number = real(n0),
+                       trainable::Bool = false, conjugate::Bool = false)
+    T = real(eltype(u.E))
     ns = size(u)[1:2]
     n_slices = size(n_xyz, 3)
     @assert size(n_xyz)[1:2] == ns
-    @assert n_slices >= 1
-    @assert n_sub >= 1
+    @assert n_slices >= 1 && n_sub >= 1
     dz = T(thickness / (n_slices * n_sub))
-    n0 = Complex{T}(n0)
-    n0_loc = Complex{T}(n0_loc)
     N = isreal(n_xyz) ? T : Complex{T}
-    n_xyz_buf = similar(u.electric, N, size(n_xyz))
+    n_xyz_buf = similar(u.E, N, size(n_xyz))
     copyto!(n_xyz_buf, n_xyz)
-    u_plan = similar(u.electric)
-    p_f, _ = make_fft_plans(u_plan, (1, 2); normalize = false)
-    kernel = BidirectionalKernel(u, dz, n0; conjugate)
-    kernel_loc = BidirectionalKernel(u, dz, n0_loc; conjugate)
+    p_f, _ = make_fft_plans(similar(u.E), (1, 2); normalize = false)
+    medium = ScalarMediumModes(u, n0)
+    medium_loc = ScalarMediumModes(u, n0_loc)
+    factors = PropagationFactors.(medium.modes, dz, conjugate)
+    factors_loc = PropagationFactors.(medium_loc.modes, dz, conjugate)
     M = trainable ? Trainable : Static
-    ScalarWaveBPM(Val(M), n_xyz_buf, n0, n0_loc, dz, n_sub, p_f,
-                  kernel, kernel_loc, conjugate, T(1/prod(ns)))
+    ScalarWaveBPM(Val(M), n_xyz_buf, Complex{T}(n0), Complex{T}(n0_loc), dz, n_sub, p_f,
+                  medium, medium_loc, factors, factors_loc, conjugate, T(1 / prod(ns)))
 end
 
 trainable(p::ScalarWaveBPM{Trainable}) = (; n_xyz = p.n_xyz)
 
-reference_medium(p::ScalarWaveBPM) = p.n0
+reference_medium(p::ScalarWaveBPM) = p.medium
 
 function alloc_fp_state(u::ScalarWaveField, p::ScalarWaveBPM)
-    if p.conjugate
-        nothing
-    else
-        n_slices = size(p.n_xyz, 3)
-        (; E_state = similar(u.electric, (size(u.electric)..., n_slices)))
-    end
+    p.conjugate ? nothing : (; amp = similar(u.E, (size(u.E)..., size(p.n_xyz, 3))))
 end
 
-function alloc_activations(u, p::ScalarWaveBPM, ::Direction)
-    n_slices = size(p.n_xyz, 3)
-    (; u = similar(u.electric, (size(u.electric)..., n_slices)))
+function alloc_activations(u::ScalarWaveField, p::ScalarWaveBPM, ::Direction)
+    (; u = similar(u.E, (size(u.E)..., size(p.n_xyz, 3))))
 end
 
-function normalize_fourier(u::ScalarWaveField, p::ScalarWaveBPM)
-    @. u.electric *= p.nrm_f
-    @. u.electric_dz *= p.nrm_f
+slice_at(a::AbstractArray, k::Integer) = selectdim(a, ndims(a), k)
+
+function kick_coefficient(u::ScalarWaveField, p::ScalarWaveBPM, direction::Direction)
+    sign(direction) * real(eltype(u.E))((2π / u.lambda)^2) * p.dz
 end
 
-function propagate_slice_fourier!(u::ScalarWaveField, state,
-                                  p::ScalarWaveBPM, k::Integer, direction::Direction;
-                                  loc::Bool = false)
-    backend = get_backend(u.electric)
-
-    kernel = loc ? p.kernel_loc : p.kernel
-    E_state = isnothing(state) ? nothing : selectdim(state.E_state, ndims(state.E_state), k)
-    propagate_scalar_wave_kernel!(backend)(
-        u.electric, u.electric_dz, E_state, kernel, Val(isforward(direction));
-        ndrange = size(u.electric)[1:2])
+function kick(E, dzE, n_xy, n0, c, nrm)
+    E_n = nrm * E
+    dzE_n = nrm * dzE + c * (n0^2 - n_xy^2) * E_n
+    E_n, dzE_n
 end
 
-function propagate_slice_direct!(u::ScalarWaveField, activations,
-                                 p::ScalarWaveBPM, k::Integer, direction::Direction;
-                                 loc::Bool = false)
-    backend = get_backend(u.electric)
-    s = sign(direction)
-    
+function kick_and_store(E, dzE, n_xy, n0, c, nrm)
+    E_n, dzE_n = kick(E, dzE, n_xy, n0, c, nrm)
+    E_n, dzE_n, E_n
+end
+
+function kick_adjoint(∂E, ∂dzE, n_xy, n0, c, nrm)
+    nrm * (∂E + c * conj(n0^2 - n_xy^2) * ∂dzE), nrm * ∂dzE
+end
+
+function compute_gradient!(∂n_xy, n_xy, u_act, ∂u::ScalarWaveField, c)
+    @. ∂n_xy = -2c * real(conj(n_xy * u_act) * ∂u.dzE)
+end
+
+function propagate_slice_fourier!(u::ScalarWaveField, state, p::ScalarWaveBPM,
+                                  k::Integer, direction::Direction; loc::Bool = false)
+    medium, factors = loc ? (p.medium_loc, p.factors_loc) : (p.medium, p.factors)
+    stored = map(a -> slice_at(a, k), state_arrays(state))
+    launch_modal!(propagate_modes, (u.E, u.dzE), stored, (medium.modes, factors), direction)
+end
+
+function propagate_slice_direct!(u::ScalarWaveField, activations, p::ScalarWaveBPM,
+                                 k::Integer, direction::Direction; loc::Bool = false)
     n_xy = view(p.n_xyz, :, :, k)
     n0 = loc ? p.n0_loc : p.n0
-    normalize_fourier(u, p)
+    c = kick_coefficient(u, p, direction)
     compute_ift!(p.p_f, u)
-    if !isnothing(activations)
-        u_act = selectdim(activations.u, ndims(activations.u), k)
-        copyto!(u_act, u.electric)
+    if isnothing(activations)
+        StructArray((u.E, u.dzE)) .= kick.(u.E, u.dzE, n_xy, n0, c, p.nrm_f)
+    else
+        StructArray((u.E, u.dzE, slice_at(activations.u, k))) .=
+            kick_and_store.(u.E, u.dzE, n_xy, n0, c, p.nrm_f)
     end
-    @. u.electric_dz += s * ((2π/u.lambdas.val)^2 * (n0^2 - n_xy^2) * p.dz * u.electric)
     compute_ft!(p.p_f, u)
 end
 
 function propagate_slice!(u::ScalarWaveField, state, activations,
-                          p::ScalarWaveBPM, k::Integer, ::Forward;
-                          loc::Bool = false)
+                          p::ScalarWaveBPM, k::Integer, ::Forward; loc::Bool = false)
     propagate_slice_direct!(u, activations, p, k, Forward(); loc)
     propagate_slice_fourier!(u, state, p, k, Forward(); loc)
     u
 end
 
 function propagate_slice!(u::ScalarWaveField, state, activations,
-                          p::ScalarWaveBPM, k::Integer, ::Backward;
-                          loc::Bool = false)
+                          p::ScalarWaveBPM, k::Integer, ::Backward; loc::Bool = false)
     propagate_slice_fourier!(u, state, p, k, Backward(); loc)
     propagate_slice_direct!(u, activations, p, k, Backward(); loc)
     u
 end
 
-function compute_gradient!(∂n_xy, n_xy, u_act, ∂u, p::ScalarWaveBPM, direction::Direction)
-    s = sign(direction)
-    @. ∂n_xy = -s * 2 * ((2π/∂u.lambdas.val)^2 * p.dz
-                         * real(conj(n_xy * u_act) * ∂u.electric_dz))
-end
-
-function propagate_slice_adjoint_fourier!(∂u::ScalarWaveField, ∂p, state,
-                                          p::ScalarWaveBPM, k::Integer,
-                                          direction::Direction;
-                                          loc::Bool = false)
-    backend = get_backend(∂u.electric)
-
-    kernel = loc ? p.kernel_loc : p.kernel
-    E_state = isnothing(state) ? nothing : selectdim(state.E_state, ndims(state.E_state), k)
-    propagate_scalar_wave_adjoint_kernel!(backend)(
-        ∂u.electric, ∂u.electric_dz, E_state, kernel, Val(isforward(direction));
-        ndrange = size(∂u.electric)[1:2])
+function propagate_slice_adjoint_fourier!(∂u::ScalarWaveField, state, p::ScalarWaveBPM,
+                                          k::Integer, direction::Direction)
+    stored = map(a -> slice_at(a, k), state_arrays(state))
+    launch_modal!(propagate_modes_adjoint, (∂u.E, ∂u.dzE), stored,
+                  (p.medium.modes, p.factors), direction)
 end
 
 function propagate_slice_adjoint_direct!(∂u::ScalarWaveField, ∂p, activations,
-                                         p::ScalarWaveBPM, k::Integer,
-                                         direction::Direction;
-                                         loc::Bool = false)
-    backend = get_backend(∂u.electric)
-    s = sign(direction)
-    
+                                         p::ScalarWaveBPM, k::Integer, direction::Direction)
     n_xy = view(p.n_xyz, :, :, k)
-    n0 = loc ? p.n0_loc : p.n0
+    c = kick_coefficient(∂u, p, direction)
     compute_ift!(p.p_f, ∂u)
     if !isnothing(activations)
-        u_act = selectdim(activations.u, ndims(activations.u), k)
-        ∂n_xy = selectdim(∂p.n_xyz, ndims(∂p.n_xyz), k)
-        compute_gradient!(∂n_xy, n_xy, u_act, ∂u, p, direction)
+        compute_gradient!(slice_at(∂p.n_xyz, k), n_xy, slice_at(activations.u, k), ∂u, c)
     end
-    @. ∂u.electric += s * ((2π/∂u.lambdas.val)^2 * conj(n0^2 - n_xy^2)
-                           * p.dz * ∂u.electric_dz)
+    StructArray((∂u.E, ∂u.dzE)) .= kick_adjoint.(∂u.E, ∂u.dzE, n_xy, p.n0, c, p.nrm_f)
     compute_ft!(p.p_f, ∂u)
-    normalize_fourier(∂u, p)
 end
 
-function propagate_slice_adjoint!(∂u::ScalarWaveField, ∂p,
-                                  state, activations,
-                                  p::ScalarWaveBPM, k::Integer, ::Forward;
-                                  loc::Bool = false)
-    propagate_slice_adjoint_fourier!(∂u, ∂p, state, p, k, Forward(); loc)
-    propagate_slice_adjoint_direct!(∂u, ∂p, activations, p, k, Forward(); loc)
+function propagate_slice_adjoint!(∂u::ScalarWaveField, ∂p, state, activations,
+                                  p::ScalarWaveBPM, k::Integer, ::Forward)
+    propagate_slice_adjoint_fourier!(∂u, state, p, k, Forward())
+    propagate_slice_adjoint_direct!(∂u, ∂p, activations, p, k, Forward())
     ∂u
 end
 
-function propagate_slice_adjoint!(∂u::ScalarWaveField, ∂p,
-                                  state, activations,
-                                  p::ScalarWaveBPM, k::Integer, ::Backward;
-                                  loc::Bool = false)
-    propagate_slice_adjoint_direct!(∂u, ∂p, activations, p, k, Backward(); loc)
-    propagate_slice_adjoint_fourier!(∂u, ∂p, state, p, k, Backward(); loc)
+function propagate_slice_adjoint!(∂u::ScalarWaveField, ∂p, state, activations,
+                                  p::ScalarWaveBPM, k::Integer, ::Backward)
+    propagate_slice_adjoint_direct!(∂u, ∂p, activations, p, k, Backward())
+    propagate_slice_adjoint_fourier!(∂u, state, p, k, Backward())
     ∂u
 end
 
-function propagate!(u::ScalarWaveField, state, activations, p::ScalarWaveBPM, ::Forward)
-    n_slices = size(p.n_xyz, 3)
-    for k in 1:n_slices
-        propagate_slice!(u, state, activations, p, k, Forward())
-        for _ in 1:(p.n_sub - 1)
-            propagate_slice!(u, nothing, nothing, p, k, Forward(); loc = true)
+function propagate!(u::ScalarWaveField, state, activations, p::ScalarWaveBPM,
+                    direction::Direction)
+    for k in reverse(1:size(p.n_xyz, 3), direction)
+        for j in reverse(1:p.n_sub, direction)
+            if j == 1
+                propagate_slice!(u, state, activations, p, k, direction)
+            else
+                propagate_slice!(u, nothing, nothing, p, k, direction; loc = true)
+            end
         end
     end
     u
 end
 
-function propagate!(u::ScalarWaveField, state, activations, p::ScalarWaveBPM, ::Backward)
-    n_slices = size(p.n_xyz, 3)
-    for k in reverse(1:n_slices)
-        for _ in 1:(p.n_sub - 1)
-            propagate_slice!(u, nothing, nothing, p, k, Backward(); loc = true)
-        end
-        propagate_slice!(u, state, activations, p, k, Backward())
-    end
-    u
-end
-
-function propagate_adjoint!(u::ScalarWaveField, ∂p,
-                            state, activations, p::ScalarWaveBPM, ::Forward)
-    n_slices = size(p.n_xyz, 3)
-    for k in reverse(1:n_slices)
-        propagate_slice_adjoint!(u, ∂p, state, activations, p, k, Forward())
-        for _ in 1:(p.n_sub - 1)
-            propagate_slice_adjoint!(u, nothing, nothing, p, k, Forward(); loc = true)
-        end
-    end
-    u
-end
-
-function propagate_adjoint!(u::ScalarWaveField, ∂p,
-                            state, activations, p::ScalarWaveBPM, ::Backward)
-    n_slices = size(p.n_xyz, 3)
-    for k in 1:n_slices
-        for _ in 1:(p.n_sub - 1)
-            propagate_slice_adjoint!(u, nothing, nothing, p, k, Backward(); loc = true)
-        end
-        propagate_slice_adjoint!(u, ∂p, state, activations, p, k, Backward())
+function propagate_adjoint!(u::ScalarWaveField, ∂p, state, activations, p::ScalarWaveBPM,
+                            direction::Direction)
+    p.n_sub == 1 || throw(ArgumentError(
+        "ScalarWaveBPM: gradients require n_sub = 1 \
+        (n_sub > 1 is meant for forward convergence checks)"))
+    for k in reverse(1:size(p.n_xyz, 3), reverse(direction))
+        propagate_slice_adjoint!(u, ∂p, state, activations, p, k, direction)
     end
     u
 end

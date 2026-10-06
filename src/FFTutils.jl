@@ -27,8 +27,8 @@ function compute_ft!(p_f::FFTPlans, u::ScalarField)
 end
 
 function compute_ft!(p_f::FFTPlans, u::ScalarWaveField)
-    p_f.ft * u.electric
-    p_f.ft * u.electric_dz
+    p_f.ft * u.E
+    p_f.ft * u.dzE
     u
 end
 
@@ -38,8 +38,8 @@ function compute_ift!(p_f::FFTPlans, u::ScalarField)
 end
 
 function compute_ift!(p_f::FFTPlans, u::ScalarWaveField)
-    p_f.ift * u.electric
-    p_f.ift * u.electric_dz
+    p_f.ift * u.E
+    p_f.ift * u.dzE
     u
 end
 
