@@ -1,5 +1,7 @@
 abstract type AbstractBinaryPropagator{M} <: AbstractBidirectionalComponent{M} end
 
+include("scalar_wave_binary_propagator.jl")
+
 # Subtypes provide the fields mask_xyz, mask_eps, eps_1, eps_2, dz, medium_1, medium_2,
 # factors_1, factors_2, u_tmp, p_f and nrm_f.
 
@@ -62,8 +64,8 @@ end
 
 function merge_slice!(u::AbstractField, v::AbstractField, p::AbstractBinaryPropagator,
                       direction::Direction)
-    launch_merge!(propagate_binary, component_arrays(u), component_arrays(v),
-                  binary_coefs(p), direction)
+    launch_combine!(propagate_binary, component_arrays(u), component_arrays(v),
+                    binary_coefs(p), direction)
 end
 
 function merge_slice_adjoint!(∂u::AbstractField, v::AbstractField,

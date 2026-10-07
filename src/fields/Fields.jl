@@ -5,6 +5,8 @@ using AbstractFFTs
 using LinearAlgebra
 using StaticArrays
 using StructArrays
+using KernelAbstractions
+using Adapt
 using ..FluxOptics
 using ..FluxOptics: isbroadcastable, bzip
 
@@ -18,9 +20,10 @@ export select_lambdas, select_tilts, set_field_ds!, set_field_data, set_field_ti
 export is_on_axis
 export power, normalize_power!, coupling_efficiency, intensity, phase
 export orthonormalize, unitary_transform, spatial_moments, spatial_centroids, spatial_variance
-export ModeBasis, ScalarModeBasis, VectorialMediumModes, ScalarMediumModes
+export AbstractModeBasis, ModeBasis, ScalarModeBasis
+export MediumModes, VectorialMediumModes, ScalarMediumModes
 export Permittivity, ZDecEpsilon, Epsilon, FresnelCoefficients
-export eigenvalues, basis, basis_inv, compute_fresnel, transmission, reflection
+export eigenvalues, mode_indices, basis, basis_inv, compute_fresnel, transmission, reflection
 export split_field, poynting_flux, normalize_poynting!
 export decompose, recompose, decompose_adjoint, recompose_adjoint, project, project_adjoint
 export Direction, Forward, Backward, isforward, isbackward
@@ -81,22 +84,6 @@ Base.copy(u::AbstractField) = fmap(copy, u)
 function Base.copyto!(u::AbstractField, v::AbstractField)
     fmap(copyto!, u, v)
     u
-end
-
-function rescale!(u::AbstractField, s)
-    foreach(a -> a .*= s, Functors.children(u))
-    u
-end
-
-function normalize_power!(u::AbstractField, target_power = 1;
-                          direction::Direction = Forward(), kwargs...)
-    P_fwd, P_bwd = power(u; kwargs...)
-    rescale!(u, sqrt.(target_power ./ (forward ? P_fwd : P_bwd)))
-end
-
-function normalize_poynting!(u::AbstractField, S_out = 1)
-    S_in = poynting_flux(u)
-    rescale!(u, @. sqrt(abs(S_out / S_in)))
 end
 
 abstract type AbstractModeBasis end
@@ -160,8 +147,8 @@ function project_adjoint(m::AbstractModeBasis, ∂Ψ::SVector, direction::Direct
     decompose_adjoint(m, recompose_adjoint(m, ∂Ψ, direction), direction)
 end
 
-function split_state(m::AbstractModeBasis, ψ::Number...)
-    Ψ = SVector(ψ...)
+function split_state(m::AbstractModeBasis, ψ::Vararg{Number, N}) where {N}
+    Ψ = SVector(ψ)
     Ψ_fwd = project(m, Ψ, Forward())
     Tuple(vcat(Ψ_fwd, Ψ - Ψ_fwd))
 end
@@ -179,8 +166,9 @@ function admittance(m::AbstractModeBasis, direction::Direction)
     P[magnetic_indices(m), c] * inv(P[electric_indices(m), c])
 end
 
-function apply_admittance(m::AbstractModeBasis, direction::Direction, e::Number...)
-    Tuple(admittance(m, direction) * SVector(e...))
+function apply_admittance(m::AbstractModeBasis, direction::Direction,
+                          e::Vararg{Number, N}) where {N}
+    Tuple(admittance(m, direction) * SVector(e))
 end
 
 struct MediumModes{B <: AbstractModeBasis, S}
@@ -217,8 +205,8 @@ function poynting_flux(u::AbstractField)
     sum(poynting_density.(data...); dims = (1, 2)) .* T(flux_weight(u))
 end
 
-function directional_fluxes(m::AbstractModeBasis, ψ::Number...)
-    Ψ = SVector(ψ...)
+function directional_fluxes(m::AbstractModeBasis, ψ::Vararg{Number, N}) where {N}
+    Ψ = SVector(ψ)
     Ψ_fwd = project(m, Ψ, Forward())
     (poynting_density(Tuple(Ψ_fwd)...), -poynting_density(Tuple(Ψ - Ψ_fwd)...))
 end
@@ -230,6 +218,22 @@ function power(u::AbstractField, modes::AbstractArray{<:AbstractModeBasis})
     StructArray((P_fwd, P_bwd)) .= directional_fluxes.(modes, data...)
     c = T(flux_weight(u))
     (sum(P_fwd; dims = (1, 2)) .* c, sum(P_bwd; dims = (1, 2)) .* c)
+end
+
+function rescale!(u::AbstractField, s)
+    foreach(a -> a .*= s, Functors.children(u))
+    u
+end
+
+function normalize_power!(u::AbstractField, medium::Union{Number, ScalarMediumModes} = 1.0,
+                          target_power = 1; direction::Direction = Forward())
+    P_fwd, P_bwd = power(u, medium)
+    rescale!(u, sqrt.(target_power ./ (isforward(direction) ? P_fwd : P_bwd)))
+end
+
+function normalize_poynting!(u::AbstractField, S_out = 1)
+    S_in = poynting_flux(u)
+    rescale!(u, @. sqrt(abs(S_out / S_in)))
 end
 
 struct FresnelCoefficients{R}

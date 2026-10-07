@@ -3,6 +3,8 @@ module OpticalComponents
 using Functors
 using LinearAlgebra
 using KernelAbstractions
+using StaticArrays
+using StructArrays
 using ComponentArrays
 using AbstractFFTs
 using FINUFFT

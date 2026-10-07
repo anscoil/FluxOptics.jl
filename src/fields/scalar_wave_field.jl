@@ -1,4 +1,4 @@
-struct ScalarWaveField{U, T} <: AbstractField{U, 2}
+struct ScalarWaveField{U} <: AbstractField{U, 2}
     E::U
     dzE::U
     ds::NTuple{2, Float64}
@@ -47,14 +47,14 @@ function split_field(u::ScalarWaveField, medium::Union{Number, ScalarMediumModes
 end
 
 function Base.ndims(u::ScalarWaveField, spatial::Bool = false)
-    spatial ? 2 : ndims(u.electric)
+    spatial ? 2 : ndims(u.E)
 end
 
-Base.size(u::ScalarWaveField) = size(u.electric)
+Base.size(u::ScalarWaveField) = size(u.E)
 
-Base.size(u::ScalarWaveField, k::Integer) = size(u.electric, k)
+Base.size(u::ScalarWaveField, k::Integer) = size(u.E, k)
 
-Base.eltype(u::ScalarWaveField) = eltype(u.electric)
+Base.eltype(u::ScalarWaveField) = eltype(u.E)
 
 function set_field_data(u::ScalarWaveField, E::AbstractArray, dzE::AbstractArray)
     ScalarWaveField(E, dzE, u.ds, u.lambda)
