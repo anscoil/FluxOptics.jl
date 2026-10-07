@@ -94,23 +94,26 @@ struct ModeBasis{K, M} <: AbstractModeBasis
     P_inv::M
 end
 
-struct ScalarModeBasis{T} <: AbstractModeBasis
-    kz::T
-end
-
 eigenvalues(m::ModeBasis) = m.kz
 basis(m::ModeBasis) = m.P
 basis_inv(m::ModeBasis) = m.P_inv
 
+mul_im(z::Complex) = Complex(-imag(z), real(z))
+
+struct ScalarModeBasis{T} <: AbstractModeBasis
+    kz::T
+    inv_kz::T
+end
+
 eigenvalues(m::ScalarModeBasis) = SVector(m.kz, -m.kz)
 
 function basis(m::ScalarModeBasis)
-    o, ikz = one(m.kz), im * m.kz
+    o, ikz = one(m.kz), mul_im(m.kz)
     @SMatrix [o o; ikz -ikz]
 end
 
 function basis_inv(m::ScalarModeBasis)
-    o, u = one(m.kz), inv(im * m.kz)
+    o, u = one(m.kz), -mul_im(m.inv_kz)
     @SMatrix([o u; o -u]) / 2
 end
 
@@ -127,16 +130,32 @@ function decompose(m::AbstractModeBasis, Ψ::SVector, direction::Direction)
     basis_inv(m)[mode_indices(m, direction), :] * Ψ
 end
 
+function decompose(m::ScalarModeBasis, Ψ::SVector{2}, direction::Direction)
+    SVector((Ψ[1] - sign(direction) * mul_im(m.inv_kz * Ψ[2])) / 2)
+end
+
 function recompose(m::AbstractModeBasis, a::SVector, direction::Direction)
     basis(m)[:, mode_indices(m, direction)] * a
+end
+
+function recompose(m::ScalarModeBasis, a::SVector{1}, direction::Direction)
+    SVector(a[1], sign(direction) * mul_im(m.kz * a[1]))
 end
 
 function decompose_adjoint(m::AbstractModeBasis, ∂a::SVector, direction::Direction)
     basis_inv(m)[mode_indices(m, direction), :]' * ∂a
 end
 
+function decompose_adjoint(m::ScalarModeBasis, ∂a::SVector{1}, direction::Direction)
+    SVector(∂a[1], sign(direction) * mul_im(conj(m.inv_kz) * ∂a[1])) / 2
+end
+
 function recompose_adjoint(m::AbstractModeBasis, ∂Ψ::SVector, direction::Direction)
     basis(m)[:, mode_indices(m, direction)]' * ∂Ψ
+end
+
+function recompose_adjoint(m::ScalarModeBasis, ∂Ψ::SVector{2}, direction::Direction)
+    SVector(∂Ψ[1] - sign(direction) * mul_im(conj(m.kz) * ∂Ψ[2]))
 end
 
 function project(m::AbstractModeBasis, Ψ::SVector, direction::Direction)

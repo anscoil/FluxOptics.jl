@@ -23,7 +23,8 @@ function ScalarModeBasis(fx::Real, fy::Real, λ::T, n0::Number) where {T <: Real
     k0 = 2π / λ
     kx = 2π * fx
     ky = 2π * fy
-    ScalarModeBasis(Complex{T}(sqrt(complex((k0 * n0)^2 - kx^2 - ky^2))))
+    kz = sqrt(complex((k0 * n0)^2 - kx^2 - ky^2))
+    ScalarModeBasis(Complex{T}(kz), Complex{T}(inv(kz)))
 end
 
 function ScalarMediumModes(u::ScalarWaveField, medium)
