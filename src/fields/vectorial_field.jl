@@ -37,6 +37,30 @@ end
 
 const Permittivity = Union{Number, ZDecEpsilon, Epsilon}
 
+function Epsilon(A::AbstractMatrix)
+    size(A) == (3, 3) || throw(ArgumentError("permittivity tensor must be 3×3"))
+    Epsilon(A[1, 1], A[1, 2], A[1, 3],
+            A[2, 1], A[2, 2], A[2, 3],
+            A[3, 1], A[3, 2], A[3, 3])
+end
+
+is_z_decoupled(A::AbstractMatrix) = all(iszero, (A[1, 3], A[2, 3], A[3, 1], A[3, 2]))
+
+function ZDecEpsilon(A::AbstractMatrix)
+    size(A) == (3, 3) || throw(ArgumentError("permittivity tensor must be 3×3"))
+    is_z_decoupled(A) ||
+        throw(ArgumentError("tensor is not z-decoupled: xz, yz, zx, zy must be zero"))
+    ZDecEpsilon(A[1, 1], A[1, 2], A[2, 1], A[2, 2], A[3, 3])
+end
+
+permittivity(n::Number) = n^2
+
+function permittivity(n::NTuple{3, Number}, R::AbstractMatrix = I)
+    permittivity(R * Diagonal(SVector(n) .^ 2) * transpose(R))
+end
+
+permittivity(A::AbstractMatrix) = is_z_decoupled(A) ? ZDecEpsilon(A) : Epsilon(A)
+
 Base.broadcastable(ϵ::Union{ZDecEpsilon, Epsilon}) = Ref(ϵ)
 
 function ZDecEpsilon(ϵ::Epsilon)
@@ -152,6 +176,14 @@ function VectorialField(Ex::U, Ey::U, ds::NTuple{2, Real}, λ::Real,
     Hx_f, Hy_f = similar(Ex_f), similar(Ey_f)
     StructArray((Hx_f, Hy_f)) .= apply_admittance.(modes, direction, Ex_f, Ey_f)
     VectorialField(Ex_f, Ey_f, Hx_f, Hy_f, ds, λ)
+end
+
+function VectorialField(E::U, jones::NTuple{2, Number}, ds::NTuple{2, Real}, λ::Real,
+                        medium::Union{Permittivity, VectorialMediumModes} = 1.0;
+                        direction::Direction = Forward()
+                        ) where {T, U <: AbstractArray{Complex{T}}}
+    jx, jy = Complex{T}.(jones)
+    VectorialField(jx .* E, jy .* E, ds, λ, medium; direction)
 end
 
 function split_field(u::VectorialField,

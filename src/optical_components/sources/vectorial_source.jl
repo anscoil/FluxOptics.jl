@@ -30,14 +30,14 @@ reference_medium(p::VectorialSource) = p.medium
 # end
 
 function propagate!(u::VectorialField, p::VectorialSource, direction::Direction)
-    launch_source!(inject_source, (u.Ex, u.Ey, u.Hx, u.Hy),
-                   (p.u0.Ex, p.u0.Ey, p.u0.Hx, p.u0.Hy), p.medium.modes, direction)
+    launch_combine!(inject_source, (u.Ex, u.Ey, u.Hx, u.Hy),
+                    (p.u0.Ex, p.u0.Ey, p.u0.Hx, p.u0.Hy), (p.medium.modes,), direction)
     u
 end
 
 function propagate_adjoint!(u::VectorialField, p::VectorialSource, direction::Direction)
-    launch_source!(inject_source_adjoint, (u.Ex, u.Ey, u.Hx, u.Hy), (),
-                   p.medium.modes, direction)
+    launch_combine!(inject_source_adjoint, (u.Ex, u.Ey, u.Hx, u.Hy), (),
+                    (p.medium.modes,), direction)
     u
 end
 

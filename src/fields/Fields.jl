@@ -22,9 +22,9 @@ export power, normalize_power!, coupling_efficiency, intensity, phase
 export orthonormalize, unitary_transform, spatial_moments, spatial_centroids, spatial_variance
 export AbstractModeBasis, ModeBasis, ScalarModeBasis
 export MediumModes, VectorialMediumModes, ScalarMediumModes
-export Permittivity, ZDecEpsilon, Epsilon, FresnelCoefficients
-export eigenvalues, mode_indices, basis, basis_inv, compute_fresnel, transmission, reflection
-export split_field, poynting_flux, normalize_poynting!
+export Permittivity, ZDecEpsilon, Epsilon, FresnelCoefficients, permittivity
+export eigenvalues, mode_indices, compute_fresnel, transmission, reflection
+export split_field, electric_field, poynting_flux, normalize_poynting!
 export decompose, recompose, decompose_adjoint, recompose_adjoint, project, project_adjoint
 export Direction, Forward, Backward, isforward, isbackward
 
@@ -287,5 +287,13 @@ include("scalar_field.jl")
 include("scalar_wave_field.jl")
 
 include("vectorial_field.jl")
+
+electric_field(u::ScalarWaveField) = ifft(u.E, (1, 2))
+electric_field(u::VectorialField) = (ifft(u.Ex, (1, 2)), ifft(u.Ey, (1, 2)))
+
+function electric_field(u::AbstractField, medium, direction::Direction)
+    u_fwd, u_bwd = split_field(u, medium)
+    electric_field(isforward(direction) ? u_fwd : u_bwd)
+end
 
 end

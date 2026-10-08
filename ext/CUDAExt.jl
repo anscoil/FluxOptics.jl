@@ -16,6 +16,10 @@ function CUDA.cu(u::ScalarWaveField)
     set_field_data(u, cu(u.E), cu(u.dzE))
 end
 
+function CUDA.cu(u::VectorialField)
+    set_field_data(u, cu(u.Ex), cu(u.Ey), cu(u.Hx), cu(u.Hy))
+end
+
 function Base.unique(x::CuArray)
     unique(Array(x))
 end

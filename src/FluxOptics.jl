@@ -48,10 +48,13 @@ end
 include("fields/Fields.jl")
 using .Fields
 export ScalarField, ScalarWaveField, VectorialField
+export Forward, Backward
+export ZDecEpsilon, Epsilon, permittivity
+export VectorialMediumModes, ScalarMediumModes
 export set_field_data, set_field_tilts, offset_tilts!, is_on_axis
 export dot, power, normalize_power!, coupling_efficiency, intensity, phase
 export orthonormalize, unitary_transform, spatial_moments, spatial_centroids, spatial_variance
-export split_field, poynting_flux, normalize_poynting!
+export split_field, electric_field, poynting_flux, normalize_poynting!
 
 include("metrics/Metrics.jl")
 using .Metrics
