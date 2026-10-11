@@ -19,12 +19,11 @@ end
 
 function propagate_modes(m::AbstractModeBasis, f::PropagationFactors, direction::Direction,
                          ψ::Tuple, stored::Tuple)
-    Ψ = SVector(ψ)
-    exp_dir, exp_opp = propagation_factors(f, direction)
-    a_dir = exp_dir .* decompose(m, Ψ, direction)
-    a_opp = exp_opp .* SVector(stored)
-    Tuple(recompose(m, a_dir, direction) +
-        recompose(m, a_opp, reverse(direction))), Tuple(a_dir)
+    exp_dir, _ = propagation_factors(f, direction)
+    a_dep = decompose(m, SVector(ψ), direction)
+    a_opp = SVector(stored)
+    Tuple(recompose(m, exp_dir .* a_dep, direction) +
+        recompose(m, a_opp, reverse(direction))), Tuple(a_dep)
 end
 
 function propagate_modes(m::AbstractModeBasis, f::PropagationFactors, direction::Direction,
@@ -39,10 +38,10 @@ end
 function propagate_modes_adjoint(m::AbstractModeBasis, f::PropagationFactors,
                                  direction::Direction, ∂ψ::Tuple, ∂stored::Tuple)
     ∂Ψ = SVector(∂ψ)
-    exp_dir, exp_opp = propagation_factors(f, direction)
-    ∂a_dir = conj.(exp_dir) .* (recompose_adjoint(m, ∂Ψ, direction) + SVector(∂stored))
-    ∂a_opp = conj.(exp_opp) .* recompose_adjoint(m, ∂Ψ, reverse(direction))
-    Tuple(decompose_adjoint(m, ∂a_dir, direction)), Tuple(∂a_opp)
+    exp_dir, _ = propagation_factors(f, direction)
+    ∂a_dep = conj.(exp_dir) .* recompose_adjoint(m, ∂Ψ, direction) + SVector(∂stored)
+    ∂a_opp = recompose_adjoint(m, ∂Ψ, reverse(direction))
+    Tuple(decompose_adjoint(m, ∂a_dep, direction)), Tuple(∂a_opp)
 end
 
 function propagate_modes_adjoint(m::AbstractModeBasis, f::PropagationFactors,
