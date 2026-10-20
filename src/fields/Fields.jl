@@ -190,11 +190,12 @@ function apply_admittance(m::AbstractModeBasis, direction::Direction,
     Tuple(admittance(m, direction) * SVector(e))
 end
 
-struct MediumModes{B <: AbstractModeBasis, S}
+struct MediumModes{B <: AbstractModeBasis, E, S}
+    medium::E
     modes::S
 end
 
-MediumModes{B}(modes::S) where {B, S} = MediumModes{B, S}(modes)
+MediumModes{B}(medium::E, modes::S) where {B, E, S} = MediumModes{B, E, S}(medium, modes)
 
 function MediumModes{B}(u::AbstractArray, ds::NTuple{2, Real}, λ::Real, medium) where {B}
     @assert ndims(u) >= 2
@@ -202,7 +203,7 @@ function MediumModes{B}(u::AbstractArray, ds::NTuple{2, Real}, λ::Real, medium)
     fx = fftfreq(size(u, 1), 1 / ds[1])
     fy = fftfreq(size(u, 2), 1 / ds[2])
     modes = StructArray(B(x, y, T(λ), medium) for x in fx, y in fy)
-    MediumModes{B}(adapt(get_backend(u), modes))
+    MediumModes{B}(medium, adapt(get_backend(u), modes))
 end
 
 function MediumModes{B}(u::AbstractArray, ds::NTuple{2, Real}, λ::Real,

@@ -927,6 +927,9 @@ export ScalarWavePropagator, VectorialPropagator
 include("bulk_propagators/scalar_wave_bpm.jl")
 export ScalarWaveBPM
 
+include("bulk_propagators/vectorial_bpm.jl")
+export VectorialBPM
+
 include("system/flat_interfaces.jl")
 export FlatInterface
 

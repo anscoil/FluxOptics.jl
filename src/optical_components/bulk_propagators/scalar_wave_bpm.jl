@@ -83,7 +83,7 @@ end
 
 function propagate_slice_direct!(u::ScalarWaveField, activations, p::ScalarWaveBPM,
                                  k::Integer, direction::Direction; loc::Bool = false)
-    n_xy = view(p.n_xyz, :, :, k)
+    n_xy = slice_at(p.n_xyz, k)
     n0 = loc ? p.n0_loc : p.n0
     c = kick_coefficient(u, p.dz, direction)
     ψ = StructArray(u)
@@ -120,7 +120,7 @@ end
 
 function propagate_slice_adjoint_direct!(∂u::ScalarWaveField, ∂p, activations,
                                          p::ScalarWaveBPM, k::Integer, direction::Direction)
-    n_xy = view(p.n_xyz, :, :, k)
+    n_xy = slice_at(p.n_xyz, k)
     c = kick_coefficient(∂u, p.dz, direction)
     ∂ψ = StructArray(∂u)
     compute_ift!(p.p_f, ∂u)
