@@ -71,5 +71,18 @@ function launch_modal!(f, fields::Tuple, stored::Tuple, coefs::Tuple, direction:
         f, fields, stored, coefs, direction; ndrange = size(first(fields))[1:2])
 end
 
+function launch_modal!(f, fields::Tuple{Array, Vararg{Array}}, stored::Tuple,
+                       coefs::Tuple, direction::Direction)
+    A = first(fields)
+    for J in CartesianIndices(Base.tail(Base.tail(axes(A)))),
+        I in CartesianIndices((axes(A, 1), axes(A, 2)))
+        c = map(a -> a[I], coefs)
+        ψ_out, a_out = f(c..., direction, map(a -> a[I, J], fields),
+                         map(a -> a[I, J], stored))
+        map((a, v) -> a[I, J] = v, fields, ψ_out)
+        map((a, v) -> a[I, J] = v, stored, a_out)
+    end
+end
+
 include("scalar_wave_propagator.jl")
 include("vectorial_propagator.jl")

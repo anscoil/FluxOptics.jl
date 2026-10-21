@@ -22,7 +22,7 @@ _interleave(ifaces, comps) =
 
 coalesce(s) = fmap(x -> isnothing(x) ? [] : collect(x), s)
 
-function ca_view(ca::ComponentArray, k::Symbol)
+function ca_view(ca::ComponentArray, k::Val)
     v = getproperty(ca, k)
     if Functors.isleaf(v) && isempty(v)
         nothing
@@ -31,7 +31,10 @@ function ca_view(ca::ComponentArray, k::Symbol)
     end
 end
 
-ca_view(::Nothing, ::Symbol) = nothing
+ca_view(ca::ComponentArray, k::Symbol) = ca_view(ca, Val(k))
+
+ca_views(ca::ComponentArray, ks::Tuple) = map(k -> ca_view(ca, k), ks)
+ca_views(::Nothing, ks::Tuple) = map(_ -> nothing, ks)
 
 function BidirectionalSystem(s_in::AbstractBidirectionalSource{U},
                              s_out::AbstractBidirectionalSource{U},
@@ -88,38 +91,51 @@ function compute_roundtrip!(s::BidirectionalSystem,
     uf = propagate!(u, s_out, Forward())
     u = emit(s_out)
     for (p, state, activations) in zip(s.components[end:-1:1],
-                          reverse(fp_states),
-                          reverse(activations_bwd))
+                                       reverse(fp_states),
+                                       reverse(activations_bwd))
         u = propagate!(u, state, activations, p, Backward())
     end
     ur = propagate!(u, s_in, Backward())
     (uf, ur)
 end
 
+fold_components(f, u, ::Tuple{}, ::Tuple{}) = u
+function fold_components(f, u, components::Tuple, states::Tuple)
+    fold_components(f, f(u, first(components), first(states)),
+                    Base.tail(components), Base.tail(states))
+end
+
+fold_components_reverse(f, u, ::Tuple{}, ::Tuple{}) = u
+function fold_components_reverse(f, u, components::Tuple, states::Tuple)
+    fold_components_reverse(f, f(u, last(components), last(states)),
+                            Base.front(components), Base.front(states))
+end
+
 function compute_roundtrip!(s::BidirectionalSystem,
                             s_in::AbstractBidirectionalSource,
                             s_out::AbstractBidirectionalSource,
                             fp_state::ComponentArray)
-    compute_roundtrip!(s, s_in, s_out, fp_state, nothing, nothing)
+    fp_states = ca_views(fp_state, ComponentArrays.valkeys(fp_state))
+    fwd(u, p, state) = propagate!(u, state, nothing, p, Forward())
+    bwd(u, p, state) = propagate!(u, state, nothing, p, Backward())
+    u = fold_components(fwd, emit(s_in), s.components, fp_states)
+    uf = propagate!(u, s_out, Forward())
+    u = fold_components_reverse(bwd, emit(s_out), s.components, fp_states)
+    ur = propagate!(u, s_in, Backward())
+    (uf, ur)
 end
 
 function compute_roundtrip_adjoint!(s::BidirectionalSystem,
                                     s_in_adj::AbstractBidirectionalSource,
                                     s_out_adj::AbstractBidirectionalSource,
                                     fp_state::ComponentArray)
-    fp_states = map(k -> ca_view(fp_state, k), s.keys)
-    u = emit(s_in_adj)
-    u = propagate_adjoint!(u, s_in_adj, Backward())
-    for (p, state) in zip(s.components, fp_states)
-        u = propagate_adjoint!(u, state, p, Backward())
-    end
-    ∂uf = u
-    u = emit(s_out_adj)
-    u = propagate_adjoint!(u, s_out_adj, Forward())
-    for (p, state) in zip(s.components[end:-1:1], reverse(fp_states))
-        u = propagate_adjoint!(u, state, p, Forward())
-    end
-    ∂ur = u
+    fp_states = ca_views(fp_state, ComponentArrays.valkeys(fp_state))
+    bwd(u, p, state) = propagate_adjoint!(u, state, p, Backward())
+    fwd(u, p, state) = propagate_adjoint!(u, state, p, Forward())
+    u = propagate_adjoint!(emit(s_in_adj), s_in_adj, Backward())
+    ∂uf = fold_components(bwd, u, s.components, fp_states)
+    u = propagate_adjoint!(emit(s_out_adj), s_out_adj, Forward())
+    ∂ur = fold_components_reverse(fwd, u, s.components, fp_states)
     (∂uf, ∂ur)
 end
 

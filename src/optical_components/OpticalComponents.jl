@@ -773,7 +773,9 @@ function conj_direction(mask, ::Type{Backward})
     conj(mask)
 end
 
-slice_at(a::AbstractArray, k::Integer) = selectdim(a, ndims(a), k)
+function slice_at(a::AbstractArray{T, N}, k::Integer) where {T, N}
+    view(a, ntuple(_ -> Colon(), Val(N - 1))..., k)
+end
 
 include("sources/scalar_source.jl")
 export ScalarSource, get_source

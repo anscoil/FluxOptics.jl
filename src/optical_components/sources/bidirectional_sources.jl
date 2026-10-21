@@ -25,5 +25,16 @@ function launch_combine!(f, fields::Tuple, inputs::Tuple, coefs::Tuple,
         f, fields, inputs, coefs, direction; ndrange = size(first(fields))[1:2])
 end
 
+function launch_combine!(f, fields::Tuple{Array, Vararg{Array}}, inputs::Tuple,
+                         coefs::Tuple, direction::Direction)
+    A = first(fields)
+    for J in CartesianIndices(Base.tail(Base.tail(axes(A)))),
+        I in CartesianIndices((axes(A, 1), axes(A, 2)))
+        c = map(a -> a[I], coefs)
+        out = f(c..., direction, map(a -> a[I, J], fields), map(a -> a[I, J], inputs))
+        map((a, v) -> a[I, J] = v, fields, out)
+    end
+end
+
 include("scalar_wave_source.jl")
 include("vectorial_source.jl")

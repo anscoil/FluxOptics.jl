@@ -161,6 +161,20 @@ function ModeBasis(fx::Real, fy::Real, λ::T, ϵ::Permittivity) where {T <: Real
     ModeBasis(SVector{4, Complex{T}}(F.values), V, inv(V))
 end
 
+function ModeBasis(fx::Real, fy::Real, λ::T, ϵ::Number) where {T <: Real}
+    k0 = T(2π) / λ
+    kx, ky = T(2π) * T(fx), T(2π) * T(fy)
+    kz = sqrt(Complex{T}(ϵ * k0^2 - kx^2 - ky^2))
+    kt = hypot(kx, ky)
+    C = Complex{T}
+    e1, e2 = iszero(kt) ? (SVector{2, C}(0, 1), SVector{2, C}(1, 0)) :
+             (SVector{2, C}(-ky / kt, kx / kt), SVector{2, C}(kx / kt, ky / kt))
+    Q = compute_Q(kx, ky, k0, ϵ)
+    h1, h2 = Q * e1 / kz, Q * e2 / kz
+    V = hcat(vcat(e1, h1), vcat(e2, h2), vcat(e1, -h1), vcat(e2, -h2))
+    ModeBasis(SVector{4, C}(kz, kz, -kz, -kz), V, inv(V))
+end
+
 function VectorialMediumModes(u::VectorialField, medium)
     VectorialMediumModes(u.Ex, u.ds, u.lambda, medium)
 end
