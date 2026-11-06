@@ -76,11 +76,11 @@ function launch_modal!(f, fields::Tuple{Array, Vararg{Array}}, stored::Tuple,
     A = first(fields)
     for J in CartesianIndices(Base.tail(Base.tail(axes(A)))),
         I in CartesianIndices((axes(A, 1), axes(A, 2)))
-        c = map(a -> a[I], coefs)
-        ψ_out, a_out = f(c..., direction, map(a -> a[I, J], fields),
-                         map(a -> a[I, J], stored))
-        map((a, v) -> a[I, J] = v, fields, ψ_out)
-        map((a, v) -> a[I, J] = v, stored, a_out)
+        c = map(a -> @inbounds(a[I]), coefs)
+        ψ_out, a_out = f(c..., direction, map(a -> @inbounds(a[I, J]), fields),
+                         map(a -> @inbounds(a[I, J]), stored))
+        map((a, v) -> @inbounds(a[I, J] = v), fields, ψ_out)
+        map((a, v) -> @inbounds(a[I, J] = v), stored, a_out)
     end
 end
 

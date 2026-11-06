@@ -35,7 +35,7 @@ struct Epsilon{T}
     zx::T; zy::T; zz::T
 end
 
-const Permittivity = Union{Number, ZDecEpsilon, Epsilon}
+const Permittivity = Union{Number, ZDecEpsilon{<:Number}, Epsilon{<:Number}}
 
 function Epsilon(A::AbstractMatrix)
     size(A) == (3, 3) || throw(ArgumentError("permittivity tensor must be 3×3"))
@@ -168,7 +168,7 @@ function ModeBasis(fx::Real, fy::Real, λ::T, ϵ::Number) where {T <: Real}
     kt = hypot(kx, ky)
     C = Complex{T}
     e1, e2 = iszero(kt) ? (SVector{2, C}(0, 1), SVector{2, C}(1, 0)) :
-             (SVector{2, C}(-ky / kt, kx / kt), SVector{2, C}(kx / kt, ky / kt))
+        (SVector{2, C}(-ky / kt, kx / kt), SVector{2, C}(kx / kt, ky / kt))
     Q = compute_Q(kx, ky, k0, ϵ)
     h1, h2 = Q * e1 / kz, Q * e2 / kz
     V = hcat(vcat(e1, h1), vcat(e2, h2), vcat(e1, -h1), vcat(e2, -h2))

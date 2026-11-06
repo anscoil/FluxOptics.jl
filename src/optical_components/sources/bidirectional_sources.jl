@@ -30,9 +30,10 @@ function launch_combine!(f, fields::Tuple{Array, Vararg{Array}}, inputs::Tuple,
     A = first(fields)
     for J in CartesianIndices(Base.tail(Base.tail(axes(A)))),
         I in CartesianIndices((axes(A, 1), axes(A, 2)))
-        c = map(a -> a[I], coefs)
-        out = f(c..., direction, map(a -> a[I, J], fields), map(a -> a[I, J], inputs))
-        map((a, v) -> a[I, J] = v, fields, out)
+        c = map(a -> @inbounds(a[I]), coefs)
+        out = f(c..., direction, map(a -> @inbounds(a[I, J]), fields),
+                map(a -> @inbounds(a[I, J]), inputs))
+        map((a, v) -> @inbounds(a[I, J] = v), fields, out)
     end
 end
 

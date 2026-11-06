@@ -16,19 +16,6 @@ Base.size(p::VectorialSource, k::Integer) = size(p.u0, k)
 
 reference_medium(p::VectorialSource) = p.medium
 
-# function propagate!(u::VectorialField, p::VectorialSource, direction::Direction)
-#     fields = (u.Ex, u.Ey, u.Hx, u.Hy)
-#     src = (p.u0.Ex, p.u0.Ey, p.u0.Hx, p.u0.Hy)
-#     StructArray(fields) .= inject_source.(fields, src, p.medium.modes, direction)
-#     u
-# end
-
-# function propagate_adjoint!(u::VectorialField, p::VectorialSource, direction::Direction)
-#     fields = (u.Ex, u.Ey, u.Hx, u.Hy)
-#     StructArray(fields) .= inject_source_adjoint.(fields, (), p.medium.modes, direction)
-#     u
-# end
-
 function propagate!(u::VectorialField, p::VectorialSource, direction::Direction)
     launch_combine!(inject_source, (u.Ex, u.Ey, u.Hx, u.Hy),
                     (p.u0.Ex, p.u0.Ey, p.u0.Hx, p.u0.Hy), (p.medium.modes,), direction)
