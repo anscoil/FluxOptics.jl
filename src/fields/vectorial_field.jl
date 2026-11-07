@@ -53,6 +53,14 @@ function ZDecEpsilon(A::AbstractMatrix)
     ZDecEpsilon(A[1, 1], A[1, 2], A[2, 1], A[2, 2], A[3, 3])
 end
 
+function ZDecEpsilon(ϵ::Epsilon)
+    ZDecEpsilon(ϵ.xx, ϵ.xy, ϵ.yx, ϵ.yy, ϵ.zz)
+end
+
+function Base.convert(::Type{ZDecEpsilon{T}}, ϵ::ZDecEpsilon) where {T}
+    ZDecEpsilon{T}(ϵ.xx, ϵ.xy, ϵ.yx, ϵ.yy, ϵ.zz)
+end
+
 permittivity(n::Number) = n^2
 
 function permittivity(n::NTuple{3, Number}, R::AbstractMatrix = I)
@@ -62,10 +70,6 @@ end
 permittivity(A::AbstractMatrix) = is_z_decoupled(A) ? ZDecEpsilon(A) : Epsilon(A)
 
 Base.broadcastable(ϵ::Union{ZDecEpsilon, Epsilon}) = Ref(ϵ)
-
-function ZDecEpsilon(ϵ::Epsilon)
-    ZDecEpsilon(ϵ.xx, ϵ.xy, ϵ.yx, ϵ.yy, ϵ.zz)
-end
 
 function compute_P(kx::Real, ky::Real, k0::T, ϵ::Number) where {T <: Real}
     p11 = kx * ky / (k0 * ϵ)
@@ -149,7 +153,7 @@ function compute_M(kx::Real, ky::Real, k0::T, ϵ) where {T <: Real}
     [[D1 P]; [Q D2]]
 end
 
-function ModeBasis(fx::Real, fy::Real, λ::T, ϵ::Permittivity) where {T <: Real}
+function VectorialModeBasis(fx::Real, fy::Real, λ::T, ϵ::Permittivity) where {T <: Real}
     k0 = 2π / λ
     kx = 2π * fx
     ky = 2π * fy
@@ -158,10 +162,10 @@ function ModeBasis(fx::Real, fy::Real, λ::T, ϵ::Permittivity) where {T <: Real
     q(μ) = abs(imag(μ)) <= tol ? 0 : (imag(μ) > 0 ? -1 : 1)
     F = eigen(M; sortby = μ -> (q(μ), -real(μ)))
     V = SMatrix{4, 4, Complex{T}}(F.vectors)
-    ModeBasis(SVector{4, Complex{T}}(F.values), V, inv(V))
+    VectorialModeBasis(SVector{4, Complex{T}}(F.values), V, inv(V))
 end
 
-function ModeBasis(fx::Real, fy::Real, λ::T, ϵ::Number) where {T <: Real}
+function VectorialModeBasis(fx::Real, fy::Real, λ::T, ϵ::Number) where {T <: Real}
     k0 = T(2π) / λ
     kx, ky = T(2π) * T(fx), T(2π) * T(fy)
     kz = sqrt(Complex{T}(ϵ * k0^2 - kx^2 - ky^2))
@@ -172,7 +176,22 @@ function ModeBasis(fx::Real, fy::Real, λ::T, ϵ::Number) where {T <: Real}
     Q = compute_Q(kx, ky, k0, ϵ)
     h1, h2 = Q * e1 / kz, Q * e2 / kz
     V = hcat(vcat(e1, h1), vcat(e2, h2), vcat(e1, -h1), vcat(e2, -h2))
-    ModeBasis(SVector{4, C}(kz, kz, -kz, -kz), V, inv(V))
+    VectorialModeBasis(SVector{4, C}(kz, kz, -kz, -kz), V, inv(V))
+end
+
+function IsotropicModeBasis(fx::Real, fy::Real, λ::T, ϵ::Number) where {T <: Real}
+    k0 = T(2π) / λ
+    kx, ky = T(2π) * T(fx), T(2π) * T(fy)
+    kt = hypot(kx, ky)
+    u, v = iszero(kt) ? (one(T), zero(T)) : (kx / kt, ky / kt)
+    kz = sqrt(Complex{T}(ϵ * k0^2 - kx^2 - ky^2))
+    y_te, y_tm = -kz / k0, Complex{T}(ϵ * k0 / kz)
+    IsotropicModeBasis(u, v, kz, y_te, y_tm, inv(y_te), inv(y_tm))
+end
+
+# Isotropic media use the TE/TM basis
+function mode_basis(::Type{VectorialModeBasis}, fx, fy, λ, ϵ::Number)
+    IsotropicModeBasis(fx, fy, λ, ϵ)
 end
 
 function VectorialMediumModes(u::VectorialField, medium)

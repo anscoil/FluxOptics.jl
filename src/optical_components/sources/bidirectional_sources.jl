@@ -25,15 +25,20 @@ function launch_combine!(f, fields::Tuple, inputs::Tuple, coefs::Tuple,
         f, fields, inputs, coefs, direction; ndrange = size(first(fields))[1:2])
 end
 
+# Fields of shape (Nx, Ny, batch...): the outer loop runs over the 2D slices of the
+# batch, the inner loop over their pixels with one linear index, so @simd applies.
+# Coefficients are (Nx, Ny); fields and inputs share the shape of the first field.
 function launch_combine!(f, fields::Tuple{Array, Vararg{Array}}, inputs::Tuple,
                          coefs::Tuple, direction::Direction)
     A = first(fields)
-    for J in CartesianIndices(Base.tail(Base.tail(axes(A)))),
-        I in CartesianIndices((axes(A, 1), axes(A, 2)))
-        c = map(a -> @inbounds(a[I]), coefs)
-        out = f(c..., direction, map(a -> @inbounds(a[I, J]), fields),
-                map(a -> @inbounds(a[I, J]), inputs))
-        map((a, v) -> @inbounds(a[I, J] = v), fields, out)
+    n = size(A, 1) * size(A, 2)                  # pixels of one slice
+    for o in 0:n:(length(A) - n)                 # offset of each batch slice
+        @inbounds @simd for i in 1:n
+            c = map(a -> @inbounds(a[i]), coefs)
+            out = @inline f(c..., direction, map(a -> @inbounds(a[o + i]), fields),
+                            map(a -> @inbounds(a[o + i]), inputs))
+            map((a, v) -> @inbounds(a[o + i] = v), fields, out)
+        end
     end
 end
 
