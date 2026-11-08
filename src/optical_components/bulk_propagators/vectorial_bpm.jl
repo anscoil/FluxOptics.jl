@@ -1,4 +1,4 @@
-struct VectorialBPM{M, T, N, R, P, E, F, K, B} <: AbstractBidirectionalComponent{M}
+struct VectorialBPM{M, T, N, R, P, E, F, K, B, S, A} <: AbstractBidirectionalComponent{M}
     trainability::Val{M}
     eps_xyz::N
     eps_ref::R
@@ -9,6 +9,9 @@ struct VectorialBPM{M, T, N, R, P, E, F, K, B} <: AbstractBidirectionalComponent
     kx::K
     ky::K
     buffers::B
+    storage::S         # stored slices and interpolation weights
+    forward_amps::A    # forward amplitudes of the stored slices, for the backward pass
+    slice_amps::B      # opposite, then departing amplitudes of the current slice
     nrm_f::T
 end
 
@@ -46,24 +49,95 @@ kick_coefs(ε::StructArray{<:ZDecEpsilon}) = (ε.xx, ε.xy, ε.yx, ε.yy)
 zz_component(ε::AbstractArray{<:Number}) = ε
 zz_component(ε::StructArray{<:ZDecEpsilon}) = ε.zz
 
+# ---------------------------------------------------------------------------------------
+# Stored slices
+#
+# The state holds the opposite amplitudes on a subset of the slices only, spread evenly
+# from the first slice to the last one, at most `step` slices apart. At the other slices,
+# the opposite amplitudes are rebuilt by cubic Lagrange interpolation in z from the four
+# nearest stored slices. Even spacing keeps the weights small: a short last interval
+# would raise their sum of moduli up to about 9. The weights are fixed, so the round
+# trip stays linear. step = 1 stores every slice.
+#
+# Device: the interpolation is a broadcast over contiguous slices of device arrays, with
+# the slots and weights read on the host as scalars, so it runs as is on GPU.
+# ---------------------------------------------------------------------------------------
+
+struct SliceStorage{T}
+    slots::Vector{Int}                # slot of each slice in the state, 0 if not stored
+    nodes::Vector{NTuple{4, Int}}     # slots of the interpolation nodes of each slice
+    weights::Vector{NTuple{4, T}}     # their cubic Lagrange weights
+end
+
+function SliceStorage(::Type{T}, nz::Integer, step::Integer) where {T}
+    step >= 1 || throw(ArgumentError("step must be at least 1"))
+    n = cld(nz - 1, step) + 1
+    zs = unique!(round.(Int, range(1, nz; length = n)))
+    length(zs) == nz || length(zs) >= 4 ||
+        throw(ArgumentError("interpolation needs at least 4 stored slices"))
+    slots = zeros(Int, nz)
+    slots[zs] .= eachindex(zs)
+    nodes = fill(ntuple(_ -> 0, 4), nz)
+    weights = fill(ntuple(_ -> zero(T), 4), nz)
+    for k in 1:nz
+        slots[k] > 0 && continue    # stored slices are copied, never interpolated
+        # Four nearest stored slices, two on each side when possible
+        j = clamp(searchsortedlast(zs, k) - 1, 1, length(zs) - 3)
+        nodes[k] = ntuple(l -> j + l - 1, 4)
+        z = ntuple(l -> zs[j + l - 1], 4)
+        weights[k] = ntuple(4) do l
+            T(prod((k - z[m]) / (z[l] - z[m]) for m in 1:4 if m != l))
+        end
+    end
+    SliceStorage(slots, nodes, weights)
+end
+
+n_stored(s::SliceStorage) = maximum(s.slots)
+
+# Opposite amplitudes of slice k, from the arrays `from` of the stored slices: a copy if
+# k is stored, the cubic interpolation of its four nodes otherwise
+function interpolate_slice!(amps::Tuple, from::Tuple, s::SliceStorage, k::Integer)
+    j = s.slots[k]
+    if j > 0
+        foreach((a, b) -> copyto!(a, slice_at(b, j)), amps, from)
+    else
+        n, w = s.nodes[k], s.weights[k]
+        foreach(amps, from) do a, b
+            a .= w[1] .* slice_at(b, n[1]) .+ w[2] .* slice_at(b, n[2]) .+
+                 w[3] .* slice_at(b, n[3]) .+ w[4] .* slice_at(b, n[4])
+        end
+    end
+    amps
+end
+
+# Departing amplitudes of slice k, kept in the arrays `to` if k is stored
+function store_slice!(to::Tuple, amps::Tuple, s::SliceStorage, k::Integer)
+    j = s.slots[k]
+    j > 0 && foreach((b, a) -> copyto!(slice_at(b, j), a), to, amps)
+    to
+end
+
 """
-    VectorialBPM(u, thickness, eps_xyz, eps_ref; trainable = false)
+    VectorialBPM(u, thickness, eps_xyz, eps_ref; step = 1, trainable = false)
 
 Bidirectional vectorial split-step propagation through a layer of given thickness.
 `eps_xyz` has shape (Nx, Ny, nz), one slice per z step, with Number (isotropic) or
 ZDecEpsilon (z-decoupled tensor) entries. `eps_ref` is the scalar permittivity of the
-reference medium in which the modal propagation is exact.
+reference medium in which the modal propagation is exact. The state stores slices spread
+evenly from the first to the last, at most `step` slices apart, and interpolates the
+others (step = 1 stores every slice).
 """
 function VectorialBPM(u::VectorialField, thickness::Real,
                       eps_xyz::AbstractArray{<:Permittivity, 3}, eps_ref::Number;
-                      trainable::Bool = false)
+                      step::Integer = 1, trainable::Bool = false)
     eltype(eps_xyz) <: Epsilon && throw(ArgumentError(
         "VectorialBPM handles isotropic and z-decoupled permittivities (ZDecEpsilon); " *
-        "general tensors couple E⊥ and Ez and need the δ-variable scheme"))
+            "general tensors couple E⊥ and Ez and need the δ-variable scheme"))
     T = real(eltype(u.Ex))
     ns = size(u.Ex)[1:2]
     @assert size(eps_xyz)[1:2] == ns
-    dz = T(thickness / size(eps_xyz, 3))
+    nz = size(eps_xyz, 3)
+    dz = T(thickness / nz)
     # Conversion on the host first, so that the copy to the device never mixes types
     E = map_eltype(eltype(eps_xyz), T)
     eps_buf = adapt(get_backend(u.Ex), struct_of_arrays(collect(E, eps_xyz)))
@@ -77,13 +151,17 @@ function VectorialBPM(u::VectorialField, thickness::Real,
     copyto!(kx, repeat(fx, 1, ns[2]))
     copyto!(ky, repeat(permutedims(fy), ns[1], 1))
     buffers = (similar(u.Ex), similar(u.Ex))
+    storage = SliceStorage(T, nz, step)
+    dims = (size(u.Ex)..., n_stored(storage))
+    forward_amps = (similar(u.Ex, dims), similar(u.Ex, dims))
+    slice_amps = (similar(u.Ex), similar(u.Ex))
     M = trainable ? Trainable : Static
-    VectorialBPM(Val(M), eps_buf, ε_r, dz, p_f, medium, factors, kx, ky, buffers,
-                 T(1 / prod(ns)))
+    VectorialBPM(Val(M), eps_buf, ε_r, dz, p_f, medium, factors, kx, ky, buffers, storage,
+                 forward_amps, slice_amps, T(1 / prod(ns)))
 end
 
 function alloc_fp_state(u::VectorialField, p::VectorialBPM)
-    dims = (size(u.Ex)..., size(p.eps_xyz, 3))
+    dims = (size(u.Ex)..., n_stored(p.storage))
     (; amp1 = similar(u.Ex, dims), amp2 = similar(u.Ex, dims))
 end
 
@@ -224,10 +302,15 @@ function propagate!(u::VectorialField, state, ::Nothing, p::VectorialBPM,
     # sign(direction) turns each sheet into its inverse
     cK = Complex{T}(im * sign(direction) * p.dz * k0 * p.nrm_f)
     cL = Complex{T}(-im * sign(direction) * p.dz * p.nrm_f / p.eps_ref)
+    # The forward pass reads the backward amplitudes of the state and keeps its own in
+    # forward_amps; the backward pass reads these and writes the new state
+    opposite, departing = isforward(direction) ? (state_arrays(state), p.forward_amps) :
+        (p.forward_amps, state_arrays(state))
     for k in reverse(1:size(p.eps_xyz, 3), direction)
         ε = slice_at(p.eps_xyz, k)
-        stored = map(a -> slice_at(a, k), state_arrays(state))
-        propagate_slice!(u, stored, p, ε, cK, cL, k0, direction)
+        interpolate_slice!(p.slice_amps, opposite, p.storage, k)
+        propagate_slice!(u, p.slice_amps, p, ε, cK, cL, k0, direction)
+        store_slice!(departing, p.slice_amps, p.storage, k)
     end
     u
 end

@@ -108,7 +108,7 @@ export ScalarWaveBPM, ScalarWaveBiProp
 export VectorialBPM
 
 export BidirectionalSystem, GmresSolver, fp_solve!
-export BicgstabSolver, BilqSolver, CgneSolver, CraigSolver
+export BicgstabSolver, BilqSolver, CgneSolver, CraigSolver, IdrsSolver
 
 include("OptimisersExt.jl")
 using .OptimisersExt

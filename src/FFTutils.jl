@@ -5,7 +5,7 @@ using ..Fields: ScalarField, ScalarWaveField
 import FFTW
 
 export compute_ft!, compute_ift!, FFTPlans
-export make_fft_plan, make_fft_plans
+export make_fft_plans
 export plan_czt, plan_czt!
 
 const FFTPlans = NamedTuple{(:ft, :ift), <:Tuple{AbstractFFTs.Plan, AbstractFFTs.Plan}}
@@ -14,9 +14,9 @@ function make_fft_plans(u::U,
                         dims::NTuple{N, Integer};
                         normalize::Bool = true) where {N, U <: AbstractArray{<:Complex}}
     ns = size(u)[1:N]
-    p_ft = plan_fft!(u, dims, flags = FFTW.MEASURE)
-    p_ift = normalize ? plan_ifft!(u, dims, flags = FFTW.MEASURE) :
-        plan_bfft!(u, dims, flags = FFTW.MEASURE)
+    flags = FFTW.MEASURE
+    p_ft = plan_fft!(u, dims; flags)
+    p_ift = normalize ? plan_ifft!(u, dims; flags) : plan_bfft!(u, dims; flags)
     nrm_f = normalize ? nothing : prod(ns)
     ((; ft = p_ft, ift = p_ift), nrm_f)
 end

@@ -837,6 +837,7 @@ export OpticalSystem, get_source, get_components
 
 using LinearOperators
 using Krylov
+using IterativeSolvers: idrs!
 import ChainRulesCore: @ignore_derivatives
 
 export AbstractBidirectionalComponent, AbstractBidirectionalSource
@@ -940,7 +941,7 @@ export ScalarWaveBiProp
 
 include("system/bidirectional_system.jl")
 export BidirectionalSystem, GmresSolver, fp_solve!
-export BicgstabSolver, BilqSolver, CgneSolver, CraigSolver
+export BicgstabSolver, BilqSolver, CgneSolver, CraigSolver, IdrsSolver
 export test_adjoint
 
 end
