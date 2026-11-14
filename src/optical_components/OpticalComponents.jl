@@ -941,7 +941,10 @@ export ScalarWaveBiProp
 
 include("system/bidirectional_system.jl")
 export BidirectionalSystem, GmresSolver, fp_solve!
-export BicgstabSolver, BilqSolver, CgneSolver, CraigSolver, IdrsSolver
+export BicgstabSolver, BilqSolver, CgneSolver, CraigSolver
 export test_adjoint
+
+include("system/custom_solvers.jl")
+export IdrsSolver, AndersonSolver, GmresDRSolver, GcrotSolver
 
 end

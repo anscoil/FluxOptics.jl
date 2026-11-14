@@ -59,8 +59,7 @@ zz_component(ε::StructArray{<:ZDecEpsilon}) = ε.zz
 # would raise their sum of moduli up to about 9. The weights are fixed, so the round
 # trip stays linear. step = 1 stores every slice.
 #
-# Device: the interpolation is a broadcast over contiguous slices of device arrays, with
-# the slots and weights read on the host as scalars, so it runs as is on GPU.
+# Device: the interpolation runs through launch_combine!, on CPU and GPU alike.
 # ---------------------------------------------------------------------------------------
 
 struct SliceStorage{T}
@@ -94,18 +93,33 @@ end
 
 n_stored(s::SliceStorage) = maximum(s.slots)
 
+# Cubic interpolation of both opposite amplitudes of a slice: ψ_in holds the four node
+# slices of amp1, then those of amp2
+struct SliceInterpolation{T}
+    w::NTuple{4, T}
+end
+
+function (op::SliceInterpolation)(::Direction, ψ, ψ_in)
+    w1, w2, w3, w4 = op.w
+    a1, b1, c1, d1, a2, b2, c2, d2 = ψ_in
+    (w1 * a1 + w2 * b1 + w3 * c1 + w4 * d1, w1 * a2 + w2 * b2 + w3 * c2 + w4 * d2)
+end
+
+# Copy of both opposite amplitudes of a stored slice
+copy_slice(::Direction, ψ, ψ_in) = ψ_in
+
 # Opposite amplitudes of slice k, from the arrays `from` of the stored slices: a copy if
 # k is stored, the cubic interpolation of its four nodes otherwise
-function interpolate_slice!(amps::Tuple, from::Tuple, s::SliceStorage, k::Integer)
+function interpolate_slice!(amps::Tuple, from::Tuple, s::SliceStorage, k::Integer,
+                            direction::Direction)
     j = s.slots[k]
     if j > 0
-        foreach((a, b) -> copyto!(a, slice_at(b, j)), amps, from)
+        launch_combine!(copy_slice, amps, map(b -> slice_at(b, j), from), (), direction)
     else
-        n, w = s.nodes[k], s.weights[k]
-        foreach(amps, from) do a, b
-            a .= w[1] .* slice_at(b, n[1]) .+ w[2] .* slice_at(b, n[2]) .+
-                 w[3] .* slice_at(b, n[3]) .+ w[4] .* slice_at(b, n[4])
-        end
+        n = s.nodes[k]
+        a, b = from
+        nodes = (map(i -> slice_at(a, i), n)..., map(i -> slice_at(b, i), n)...)
+        launch_combine!(SliceInterpolation(s.weights[k]), amps, nodes, (), direction)
     end
     amps
 end
@@ -159,6 +173,8 @@ function VectorialBPM(u::VectorialField, thickness::Real,
     VectorialBPM(Val(M), eps_buf, ε_r, dz, p_f, medium, factors, kx, ky, buffers, storage,
                  forward_amps, slice_amps, T(1 / prod(ns)))
 end
+
+reference_medium(p::VectorialBPM) = p.medium
 
 function alloc_fp_state(u::VectorialField, p::VectorialBPM)
     dims = (size(u.Ex)..., n_stored(p.storage))
@@ -308,7 +324,7 @@ function propagate!(u::VectorialField, state, ::Nothing, p::VectorialBPM,
         (p.forward_amps, state_arrays(state))
     for k in reverse(1:size(p.eps_xyz, 3), direction)
         ε = slice_at(p.eps_xyz, k)
-        interpolate_slice!(p.slice_amps, opposite, p.storage, k)
+        interpolate_slice!(p.slice_amps, opposite, p.storage, k, direction)
         propagate_slice!(u, p.slice_amps, p, ε, cK, cL, k0, direction)
         store_slice!(departing, p.slice_amps, p.storage, k)
     end
