@@ -139,32 +139,41 @@ function compute_roundtrip_adjoint!(s::BidirectionalSystem,
     (∂uf, ∂ur)
 end
 
-function compute_linear_operator(s::BidirectionalSystem; adjoint::Bool = false)
-    state = getdata(s.tmp_state)
-    T = eltype(state)
-    n = length(state)
-    S = typeof(state)
-    s_in, s_out = s.s_in_zero, s.s_out_zero
-    function prod!(res, v, α, β)
-        @. state = v
-        compute_roundtrip!(s, s_in, s_out, s.tmp_state)
-        if iszero(β)
-            @. res = α * (v - state)
-        else
-            @. res = α * (v - state) + β * res
-        end
-        res
+recorded_roundtrip(roundtrip!, backend) = roundtrip!
+
+# Linear operator v -> v - G·v of the fixed point, G the round trip without sources, run
+# on tmp_state. With graph = true, the round trips may be replayed from a graph recorded
+# once per operator (see recorded_roundtrip).
+function compute_linear_operator(s::BidirectionalSystem; adjoint::Bool = false,
+                                 graph::Bool = false)
+    s_in, s_out, state = s.s_in_zero, s.s_out_zero, s.tmp_state
+    roundtrip!() = compute_roundtrip!(s, s_in, s_out, state)
+    roundtrip_adjoint!() = compute_roundtrip_adjoint!(s, s_in, s_out, state)
+    if graph
+        backend = get_backend(getdata(state))
+        linear_operator(getdata(state), recorded_roundtrip(roundtrip!, backend),
+                        recorded_roundtrip(roundtrip_adjoint!, backend), adjoint)
+    else
+        linear_operator(getdata(state), roundtrip!, roundtrip_adjoint!, adjoint)
     end
-    function ctprod!(res, v, α, β)
-        @. state = v
-        compute_roundtrip_adjoint!(s, s_in, s_out, s.tmp_state)
-        if iszero(β)
-            @. res = α * (v - state)
-        else
-            @. res = α * (v - state) + β * res
-        end
-        res
+end
+
+# res = α·(v - G·v) + β·res, the round trip G running on state
+function apply_roundtrip!(res, v, α, β, state, roundtrip!)
+    @. state = v
+    roundtrip!()
+    if iszero(β)
+        @. res = α * (v - state)
+    else
+        @. res = α * (v - state) + β * res
     end
+    res
+end
+
+function linear_operator(state, roundtrip!, roundtrip_adjoint!, adjoint::Bool)
+    T, n, S = eltype(state), length(state), typeof(state)
+    prod!(res, v, α, β) = apply_roundtrip!(res, v, α, β, state, roundtrip!)
+    ctprod!(res, v, α, β) = apply_roundtrip!(res, v, α, β, state, roundtrip_adjoint!)
     if adjoint
         LinearOperator(T, n, n, false, false, ctprod!, nothing, prod!; S)
     else
@@ -234,7 +243,7 @@ function krylov_solve!(solver::BidirectionalSolver{<:CraigWorkspace},
 end
 
 function fp_solve!(s::BidirectionalSystem, solver::BidirectionalSolver;
-                   n_warm_start = 0, kwargs...)
+                   n_warm_start = 0, graph::Bool = false, kwargs...)
     if n_warm_start > 0
         fp_solve!(s; itmax = n_warm_start)
     end
@@ -244,7 +253,7 @@ function fp_solve!(s::BidirectionalSystem, solver::BidirectionalSolver;
     @. vr = v0
     compute_roundtrip!(s, s_in, s_out, solver.r)
     @. vr -= v0
-    op = compute_linear_operator(s)
+    op = compute_linear_operator(s; graph)
     krylov_solve!(solver, op; atol = solver.atol[], kwargs...)
     res_state = Krylov.solution(solver.workspace)
     res = getdata(res_state)
@@ -272,7 +281,7 @@ function fp_solve!(s::BidirectionalSystem, ::Nothing; kwargs...)
 end
 
 function fp_solve_adjoint!(s::BidirectionalSystem, solver::BidirectionalSolver;
-                           n_warm_start = 0, kwargs...)
+                           n_warm_start = 0, graph::Bool = false, kwargs...)
     if n_warm_start > 0
         fp_solve_adjoint!(s; itmax = n_warm_start)
     end
@@ -282,7 +291,7 @@ function fp_solve_adjoint!(s::BidirectionalSystem, solver::BidirectionalSolver;
     @. vr = v0
     compute_roundtrip_adjoint!(s, s_in, s_out, solver.r)
     @. vr -= v0
-    op = compute_linear_operator(s; adjoint = true)
+    op = compute_linear_operator(s; adjoint = true, graph)
     krylov_solve!(solver, op; kwargs...)
     res_state = Krylov.solution(solver.workspace)
     res = getdata(res_state)

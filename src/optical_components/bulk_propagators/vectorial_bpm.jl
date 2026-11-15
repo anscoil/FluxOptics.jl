@@ -1,17 +1,19 @@
-struct VectorialBPM{M, T, N, R, P, E, F, K, B, S, A} <: AbstractBidirectionalComponent{M}
+struct VectorialBPM{M, T, N, R, P, E, F, K, B, S, A, Q} <:
+       AbstractBidirectionalComponent{M}
     trainability::Val{M}
     eps_xyz::N
     eps_ref::R
     dz::T
-    p_f::P
+    p_f::P             # FFT plans: of one field (field) and of the pair buffer (pair)
     medium::E
     factors::F
     kx::K
     ky::K
-    buffers::B
+    buffers::B         # pair buffer of the kick and its components, δ of L
     storage::S         # stored slices and interpolation weights
     forward_amps::A    # forward amplitudes of the stored slices, for the backward pass
-    slice_amps::B      # opposite, then departing amplitudes of the current slice
+    phasors::Q         # interaction picture: phase factors per pixel, or nothing
+    symmetric::Bool    # Strang splitting of the sheets: L/2, K, L/2
     nrm_f::T
 end
 
@@ -59,7 +61,21 @@ zz_component(ε::StructArray{<:ZDecEpsilon}) = ε.zz
 # would raise their sum of moduli up to about 9. The weights are fixed, so the round
 # trip stays linear. step = 1 stores every slice.
 #
-# Device: the interpolation runs through launch_combine!, on CPU and GPU alike.
+# Interaction picture (interaction = true). In a homogeneous medium the amplitudes
+# carry the phase of free propagation, exp(±i·kz·z) for each mode, and interpolating
+# them as they are interpolates this carrier, with an error of about 0.023·θ₀⁴ for a
+# phase θ₀ between two stored slices. The state then holds the envelopes
+# b = a·exp(-i·σ·k·θ) instead, θ = Re(kz)·dz per pixel, k the slice and σ = ±1 the
+# direction of the pass that stores them; the opposite pass reads a = b·exp(-i·σ'·k·θ)
+# with its own σ' = -σ. The envelopes are constant in a homogeneous medium, so that
+# their interpolation is exact there, and only vary through the kicks. Only the phase
+# is removed, never the decay exp(-Im(kz)·z): the factors have unit modulus, so the
+# change of variables is unitary (same Krylov iterations) and cannot amplify the decay
+# of absorbed or evanescent modes, whose interpolation is unchanged. The factor
+# exp(-i·σ·k·θ) is the same for storing and reading during a pass; it is updated slice
+# after slice by one product with exp(-i·θ), whatever the direction.
+#
+# The interpolation and the storage are part of the modal step kernel (see Stages).
 # ---------------------------------------------------------------------------------------
 
 struct SliceStorage{T}
@@ -93,57 +109,57 @@ end
 
 n_stored(s::SliceStorage) = maximum(s.slots)
 
-# Cubic interpolation of both opposite amplitudes of a slice: ψ_in holds the four node
-# slices of amp1, then those of amp2
-struct SliceInterpolation{T}
-    w::NTuple{4, T}
-end
-
-function (op::SliceInterpolation)(::Direction, ψ, ψ_in)
-    w1, w2, w3, w4 = op.w
-    a1, b1, c1, d1, a2, b2, c2, d2 = ψ_in
+# Cubic interpolation of both opposite amplitudes: src holds the four node values of
+# amp1, then those of amp2
+@inline function interpolate_pair(w, src)
+    w1, w2, w3, w4 = w
+    a1, b1, c1, d1, a2, b2, c2, d2 = src
     (w1 * a1 + w2 * b1 + w3 * c1 + w4 * d1, w1 * a2 + w2 * b2 + w3 * c2 + w4 * d2)
 end
 
-# Copy of both opposite amplitudes of a stored slice
-copy_slice(::Direction, ψ, ψ_in) = ψ_in
+# Phase factor outside the interaction picture: one for every pixel, which the products
+# P * a fold away
+struct Unity end
+@inline Base.getindex(::Unity, ::Vararg{Any}) = true
 
-# Opposite amplitudes of slice k, from the arrays `from` of the stored slices: a copy if
-# k is stored, the cubic interpolation of its four nodes otherwise
-function interpolate_slice!(amps::Tuple, from::Tuple, s::SliceStorage, k::Integer,
-                            direction::Direction)
+# Calls f with the description of slice k for its modal step:
+# - sources: where its opposite amplitudes come from, the slice itself if it is stored
+#   (weights = nothing, a copy) or the four nodes of each amplitude (interpolation);
+# - targets: its slot in the departing arrays if it is stored, () otherwise;
+# - phasor: the phase factor of the pass (Unity outside the interaction picture).
+# Each branch has its own concrete types, so the slice loop dispatches statically.
+function with_slice(f, s::SliceStorage, k::Integer, opposite::Tuple, departing::Tuple,
+                    P)
     j = s.slots[k]
     if j > 0
-        launch_combine!(copy_slice, amps, map(b -> slice_at(b, j), from), (), direction)
+        f((; weights = nothing, sources = map(b -> slice_at(b, j), opposite),
+           targets = map(b -> slice_at(b, j), departing), phasor = P))
     else
         n = s.nodes[k]
-        a, b = from
-        nodes = (map(i -> slice_at(a, i), n)..., map(i -> slice_at(b, i), n)...)
-        launch_combine!(SliceInterpolation(s.weights[k]), amps, nodes, (), direction)
+        a, b = opposite
+        sources = (map(i -> slice_at(a, i), n)..., map(i -> slice_at(b, i), n)...)
+        f((; weights = s.weights[k], sources, targets = (), phasor = P))
     end
-    amps
-end
-
-# Departing amplitudes of slice k, kept in the arrays `to` if k is stored
-function store_slice!(to::Tuple, amps::Tuple, s::SliceStorage, k::Integer)
-    j = s.slots[k]
-    j > 0 && foreach((b, a) -> copyto!(slice_at(b, j), a), to, amps)
-    to
 end
 
 """
-    VectorialBPM(u, thickness, eps_xyz, eps_ref; step = 1, trainable = false)
+    VectorialBPM(u, thickness, eps_xyz, eps_ref; step = 1, interaction = false,
+                 symmetric = false, trainable = false)
 
 Bidirectional vectorial split-step propagation through a layer of given thickness.
 `eps_xyz` has shape (Nx, Ny, nz), one slice per z step, with Number (isotropic) or
 ZDecEpsilon (z-decoupled tensor) entries. `eps_ref` is the scalar permittivity of the
 reference medium in which the modal propagation is exact. The state stores slices spread
 evenly from the first to the last, at most `step` slices apart, and interpolates the
-others (step = 1 stores every slice).
+others (step = 1 stores every slice); with `interaction = true`, it stores envelopes,
+free propagation phase removed, so that the interpolation is exact in homogeneous media
+(see Stored slices). With `symmetric = true`, each slice applies L/2, K, L/2 instead of
+K, L (see Stages).
 """
 function VectorialBPM(u::VectorialField, thickness::Real,
                       eps_xyz::AbstractArray{<:Permittivity, 3}, eps_ref::Number;
-                      step::Integer = 1, trainable::Bool = false)
+                      step::Integer = 1, interaction::Bool = false,
+                      symmetric::Bool = false, trainable::Bool = false)
     eltype(eps_xyz) <: Epsilon && throw(ArgumentError(
         "VectorialBPM handles isotropic and z-decoupled permittivities (ZDecEpsilon); " *
             "general tensors couple E⊥ and Ez and need the δ-variable scheme"))
@@ -156,7 +172,13 @@ function VectorialBPM(u::VectorialField, thickness::Real,
     E = map_eltype(eltype(eps_xyz), T)
     eps_buf = adapt(get_backend(u.Ex), struct_of_arrays(collect(E, eps_xyz)))
     ε_r = isreal(eps_ref) ? T(real(eps_ref)) : Complex{T}(eps_ref)
-    p_f, _ = make_fft_plans(similar(u.Ex), (1, 2); normalize = false)
+    # Kick buffer: E⊥ components stacked along a last dimension, so that both are
+    # transformed by one batched FFT, the plan seeing it as (Nx, Ny, batch·2)
+    pair = similar(u.Ex, (size(u.Ex)..., 2))
+    buffers = (; pair = reshape(pair, ns..., :), x = selectdim(pair, ndims(pair), 1),
+               y = selectdim(pair, ndims(pair), 2), delta = similar(u.Ex))
+    p_f = (; field = first(make_fft_plans(similar(u.Ex), (1, 2); normalize = false)),
+           pair = first(make_fft_plans(buffers.pair, (1, 2); normalize = false)))
     medium = VectorialMediumModes(u, ε_r)
     factors = propagation_factors.(medium.modes, dz)
     fx = collect(T, T(2π) .* fftfreq(ns[1], 1 / u.ds[1]))
@@ -164,14 +186,21 @@ function VectorialBPM(u::VectorialField, thickness::Real,
     kx, ky = similar(u.Ex, T, ns), similar(u.Ex, T, ns)
     copyto!(kx, repeat(fx, 1, ns[2]))
     copyto!(ky, repeat(permutedims(fy), ns[1], 1))
-    buffers = (similar(u.Ex), similar(u.Ex))
     storage = SliceStorage(T, nz, step)
     dims = (size(u.Ex)..., n_stored(storage))
     forward_amps = (similar(u.Ex, dims), similar(u.Ex, dims))
-    slice_amps = (similar(u.Ex), similar(u.Ex))
+    # Interaction picture: exp(-i·θ) per pixel, θ = Re(kz)·dz, and the phase factor
+    # exp(-i·σ·k·θ) at the first slice of each pass: k = 1 (σ = 1), k = nz (σ = -1)
+    phasors = if interaction
+        θ = map(m -> T(real(m.kz)) * dz, medium.modes)
+        (; step = cis.(-θ), first_fwd = cis.(-θ), first_bwd = cis.(nz .* θ),
+         current = similar(u.Ex, Complex{T}, ns))
+    else
+        nothing
+    end
     M = trainable ? Trainable : Static
     VectorialBPM(Val(M), eps_buf, ε_r, dz, p_f, medium, factors, kx, ky, buffers, storage,
-                 forward_amps, slice_amps, T(1 / prod(ns)))
+                 forward_amps, phasors, symmetric, T(1 / prod(ns)))
 end
 
 reference_medium(p::VectorialBPM) = p.medium
@@ -193,119 +222,263 @@ end
 # is the same operator with the opposite coefficient: sign(direction) in cK and cL.
 # Forward: K, L, P. Backward: P, L, K, the exact inverse sequence.
 #
-# Both sheets follow the same pattern:
-#   Input (Fourier) → IFFT → Product (real space) → FFT → Output (Fourier)
-# The kick uses both buffers (bx, by), the longitudinal sheet uses bx only.
+# symmetric = true: L/2, K, L/2 (Strang splitting of the sheets), which removes the
+# first order error of the commutator [K, L]. The sequence is a palindrome, the same in
+# both passes. L/2 is still a shear, and L/2∘L/2 = L. The ends of the layer are not
+# corrected: the sheets stay at the start of each slice, not at its middle.
+#
+# Stages. K and L are sheets with the same pattern, input and output being pointwise in
+# Fourier space:
+#   input → IFFT → product (real space) → FFT → output
+#   K: kick_input (pair = E⊥), kick_sheet, kick_output (H⊥ += ΔH⊥)
+#   L: longitudinal_input (δ = D̂z), longitudinal_sheet, longitudinal_output (E⊥ += k⊥·δ)
+# P is a single pointwise modal_step, which also reads the opposite amplitudes (copied or
+# interpolated from the state) and writes the departing ones if the slice is stored.
+# Wherever the output of an operator meets the input of the next one, both run in one
+# kernel, one pass over the grid instead of two:
+#   kick_output + longitudinal_input        longitudinal_output + kick_input
+#   longitudinal_output + modal_step        modal_step + longitudinal_input
+# The kick works in the pair buffer (E⊥ stacked along a last dimension, one batched FFT
+# for both components), the longitudinal sheet in δ.
+#
+# Every pixel function is inlined into the loops of launch_combine!: a call left out of
+# line breaks their @simd vectorization on CPU (about ten times slower).
 # ---------------------------------------------------------------------------------------
 
-# Kick product, real space: (bx, by) holds E⊥ on input and ΔH⊥ on output,
+# Pointwise pieces, Fourier space
+@inline added_kick(H, ΔH) = (H[1] + ΔH[1], H[2] + ΔH[2])
+@inline normalized_dz(k0, kx, ky, H) = -(kx * H[2] - ky * H[1]) / k0      # D̂z
+@inline added_longitudinal(kx, ky, E, δ) = (E[1] + kx * δ, E[2] + ky * δ)
+
+# Kick product, real space: the pair buffer holds E⊥ on input and ΔH⊥ on output,
 # ΔHx = -c·ΔDy and ΔHy = c·ΔDx with ΔD = (ε⊥ - ε_r)·E⊥
 struct KickProduct{C, R}
     c::C
     r::R
 end
 
-function (op::KickProduct)(ε, ::Direction, ψ, ψ_in)
+@inline function (op::KickProduct)(ε, ::Direction, ψ, ψ_in)
     Ex, Ey = ψ
     Δ = ε - op.r
     (-op.c * Δ * Ey, op.c * Δ * Ex)
 end
 
-function (op::KickProduct)(εxx, εxy, εyx, εyy, ::Direction, ψ, ψ_in)
+@inline function (op::KickProduct)(εxx, εxy, εyx, εyy, ::Direction, ψ, ψ_in)
     Ex, Ey = ψ
     Dx, Dy = εxx * Ex + εxy * Ey, εyx * Ex + εyy * Ey
     (-op.c * (Dy - op.r * Ey), op.c * (Dx - op.r * Ex))
 end
 
-# Kick output, Fourier: H⊥ += ΔH⊥
-function kick_output(::Direction, ψ, ψ_in)
-    Hx, Hy = ψ
-    ΔHx, ΔHy = ψ_in
-    (Hx + ΔHx, Hy + ΔHy)
-end
-
-# Longitudinal input, Fourier: bx = D̂z
-struct LongitudinalInput{T}
-    k0::T
-end
-
-function (op::LongitudinalInput)(kx, ky, ::Direction, ψ, ψ_in)
-    Hx, Hy = ψ_in
-    (-(kx * Hy - ky * Hx) / op.k0,)
-end
-
-# Longitudinal product, real space: bx = c·(Δεzz/εzz)·D̂z, i.e. c·Δεzz·Ez
+# Longitudinal product, real space: δ = c·(Δεzz/εzz)·D̂z, i.e. c·Δεzz·Ez
 struct LongitudinalProduct{C, R}
     c::C
     r::R
 end
 
-function (op::LongitudinalProduct)(εzz, ::Direction, ψ, ψ_in)
+@inline function (op::LongitudinalProduct)(εzz, ::Direction, ψ, ψ_in)
     δ, = ψ
     (op.c * δ * (εzz - op.r) / εzz,)
 end
 
-# Longitudinal output, Fourier: E⊥ += k⊥·bx
-function longitudinal_output(kx, ky, ::Direction, ψ, ψ_in)
-    Ex, Ey = ψ
-    δ, = ψ_in
-    (Ex + kx * δ, Ey + ky * δ)
+# Kick input: pair = E⊥ (fields: pair, inputs: E⊥)
+@inline copy_inputs(::Direction, ψ, ψ_in) = ψ_in
+
+# Kick output: H⊥ += ΔH⊥ (fields: H⊥, inputs: pair)
+@inline kick_output(::Direction, ψ, ψ_in) = added_kick(ψ, ψ_in)
+
+# Longitudinal input: δ = D̂z (fields: δ, inputs: H⊥)
+struct LongitudinalInput{T}
+    k0::T
+end
+
+@inline function (op::LongitudinalInput)(kx, ky, ::Direction, ψ, ψ_in)
+    (normalized_dz(op.k0, kx, ky, ψ_in),)
+end
+
+# Longitudinal output: E⊥ += k⊥·δ (fields: E⊥, inputs: δ)
+@inline function longitudinal_output(kx, ky, ::Direction, ψ, ψ_in)
+    added_longitudinal(kx, ky, ψ, ψ_in[1])
+end
+
+# Kick output, then longitudinal input (fields: H⊥, δ; inputs: pair)
+struct KickOutputLongitudinalInput{T}
+    k0::T
+end
+
+@inline function (op::KickOutputLongitudinalInput)(kx, ky, ::Direction, ψ, ψ_in)
+    H = added_kick(ψ, ψ_in)
+    (H..., normalized_dz(op.k0, kx, ky, H))
+end
+
+# Longitudinal output, then kick input (fields: E⊥, pair; inputs: δ)
+@inline function longitudinal_output_kick_input(kx, ky, ::Direction, ψ, ψ_in)
+    E = added_longitudinal(kx, ky, ψ, ψ_in[1])
+    (E..., E...)
+end
+
+# Modal step of a pixel: the opposite amplitudes are rebuilt from their sources, a copy
+# (weights = nothing) or the interpolation of four nodes, the departing ones returned
+# for storage if the slice is stored. Both are envelopes times the phase factor P.
+struct ModalStep{W, S}
+    weights::W
+    store::Val{S}
+end
+
+stores(::Tuple{}) = Val(false)
+stores(::Tuple) = Val(true)
+ModalStep(slice::NamedTuple) = ModalStep(slice.weights, stores(slice.targets))
+
+@inline opposite_pair(::Nothing, P, src) = (P * src[1], P * src[2])
+@inline function opposite_pair(w::NTuple{4}, P, src)
+    a, b = interpolate_pair(w, src)
+    (P * a, P * b)
+end
+
+@inline departing_pair(::Val{true}, P, a) = (P * a[1], P * a[2])
+@inline departing_pair(::Val{false}, P, a) = ()
+
+# Ψ = (E⊥, H⊥) → (new Ψ, departing amplitudes to store)
+@inline function (op::ModalStep)(m, f, P, direction::Direction, Ψ, src)
+    o = opposite_pair(op.weights, P, src)
+    Ψ_out, a = @inline propagate_modes(m, f, direction, Ψ, o)
+    (Ψ_out, departing_pair(op.store, P, a))
+end
+
+# Longitudinal output, then modal step (fields: E⊥, H⊥, targets; inputs: δ, sources)
+struct LongitudinalOutputModalStep{S}
+    step::S
+end
+
+@inline function (op::LongitudinalOutputModalStep)(kx, ky, m, f, P, direction::Direction,
+                                                   ψ, ψ_in)
+    Ex, Ey, Hx, Hy = ψ
+    E = added_longitudinal(kx, ky, (Ex, Ey), first(ψ_in))
+    Ψ, a = op.step(m, f, P, direction, (E..., Hx, Hy), Base.tail(ψ_in))
+    (Ψ..., a...)
+end
+
+# Modal step, then longitudinal input (fields: E⊥, H⊥, δ, targets; inputs: sources)
+struct ModalStepLongitudinalInput{S, T}
+    step::S
+    k0::T
+end
+
+@inline function (op::ModalStepLongitudinalInput)(kx, ky, m, f, P, direction::Direction,
+                                                  ψ, ψ_in)
+    Ex, Ey, Hx, Hy = ψ
+    Ψ, a = op.step(m, f, P, direction, (Ex, Ey, Hx, Hy), ψ_in)
+    (Ψ..., normalized_dz(op.k0, kx, ky, (Ψ[3], Ψ[4])), a...)
 end
 
 # ---------------------------------------------------------------------------------------
-# The three operators
+# Stages: one launch each, plus two FFTs for each sheet
 # ---------------------------------------------------------------------------------------
 
-# K: 2 copies, 2 launches, 4 FFTs. ε is the permittivity slice.
-function kick!(u::VectorialField, p::VectorialBPM, ε, cK, direction::Direction)
-    bx, by = p.buffers
-    copyto!(bx, u.Ex)
-    copyto!(by, u.Ey)
-    p.p_f.ift * bx
-    p.p_f.ift * by
-    launch_combine!(KickProduct(cK, p.eps_ref), (bx, by), (), kick_coefs(ε), direction)
-    p.p_f.ft * bx
-    p.p_f.ft * by
-    launch_combine!(kick_output, (u.Hx, u.Hy), (bx, by), (), direction)
-    u
+k_grid(p::VectorialBPM) = (p.kx, p.ky)
+modal_coefs(p::VectorialBPM, slice) = (p.kx, p.ky, p.medium.modes, p.factors, slice.phasor)
+
+function kick_input!(u::VectorialField, p::VectorialBPM, direction::Direction)
+    (; x, y) = p.buffers
+    launch_combine!(copy_inputs, (x, y), (u.Ex, u.Ey), (), direction)
 end
 
-# L: 3 launches, 2 FFTs. ε is the permittivity slice, of which only εzz is read.
-function longitudinal!(u::VectorialField, p::VectorialBPM, ε, cL, k0,
-                       direction::Direction)
-    δ = first(p.buffers)
-    k_grid = (p.kx, p.ky)
-    launch_combine!(LongitudinalInput(k0), (δ,), (u.Hx, u.Hy), k_grid, direction)
-    p.p_f.ift * δ
+function kick_sheet!(p::VectorialBPM, ε, cK, direction::Direction)
+    (; pair, x, y) = p.buffers
+    p.p_f.pair.ift * pair
+    launch_combine!(KickProduct(cK, p.eps_ref), (x, y), (), kick_coefs(ε), direction)
+    p.p_f.pair.ft * pair
+end
+
+function kick_output!(u::VectorialField, p::VectorialBPM, direction::Direction)
+    (; x, y) = p.buffers
+    launch_combine!(kick_output, (u.Hx, u.Hy), (x, y), (), direction)
+end
+
+function longitudinal_input!(u::VectorialField, p::VectorialBPM, k0, direction::Direction)
+    launch_combine!(LongitudinalInput(k0), (p.buffers.delta,), (u.Hx, u.Hy), k_grid(p),
+                    direction)
+end
+
+function longitudinal_sheet!(p::VectorialBPM, ε, cL, direction::Direction)
+    δ = p.buffers.delta
+    p.p_f.field.ift * δ
     launch_combine!(LongitudinalProduct(cL, p.eps_ref), (δ,), (), (zz_component(ε),),
                     direction)
-    p.p_f.ft * δ
-    launch_combine!(longitudinal_output, (u.Ex, u.Ey), (δ,), k_grid, direction)
-    u
+    p.p_f.field.ft * δ
 end
 
-# P: 1 launch, stored is the state of the slice
-function free_propagation!(u::VectorialField, stored::Tuple, p::VectorialBPM,
-                           direction::Direction)
-    launch_modal!(propagate_modes, (u.Ex, u.Ey, u.Hx, u.Hy), stored,
-                  (p.medium.modes, p.factors), direction)
-    u
+function longitudinal_output!(u::VectorialField, p::VectorialBPM, direction::Direction)
+    launch_combine!(longitudinal_output, (u.Ex, u.Ey), (p.buffers.delta,), k_grid(p),
+                    direction)
+end
+
+function kick_output_longitudinal_input!(u::VectorialField, p::VectorialBPM, k0,
+                                         direction::Direction)
+    (; x, y, delta) = p.buffers
+    launch_combine!(KickOutputLongitudinalInput(k0), (u.Hx, u.Hy, delta), (x, y),
+                    k_grid(p), direction)
+end
+
+function longitudinal_output_kick_input!(u::VectorialField, p::VectorialBPM,
+                                         direction::Direction)
+    (; x, y, delta) = p.buffers
+    launch_combine!(longitudinal_output_kick_input, (u.Ex, u.Ey, x, y), (delta,),
+                    k_grid(p), direction)
+end
+
+function longitudinal_output_modal_step!(u::VectorialField, p::VectorialBPM, slice,
+                                         direction::Direction)
+    op = LongitudinalOutputModalStep(ModalStep(slice))
+    launch_combine!(op, (u.Ex, u.Ey, u.Hx, u.Hy, slice.targets...),
+                    (p.buffers.delta, slice.sources...), modal_coefs(p, slice), direction)
+end
+
+function modal_step_longitudinal_input!(u::VectorialField, p::VectorialBPM, slice, k0,
+                                        direction::Direction)
+    op = ModalStepLongitudinalInput(ModalStep(slice), k0)
+    launch_combine!(op, (u.Ex, u.Ey, u.Hx, u.Hy, p.buffers.delta, slice.targets...),
+                    slice.sources, modal_coefs(p, slice), direction)
 end
 
 # ---------------------------------------------------------------------------------------
 # Slice and slice loop
 # ---------------------------------------------------------------------------------------
 
-function propagate_slice!(u::VectorialField, stored::Tuple, p::VectorialBPM, ε,
-                          cK, cL, k0, direction::Direction)
-    if isforward(direction)
-        kick!(u, p, ε, cK, direction)
-        longitudinal!(u, p, ε, cL, k0, direction)
-        free_propagation!(u, stored, p, direction)
+function propagate_slice!(u::VectorialField, p::VectorialBPM, ε, slice, cK, cL, k0,
+                          direction::Direction)
+    if p.symmetric
+        # L/2, K, L/2, P forward, and the reverse backward
+        if isforward(direction)
+            longitudinal_input!(u, p, k0, direction)
+            longitudinal_sheet!(p, ε, cL / 2, direction)
+            longitudinal_output_kick_input!(u, p, direction)
+            kick_sheet!(p, ε, cK, direction)
+            kick_output_longitudinal_input!(u, p, k0, direction)
+            longitudinal_sheet!(p, ε, cL / 2, direction)
+            longitudinal_output_modal_step!(u, p, slice, direction)
+        else
+            modal_step_longitudinal_input!(u, p, slice, k0, direction)
+            longitudinal_sheet!(p, ε, cL / 2, direction)
+            longitudinal_output_kick_input!(u, p, direction)
+            kick_sheet!(p, ε, cK, direction)
+            kick_output_longitudinal_input!(u, p, k0, direction)
+            longitudinal_sheet!(p, ε, cL / 2, direction)
+            longitudinal_output!(u, p, direction)
+        end
+    elseif isforward(direction)
+        # K, L, P
+        kick_input!(u, p, direction)
+        kick_sheet!(p, ε, cK, direction)
+        kick_output_longitudinal_input!(u, p, k0, direction)
+        longitudinal_sheet!(p, ε, cL, direction)
+        longitudinal_output_modal_step!(u, p, slice, direction)
     else
-        free_propagation!(u, stored, p, direction)
-        longitudinal!(u, p, ε, cL, k0, direction)
-        kick!(u, p, ε, cK, direction)
+        # P, L, K
+        modal_step_longitudinal_input!(u, p, slice, k0, direction)
+        longitudinal_sheet!(p, ε, cL, direction)
+        longitudinal_output_kick_input!(u, p, direction)
+        kick_sheet!(p, ε, cK, direction)
+        kick_output!(u, p, direction)
     end
     u
 end
@@ -322,11 +495,16 @@ function propagate!(u::VectorialField, state, ::Nothing, p::VectorialBPM,
     # forward_amps; the backward pass reads these and writes the new state
     opposite, departing = isforward(direction) ? (state_arrays(state), p.forward_amps) :
         (p.forward_amps, state_arrays(state))
+    # Interaction picture: phase factor of the current slice, updated after each slice
+    P = isnothing(p.phasors) ? Unity() : p.phasors.current
+    isnothing(p.phasors) || copyto!(P, isforward(direction) ? p.phasors.first_fwd :
+                                                              p.phasors.first_bwd)
     for k in reverse(1:size(p.eps_xyz, 3), direction)
         ε = slice_at(p.eps_xyz, k)
-        interpolate_slice!(p.slice_amps, opposite, p.storage, k, direction)
-        propagate_slice!(u, p.slice_amps, p, ε, cK, cL, k0, direction)
-        store_slice!(departing, p.slice_amps, p.storage, k)
+        with_slice(p.storage, k, opposite, departing, P) do slice
+            propagate_slice!(u, p, ε, slice, cK, cL, k0, direction)
+        end
+        isnothing(p.phasors) || (P .*= p.phasors.step)
     end
     u
 end

@@ -19,17 +19,31 @@ end
     end
 end
 
+# The CPU loops index every array linearly. They take host fields whose linear indexing
+# is a plain offset: arrays, and their contiguous views and reshapes (slices of a state
+# held in a ComponentArray, components of a pair buffer). Decided on the types alone, so
+# the branch below is resolved at compile time; other fields go to the generic kernel,
+# which on CPU spawns tasks for every launch.
+@inline linear_host(a::AbstractArray) =
+    get_backend(a) isa KernelAbstractions.CPU && IndexStyle(a) isa IndexLinear
+@inline linear_host(::Tuple{}) = true
+@inline linear_host(t::Tuple) = linear_host(first(t)) && linear_host(Base.tail(t))
+
 function launch_combine!(f, fields::Tuple, inputs::Tuple, coefs::Tuple,
                          direction::Direction)
-    combine_kernel!(get_backend(first(fields)))(
-        f, fields, inputs, coefs, direction; ndrange = size(first(fields))[1:2])
+    if linear_host(fields)
+        combine_host!(f, fields, inputs, coefs, direction)
+    else
+        combine_kernel!(get_backend(first(fields)))(
+            f, fields, inputs, coefs, direction; ndrange = size(first(fields))[1:2])
+    end
 end
 
 # Fields of shape (Nx, Ny, batch...): the outer loop runs over the 2D slices of the
 # batch, the inner loop over their pixels with one linear index, so @simd applies.
 # Coefficients are (Nx, Ny); fields and inputs share the shape of the first field.
-function launch_combine!(f, fields::Tuple{Array, Vararg{Array}}, inputs::Tuple,
-                         coefs::Tuple, direction::Direction)
+function combine_host!(f, fields::Tuple, inputs::Tuple, coefs::Tuple,
+                       direction::Direction)
     A = first(fields)
     n = size(A, 1) * size(A, 2)                  # pixels of one slice
     for o in 0:n:(length(A) - n)                 # offset of each batch slice

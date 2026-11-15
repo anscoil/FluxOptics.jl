@@ -127,15 +127,18 @@ end
 end
 
 function launch_modal!(f, fields::Tuple, stored::Tuple, coefs::Tuple, direction::Direction)
-    modal_kernel!(get_backend(first(fields)))(
-        f, fields, stored, coefs, direction; ndrange = size(first(fields))[1:2])
+    if linear_host((fields..., stored...))       # see launch_combine!
+        modal_host!(f, fields, stored, coefs, direction)
+    else
+        modal_kernel!(get_backend(first(fields)))(
+            f, fields, stored, coefs, direction; ndrange = size(first(fields))[1:2])
+    end
 end
 
 # Fields of shape (Nx, Ny, batch...): the outer loop runs over the 2D slices of the
 # batch, the inner loop over their pixels with one linear index, so @simd applies.
 # Coefficients are (Nx, Ny); fields and stored states share the shape of the first field.
-function launch_modal!(f, fields::Tuple{Array, Vararg{Array}}, stored::Tuple,
-                       coefs::Tuple, direction::Direction)
+function modal_host!(f, fields::Tuple, stored::Tuple, coefs::Tuple, direction::Direction)
     A = first(fields)
     n = size(A, 1) * size(A, 2)                  # pixels of one slice
     for o in 0:n:(length(A) - n)                 # offset of each batch slice

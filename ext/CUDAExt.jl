@@ -56,5 +56,6 @@ function ChainRulesCore.rrule(::typeof(Base.exp), A::CuArray{T,2}) where {T}
 end
 
 include("cuda/optical_components.jl")
+include("cuda/graphs.jl")
 
 end
