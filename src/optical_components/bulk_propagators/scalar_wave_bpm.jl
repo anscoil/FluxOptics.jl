@@ -42,7 +42,7 @@ function ScalarWaveBPM(u::ScalarWaveField, thickness::Real,
     copyto!(n_xyz_buf, n_xyz)
     p_f, _ = make_fft_plans(similar(u.E), (1, 2); normalize = false)
     medium = ScalarMediumModes(u, n0)
-    medium_loc = ScalarMediumModes(u, n0_loc)
+    medium_loc = ScalarMediumModes(u, Complex{T}(n0_loc))
     factors = propagation_factors.(medium.modes, dz)
     factors_loc = propagation_factors.(medium_loc.modes, dz)
     transports = stateful ? nothing : transport_factors.(medium.modes, dz; keep_evanescent)
