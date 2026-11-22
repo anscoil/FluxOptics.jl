@@ -6,14 +6,16 @@ struct VectorialBPM{M, T, N, R, P, E, F, K, B, S, A, Q} <:
     dz::T
     p_f::P             # FFT plans: of one field (field) and of the pair buffer (pair)
     medium::E
-    factors::F
+    factors::F         # modal step over dz
+    half_factors::F    # modal step over dz/2: first and last steps with strang
     kx::K
     ky::K
     buffers::B         # pair buffer of the kick and its components, δ of L
-    storage::S         # stored slices and interpolation weights
+    storage::S         # stored planes and interpolation weights, per pass (fwd, bwd)
     forward_amps::A    # forward amplitudes of the stored slices, for the backward pass
     phasors::Q         # interaction picture: phase factors per pixel, or nothing
     symmetric::Bool    # Strang splitting of the sheets: L/2, K, L/2
+    strang::Bool       # half modal steps at both ends of the layer (see Stages)
     nrm_f::T
 end
 
@@ -84,7 +86,11 @@ struct SliceStorage{T}
     weights::Vector{NTuple{4, T}}     # their cubic Lagrange weights
 end
 
-function SliceStorage(::Type{T}, nz::Integer, step::Integer) where {T}
+# positions: z of the planes, in any unit (uniform by default). With strang, the planes
+# of the two passes are not evenly spaced at the ends, and each pass has its own weights.
+function SliceStorage(::Type{T}, nz::Integer, step::Integer;
+                      positions::AbstractVector{<:Real} = 1:nz) where {T}
+    length(positions) == nz || throw(ArgumentError("one position per plane expected"))
     step >= 1 || throw(ArgumentError("step must be at least 1"))
     n = cld(nz - 1, step) + 1
     zs = unique!(round.(Int, range(1, nz; length = n)))
@@ -99,9 +105,10 @@ function SliceStorage(::Type{T}, nz::Integer, step::Integer) where {T}
         # Four nearest stored slices, two on each side when possible
         j = clamp(searchsortedlast(zs, k) - 1, 1, length(zs) - 3)
         nodes[k] = ntuple(l -> j + l - 1, 4)
-        z = ntuple(l -> zs[j + l - 1], 4)
+        z = ntuple(l -> positions[zs[j + l - 1]], 4)
+        x = positions[k]
         weights[k] = ntuple(4) do l
-            T(prod((k - z[m]) / (z[l] - z[m]) for m in 1:4 if m != l))
+            T(prod((x - z[m]) / (z[l] - z[m]) for m in 1:4 if m != l))
         end
     end
     SliceStorage(slots, nodes, weights)
@@ -144,7 +151,7 @@ end
 
 """
     VectorialBPM(u, thickness, eps_xyz, eps_ref; step = 1, interaction = false,
-                 symmetric = false, trainable = false)
+                 symmetric = false, strang = false, trainable = false)
 
 Bidirectional vectorial split-step propagation through a layer of given thickness.
 `eps_xyz` has shape (Nx, Ny, nz), one slice per z step, with Number (isotropic) or
@@ -154,12 +161,15 @@ evenly from the first to the last, at most `step` slices apart, and interpolates
 others (step = 1 stores every slice); with `interaction = true`, it stores envelopes,
 free propagation phase removed, so that the interpolation is exact in homogeneous media
 (see Stored slices). With `symmetric = true`, each slice applies L/2, K, L/2 instead of
-K, L (see Stages).
+K, L (see Stages). With `strang = true`, the layer also starts and ends with a half modal
+step, which makes the scheme of second order in dz (Strang splitting of the whole slice
+sequence, sheets symmetric); it needs one more stored plane and no interaction picture.
 """
 function VectorialBPM(u::VectorialField, thickness::Real,
                       eps_xyz::AbstractArray{<:Permittivity, 3}, eps_ref::Number;
                       step::Integer = 1, interaction::Bool = false,
-                      symmetric::Bool = false, trainable::Bool = false)
+                      symmetric::Bool = false, strang::Bool = false,
+                      trainable::Bool = false)
     eltype(eps_xyz) <: Epsilon && throw(ArgumentError(
         "VectorialBPM handles isotropic and z-decoupled permittivities (ZDecEpsilon); " *
             "general tensors couple E⊥ and Ez and need the δ-variable scheme"))
@@ -168,6 +178,9 @@ function VectorialBPM(u::VectorialField, thickness::Real,
     @assert size(eps_xyz)[1:2] == ns
     nz = size(eps_xyz, 3)
     dz = T(thickness / nz)
+    strang && interaction && throw(ArgumentError(
+        "strang = true does not support the interaction picture (interaction = true)"))
+    symmetric = symmetric || strang
     # Conversion on the host first, so that the copy to the device never mixes types
     E = map_eltype(eltype(eps_xyz), T)
     eps_buf = adapt(get_backend(u.Ex), struct_of_arrays(collect(E, eps_xyz)))
@@ -181,13 +194,14 @@ function VectorialBPM(u::VectorialField, thickness::Real,
            pair = first(make_fft_plans(buffers.pair, (1, 2); normalize = false)))
     medium = VectorialMediumModes(u, ε_r)
     factors = propagation_factors.(medium.modes, dz)
+    half_factors = propagation_factors.(medium.modes, dz / 2)
     fx = collect(T, T(2π) .* fftfreq(ns[1], 1 / u.ds[1]))
     fy = collect(T, T(2π) .* fftfreq(ns[2], 1 / u.ds[2]))
     kx, ky = similar(u.Ex, T, ns), similar(u.Ex, T, ns)
     copyto!(kx, repeat(fx, 1, ns[2]))
     copyto!(ky, repeat(permutedims(fy), ns[1], 1))
-    storage = SliceStorage(T, nz, step)
-    dims = (size(u.Ex)..., n_stored(storage))
+    storage = plane_storage(T, nz, step, strang)
+    dims = (size(u.Ex)..., n_stored(storage.fwd))
     forward_amps = (similar(u.Ex, dims), similar(u.Ex, dims))
     # Interaction picture: exp(-i·θ) per pixel, θ = Re(kz)·dz, and the phase factor
     # exp(-i·σ·k·θ) at the first slice of each pass: k = 1 (σ = 1), k = nz (σ = -1)
@@ -199,14 +213,33 @@ function VectorialBPM(u::VectorialField, thickness::Real,
         nothing
     end
     M = trainable ? Trainable : Static
-    VectorialBPM(Val(M), eps_buf, ε_r, dz, p_f, medium, factors, kx, ky, buffers, storage,
-                 forward_amps, phasors, symmetric, T(1 / prod(ns)))
+    VectorialBPM(Val(M), eps_buf, ε_r, dz, p_f, medium, factors, half_factors, kx, ky,
+                 buffers, storage, forward_amps, phasors, symmetric, strang,
+                 T(1 / prod(ns)))
+end
+
+# Planes of the modal steps, in units of dz. Without strang: the step of slice k goes from
+# k - 1 to k. With strang: step 0 goes from 0 to 1/2, step k from k - 1/2 to k + 1/2 for
+# 1 ≤ k < nz, and step nz from nz - 1/2 to nz; step m uses plane m + 1 of the storage.
+# The forward pass reads the backward amplitudes at the end of each step, the backward
+# pass the forward amplitudes at its start: the interpolation weights of each pass use
+# the positions of the planes it reads.
+function plane_storage(::Type{T}, nz, step, strang::Bool) where {T}
+    if strang
+        ends = vcat((0:(nz - 1)) .+ 0.5, nz)
+        starts = vcat(0, (1:nz) .- 0.5)
+        (; fwd = SliceStorage(T, nz + 1, step; positions = ends),
+         bwd = SliceStorage(T, nz + 1, step; positions = starts))
+    else
+        s = SliceStorage(T, nz, step)
+        (; fwd = s, bwd = s)
+    end
 end
 
 reference_medium(p::VectorialBPM) = p.medium
 
 function alloc_fp_state(u::VectorialField, p::VectorialBPM)
-    dims = (size(u.Ex)..., n_stored(p.storage))
+    dims = (size(u.Ex)..., n_stored(p.storage.fwd))
     (; amp1 = similar(u.Ex, dims), amp2 = similar(u.Ex, dims))
 end
 
@@ -224,8 +257,15 @@ end
 #
 # symmetric = true: L/2, K, L/2 (Strang splitting of the sheets), which removes the
 # first order error of the commutator [K, L]. The sequence is a palindrome, the same in
-# both passes. L/2 is still a shear, and L/2∘L/2 = L. The ends of the layer are not
-# corrected: the sheets stay at the start of each slice, not at its middle.
+# both passes. L/2 is still a shear, and L/2∘L/2 = L. Alone, it keeps the scheme of
+# first order: the sheets stay at the start of each slice, which moves a layer dz/2 of
+# reference medium from one end of the layer to the other.
+#
+# strang = true (implies symmetric): the layer starts with a modal step over dz/2 and
+# its last modal step is over dz/2, so that the sheets sit in the middle of their slices:
+#   P/2, [L/2, K, L/2, P] × (nz - 1), L/2, K, L/2, P/2
+# a Strang splitting of the whole sequence, of second order in dz. The first half step
+# is one more modal step, with its own stored plane (plane 1; slice k uses plane k + 1).
 #
 # Stages. K and L are sheets with the same pattern, input and output being pointwise in
 # Fourier space:
@@ -370,12 +410,25 @@ end
     (Ψ..., normalized_dz(op.k0, kx, ky, (Ψ[3], Ψ[4])), a...)
 end
 
+# Modal step alone, for the half steps at the ends of the layer (fields: E⊥, H⊥, targets;
+# inputs: sources)
+struct ModalStepOnly{S}
+    step::S
+end
+
+@inline function (op::ModalStepOnly)(kx, ky, m, f, P, direction::Direction, ψ, ψ_in)
+    Ex, Ey, Hx, Hy = ψ
+    Ψ, a = op.step(m, f, P, direction, (Ex, Ey, Hx, Hy), ψ_in)
+    (Ψ..., a...)
+end
+
 # ---------------------------------------------------------------------------------------
 # Stages: one launch each, plus two FFTs for each sheet
 # ---------------------------------------------------------------------------------------
 
 k_grid(p::VectorialBPM) = (p.kx, p.ky)
-modal_coefs(p::VectorialBPM, slice) = (p.kx, p.ky, p.medium.modes, p.factors, slice.phasor)
+modal_coefs(p::VectorialBPM, slice) =
+    (p.kx, p.ky, p.medium.modes, slice.factors, slice.phasor)
 
 function kick_input!(u::VectorialField, p::VectorialBPM, direction::Direction)
     (; x, y) = p.buffers
@@ -440,6 +493,12 @@ function modal_step_longitudinal_input!(u::VectorialField, p::VectorialBPM, slic
                     slice.sources, modal_coefs(p, slice), direction)
 end
 
+function modal_step!(u::VectorialField, p::VectorialBPM, slice, direction::Direction)
+    op = ModalStepOnly(ModalStep(slice))
+    launch_combine!(op, (u.Ex, u.Ey, u.Hx, u.Hy, slice.targets...), slice.sources,
+                    modal_coefs(p, slice), direction)
+end
+
 # ---------------------------------------------------------------------------------------
 # Slice and slice loop
 # ---------------------------------------------------------------------------------------
@@ -499,12 +558,23 @@ function propagate!(u::VectorialField, state, ::Nothing, p::VectorialBPM,
     P = isnothing(p.phasors) ? Unity() : p.phasors.current
     isnothing(p.phasors) || copyto!(P, isforward(direction) ? p.phasors.first_fwd :
                                                               p.phasors.first_bwd)
-    for k in reverse(1:size(p.eps_xyz, 3), direction)
+    nz = size(p.eps_xyz, 3)
+    storage = isforward(direction) ? p.storage.fwd : p.storage.bwd
+    # strang: half modal step 0 before the first slice (forward) or after it (backward)
+    function half_step!()
+        with_slice(storage, 1, opposite, departing, P) do slice
+            modal_step!(u, p, merge(slice, (; factors = p.half_factors)), direction)
+        end
+    end
+    p.strang && isforward(direction) && half_step!()
+    for k in reverse(1:nz, direction)
         ε = slice_at(p.eps_xyz, k)
-        with_slice(p.storage, k, opposite, departing, P) do slice
-            propagate_slice!(u, p, ε, slice, cK, cL, k0, direction)
+        factors = p.strang && k == nz ? p.half_factors : p.factors
+        with_slice(storage, k + p.strang, opposite, departing, P) do slice
+            propagate_slice!(u, p, ε, merge(slice, (; factors)), cK, cL, k0, direction)
         end
         isnothing(p.phasors) || (P .*= p.phasors.step)
     end
+    p.strang && !isforward(direction) && half_step!()
     u
 end

@@ -10,8 +10,10 @@ struct ScalarWaveBPM{M, T, N, P, E, F, R, Q} <: AbstractBidirectionalComponent{M
     medium_loc::E
     factors::F
     factors_loc::F
+    half_factors::F      # modal step over dz/2: first and last steps with strang
     transports::R        # nothing: the opposite modes are kept in the state
     transports_loc::Q    # stateless sub-steps (n_sub > 1); nothing for n_sub = 1
+    strang::Bool         # half modal steps at both ends of the layer
     nrm_f::T
 end
 
@@ -19,18 +21,28 @@ Functors.@functor ScalarWaveBPM (n_xyz,)
 
 """
     ScalarWaveBPM(u, thickness, n_xyz, n0; n_sub = 1, n0_loc = real(n0),
-                  trainable = false, stateful = true, keep_evanescent = false)
+                  trainable = false, stateful = true, keep_evanescent = false,
+                  strang = false)
 
 Bidirectional scalar split-step propagation through a layer of given thickness. A
 stateful BPM keeps the modes travelling against each pass in the fixed-point state; a
 stateless one transports them across each step, cutting the evanescent ones unless
 keep_evanescent. The n_sub - 1 sub-steps of each slice are always stateless.
+
+With strang = true, the layer starts and ends with a half modal step, so that the kicks
+sit in the middle of their slices: P/2, [K, P] × (nz - 1), K, P/2, a Strang splitting of
+second order in dz instead of K, P in each slice (first order: the kicks at the start of
+the slices move a layer dz/2 of reference medium from one end of the layer to the other).
+The half step at the start is one more modal step, with its own plane in the state
+(plane 1; slice k uses plane k + 1). It needs a stateful BPM with n_sub = 1.
 """
 function ScalarWaveBPM(u::ScalarWaveField, thickness::Real,
                        n_xyz::AbstractArray{<:Number, 3}, n0::Number;
                        n_sub::Integer = 1, n0_loc::Number = real(n0),
                        trainable::Bool = false, stateful::Bool = true,
-                       keep_evanescent::Bool = false)
+                       keep_evanescent::Bool = false, strang::Bool = false)
+    strang && !(stateful && n_sub == 1) && throw(ArgumentError(
+        "strang = true needs stateful = true and n_sub = 1"))
     T = real(eltype(u.E))
     ns = size(u)[1:2]
     n_slices = size(n_xyz, 3)
@@ -45,6 +57,7 @@ function ScalarWaveBPM(u::ScalarWaveField, thickness::Real,
     medium_loc = ScalarMediumModes(u, Complex{T}(n0_loc))
     factors = propagation_factors.(medium.modes, dz)
     factors_loc = propagation_factors.(medium_loc.modes, dz)
+    half_factors = propagation_factors.(medium.modes, dz / 2)
     transports = stateful ? nothing : transport_factors.(medium.modes, dz; keep_evanescent)
     # Sub-steps are short: with a state, their opposite modes are transported exactly
     keep_loc = stateful || keep_evanescent
@@ -52,8 +65,8 @@ function ScalarWaveBPM(u::ScalarWaveField, thickness::Real,
         transport_factors.(medium_loc.modes, dz; keep_evanescent = keep_loc)
     M = trainable ? Trainable : Static
     ScalarWaveBPM(Val(M), n_xyz_buf, Complex{T}(n0), Complex{T}(n0_loc), dz, n_sub, p_f,
-                  medium, medium_loc, factors, factors_loc, transports, transports_loc,
-                  T(1 / prod(ns)))
+                  medium, medium_loc, factors, factors_loc, half_factors, transports,
+                  transports_loc, strang, T(1 / prod(ns)))
 end
 
 trainable(p::ScalarWaveBPM{Trainable}) = (; n_xyz = p.n_xyz)
@@ -61,8 +74,8 @@ trainable(p::ScalarWaveBPM{Trainable}) = (; n_xyz = p.n_xyz)
 reference_medium(p::ScalarWaveBPM) = p.medium
 
 function alloc_fp_state(u::ScalarWaveField, p::ScalarWaveBPM)
-    isnothing(p.transports) ? (; amp = similar(u.E, (size(u.E)..., size(p.n_xyz, 3)))) :
-        nothing
+    n_planes = size(p.n_xyz, 3) + p.strang
+    isnothing(p.transports) ? (; amp = similar(u.E, (size(u.E)..., n_planes))) : nothing
 end
 
 function alloc_activations(u::ScalarWaveField, p::ScalarWaveBPM, ::Direction)
@@ -93,14 +106,17 @@ function compute_gradient!(∂n_xy, n_xy, u_act, ∂u::ScalarWaveField, c)
 end
 
 # The sub-steps (loc) are stateless: state is nothing and their transports are set
+# slot: plane of the state (k, or k + 1 with strang); factors: those of the step (half
+# steps at the ends with strang)
 function propagate_slice_fourier!(u::ScalarWaveField, state, p::ScalarWaveBPM,
-                                  k::Integer, direction::Direction; loc::Bool = false)
-    stored = map(a -> slice_at(a, k), state_arrays(state))
+                                  k::Integer, direction::Direction; loc::Bool = false,
+                                  slot::Integer = k, factors = p.factors)
+    stored = map(a -> slice_at(a, slot), state_arrays(state))
     if loc
         coefs = modal_coefs(p.medium_loc, p.factors_loc, p.transports_loc)
         launch_modal!(propagate_modes, (u.E, u.dzE), stored, coefs, direction)
     else
-        coefs = modal_coefs(p.medium, p.factors, p.transports)
+        coefs = modal_coefs(p.medium, factors, p.transports)
         launch_modal!(propagate_modes, (u.E, u.dzE), stored, coefs, direction)
     end
 end
@@ -136,10 +152,11 @@ function propagate_slice!(u::ScalarWaveField, state, activations,
 end
 
 function propagate_slice_adjoint_fourier!(∂u::ScalarWaveField, state, p::ScalarWaveBPM,
-                                          k::Integer, direction::Direction)
-    stored = map(a -> slice_at(a, k), state_arrays(state))
+                                          k::Integer, direction::Direction;
+                                          slot::Integer = k, factors = p.factors)
+    stored = map(a -> slice_at(a, slot), state_arrays(state))
     launch_modal!(propagate_modes_adjoint, (∂u.E, ∂u.dzE), stored,
-                  modal_coefs(p.medium, p.factors, p.transports), direction)
+                  modal_coefs(p.medium, factors, p.transports), direction)
 end
 
 function propagate_slice_adjoint_direct!(∂u::ScalarWaveField, ∂p, activations,
@@ -171,6 +188,7 @@ end
 
 function propagate!(u::ScalarWaveField, state, activations, p::ScalarWaveBPM,
                     direction::Direction)
+    p.strang && return propagate_strang!(u, state, activations, p, direction)
     for k in reverse(1:size(p.n_xyz, 3), direction)
         for j in reverse(1:p.n_sub, direction)
             if j == 1
@@ -188,8 +206,54 @@ function propagate_adjoint!(u::ScalarWaveField, ∂p, state, activations, p::Sca
     p.n_sub == 1 || throw(ArgumentError(
         "ScalarWaveBPM: gradients require n_sub = 1 \
         (n_sub > 1 is meant for forward convergence checks)"))
+    p.strang && return propagate_adjoint_strang!(u, ∂p, state, activations, p, direction)
     for k in reverse(1:size(p.n_xyz, 3), reverse(direction))
         propagate_slice_adjoint!(u, ∂p, state, activations, p, k, direction)
     end
     u
+end
+
+# Strang sequence (n_sub = 1, stateful): forward P/2 (plane 1), then K, P for each slice k
+# on plane k + 1, the last P over dz/2; backward the exact inverse sequence.
+function propagate_strang!(u::ScalarWaveField, state, activations, p::ScalarWaveBPM,
+                           direction::Direction)
+    nz = size(p.n_xyz, 3)
+    half_step!() = propagate_slice_fourier!(u, state, p, 0, direction; slot = 1,
+                                            factors = p.half_factors)
+    isforward(direction) && half_step!()
+    for k in reverse(1:nz, direction)
+        factors = k == nz ? p.half_factors : p.factors
+        if isforward(direction)
+            propagate_slice_direct!(u, activations, p, k, direction)
+            propagate_slice_fourier!(u, state, p, k, direction; slot = k + 1, factors)
+        else
+            propagate_slice_fourier!(u, state, p, k, direction; slot = k + 1, factors)
+            propagate_slice_direct!(u, activations, p, k, direction)
+        end
+    end
+    isforward(direction) || half_step!()
+    u
+end
+
+# Adjoint of propagate_strang!: the steps of the pass in reverse order, each adjoint
+function propagate_adjoint_strang!(∂u::ScalarWaveField, ∂p, state, activations,
+                                   p::ScalarWaveBPM, direction::Direction)
+    nz = size(p.n_xyz, 3)
+    half_step!() = propagate_slice_adjoint_fourier!(∂u, state, p, 0, direction; slot = 1,
+                                                    factors = p.half_factors)
+    isforward(direction) || half_step!()
+    for k in reverse(1:nz, reverse(direction))
+        factors = k == nz ? p.half_factors : p.factors
+        if isforward(direction)
+            propagate_slice_adjoint_fourier!(∂u, state, p, k, direction; slot = k + 1,
+                                             factors)
+            propagate_slice_adjoint_direct!(∂u, ∂p, activations, p, k, direction)
+        else
+            propagate_slice_adjoint_direct!(∂u, ∂p, activations, p, k, direction)
+            propagate_slice_adjoint_fourier!(∂u, state, p, k, direction; slot = k + 1,
+                                             factors)
+        end
+    end
+    isforward(direction) && half_step!()
+    ∂u
 end
