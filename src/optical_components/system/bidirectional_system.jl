@@ -242,23 +242,52 @@ function krylov_solve!(solver::BidirectionalSolver{<:CraigWorkspace},
     craig!(solver.workspace, op, getdata(solver.r); kwargs...)
 end
 
+# Whether a solver can continue a solve stopped by itmax (resume = true)
+supports_resume(::Any) = false
+
+# Correction of the last solve, as the data vector of the state
+function fp_correction(solver::BidirectionalSolver)
+    res = getdata(Krylov.solution(solver.workspace))
+    res isa Tuple ? first(res) : res
+end
+
+"""
+    fp_solve!(s, solver; n_warm_start = 0, graph = false, resume = false, kwargs...)
+
+Fixed point of the system by the Krylov solver, as a correction of the current state
+(which is the initial guess). With `resume = true`, continue the previous solve, stopped
+by `itmax`, where it stopped (GmresDRSolver only): the correction that it added to the
+state is first removed, and the right-hand side kept in the solver is reused, so that
+the solve makes the same products as a single one; `itmax` then bounds the products of
+this call.
+"""
 function fp_solve!(s::BidirectionalSystem, solver::BidirectionalSolver;
-                   n_warm_start = 0, graph::Bool = false, kwargs...)
-    if n_warm_start > 0
-        fp_solve!(s; itmax = n_warm_start)
-    end
+                   n_warm_start = 0, graph::Bool = false, resume::Bool = false,
+                   kwargs...)
     s_in, s_out = s.s_in, s.s_out
     v0 = getdata(s.fp_state)
     vr = getdata(solver.r)
-    @. vr = v0
-    compute_roundtrip!(s, s_in, s_out, solver.r)
-    @. vr -= v0
+    if resume
+        supports_resume(solver.workspace) ||
+            throw(ArgumentError("resume = true needs a solver that can resume a solve " *
+                                "(GmresDRSolver)"))
+        # Back to the state of the stopped solve, whose right-hand side is still in r
+        v0 .-= fp_correction(solver)
+    else
+        if n_warm_start > 0
+            fp_solve!(s; itmax = n_warm_start)
+        end
+        @. vr = v0
+        compute_roundtrip!(s, s_in, s_out, solver.r)
+        @. vr -= v0
+    end
     op = compute_linear_operator(s; graph)
-    krylov_solve!(solver, op; atol = solver.atol[], kwargs...)
-    res_state = Krylov.solution(solver.workspace)
-    res = getdata(res_state)
-    res = res isa Tuple ? first(res) : res
-    @. v0 += res
+    if resume
+        krylov_solve!(solver, op; atol = solver.atol[], resume, kwargs...)
+    else
+        krylov_solve!(solver, op; atol = solver.atol[], kwargs...)
+    end
+    v0 .+= fp_correction(solver)
     if solver.workspace.stats.solved && iszero(solver.atol[])
         @. vr = v0
         compute_roundtrip!(s, s_in, s_out, solver.r)
@@ -281,22 +310,31 @@ function fp_solve!(s::BidirectionalSystem, ::Nothing; kwargs...)
 end
 
 function fp_solve_adjoint!(s::BidirectionalSystem, solver::BidirectionalSolver;
-                           n_warm_start = 0, graph::Bool = false, kwargs...)
-    if n_warm_start > 0
-        fp_solve_adjoint!(s; itmax = n_warm_start)
-    end
+                           n_warm_start = 0, graph::Bool = false, resume::Bool = false,
+                           kwargs...)
     s_in, s_out = s.s_in_adj, s.s_out_adj
     v0 = getdata(s.fp_state_adj)
     vr = getdata(solver.r)
-    @. vr = v0
-    compute_roundtrip_adjoint!(s, s_in, s_out, solver.r)
-    @. vr -= v0
+    if resume
+        supports_resume(solver.workspace) ||
+            throw(ArgumentError("resume = true needs a solver that can resume a solve " *
+                                "(GmresDRSolver)"))
+        v0 .-= fp_correction(solver)
+    else
+        if n_warm_start > 0
+            fp_solve_adjoint!(s; itmax = n_warm_start)
+        end
+        @. vr = v0
+        compute_roundtrip_adjoint!(s, s_in, s_out, solver.r)
+        @. vr -= v0
+    end
     op = compute_linear_operator(s; adjoint = true, graph)
-    krylov_solve!(solver, op; kwargs...)
-    res_state = Krylov.solution(solver.workspace)
-    res = getdata(res_state)
-    res = res isa Tuple ? first(res) : res
-    @. v0 += res
+    if resume
+        krylov_solve!(solver, op; resume, kwargs...)
+    else
+        krylov_solve!(solver, op; kwargs...)
+    end
+    v0 .+= fp_correction(solver)
     if solver.workspace.stats.solved && iszero(solver.atol[])
         @. vr = v0
         compute_roundtrip_adjoint!(s, s_in, s_out, solver.r)

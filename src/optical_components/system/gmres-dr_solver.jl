@@ -63,6 +63,14 @@
 # check_residual restarts from the true residual when they disagree, as an iterative
 # refinement.
 #
+# Resuming. A solve stopped by maxit can be continued on the same operator and right-hand
+# side (resume = true): the cycles in progress go on from their basis, projected problem
+# and kept vectors, so that the products are exactly those of a single solve. When it
+# stops in the middle of a cycle, the solve still returns the minimizer over the basis
+# built so far, x + V·y, without ending the cycle: the iterate at the start of the cycle
+# is kept in v, and a resumed solve restores it. The tolerances are those of the first
+# solve.
+#
 # Memory: memory + 1 stored vectors, 3 vectors in the working precision (x, w, v), the
 # projected problems of the B elements on the host, and min(chunk, P) × (memory +
 # deflation + 2) entries for the restarts with kept vectors (none when deflation = 0).
@@ -99,7 +107,8 @@ After a solve: `element_niter[e]` products made for element e (stats.niter count
 products of the batch), `converged[e]`, the residual estimates of each element in
 `residuals[e]`, its restarts from the true residual (estimate converged, true residual
 not) in `refinements[e]`, and its second Gram–Schmidt passes on a device in
-`reorthogonalizations[e]`.
+`reorthogonalizations[e]`. A solve stopped by maxit can be continued with
+`gmresdr!(ws, op, b; resume = true, ...)` (see Resuming above).
 """
 struct GmresDRWorkspace{T, R, S, M, W, D}
     layout::BatchLayout
@@ -155,6 +164,7 @@ struct GmresDRWorkspace{T, R, S, M, W, D}
     check_residual::Bool
     n_tasks::Int
     stats::IterativeStats
+    pending::Vector{Bool}         # x includes the partial cycle of the element (resume)
 end
 
 function GmresDRWorkspace(m, n, S::Type; memory = 40, deflation = 20, chunk = 2^12,
@@ -190,7 +200,8 @@ function GmresDRWorkspace(m, n, S::Type; memory = 40, deflation = 20, chunk = 2^
                      zeros(R, B), zeros(R, B), zeros(R, B),
                      zeros(Int, B), [R[] for _ in 1:B], zeros(Int, B), zeros(Int, B),
                      zeros(Int32, B), zeros(Int32, B), zeros(Int32, B), zeros(R, B),
-                     memory, deflation, chunk, check_residual, n_tasks, IterativeStats())
+                     memory, deflation, chunk, check_residual, n_tasks, IterativeStats(),
+                     fill(false, B))
 end
 
 Krylov.solution(ws::GmresDRWorkspace) = ws.x
@@ -569,32 +580,43 @@ function arnoldi_steps!(ws::GmresDRWorkspace)
     rnorm
 end
 
-"""Solve A x = b from x = 0 by GMRES-DR; at most maxit products by A."""
-function gmresdr!(ws::GmresDRWorkspace, op, b; atol, rtol, maxit)
+"""
+Solve A x = b from x = 0 by GMRES-DR; at most maxit products by A. With resume = true,
+continue the previous solve of the same A and b (stopped by maxit) where it stopped,
+with its tolerances (atol and rtol are then ignored), for at most maxit more products.
+"""
+function gmresdr!(ws::GmresDRWorkspace, op, b; atol, rtol, maxit, resume::Bool = false)
     L, x, w = ws.layout, ws.x, ws.w
     B, M = L.B, ws.memory
     T = eltype(x)
     R = real(T)
-    fill!(x, zero(T))
-    fill!(ws.element_niter, 0)
-    fill!(ws.refinements, 0)
-    fill!(ws.reorthogonalizations, 0)
-    fill!(ws.converged, false)
-    # Residuals of x = 0, without a product: b itself
-    copyto!(w, b)
-    fill!(ws.mask, true)
-    r0 = element_norms!(ws.norms, ws, w, ws.mask)
-    ws.tol .= max.(R(atol) / sqrt(R(B)), R(rtol) .* r0)
-    for e in 1:B
-        empty!(ws.residuals[e])
-        push!(ws.residuals[e], r0[e])
-        if r0[e] ≤ ws.tol[e]
-            ws.phase[e], ws.converged[e], ws.cols[e] = FROZEN, true, 0
-        else
-            fresh_cycle!(ws, e, r0[e])
+    if resume
+        # Iterate at the start of the cycles in progress, if a partial cycle was added
+        any(ws.pending) && copyto!(x, ws.v)
+        fill!(ws.pending, false)
+    else
+        fill!(x, zero(T))
+        fill!(ws.pending, false)
+        fill!(ws.element_niter, 0)
+        fill!(ws.refinements, 0)
+        fill!(ws.reorthogonalizations, 0)
+        fill!(ws.converged, false)
+        # Residuals of x = 0, without a product: b itself
+        copyto!(w, b)
+        fill!(ws.mask, true)
+        r0 = element_norms!(ws.norms, ws, w, ws.mask)
+        ws.tol .= max.(R(atol) / sqrt(R(B)), R(rtol) .* r0)
+        for e in 1:B
+            empty!(ws.residuals[e])
+            push!(ws.residuals[e], r0[e])
+            if r0[e] ≤ ws.tol[e]
+                ws.phase[e], ws.converged[e], ws.cols[e] = FROZEN, true, 0
+            else
+                fresh_cycle!(ws, e, r0[e])
+            end
         end
+        store!(ws, w)
     end
-    store!(ws, w)
     niter = 0
     kept = ws.kept
     while any(!=(FROZEN), ws.phase) && niter < maxit
@@ -641,7 +663,9 @@ function gmresdr!(ws::GmresDRWorkspace, op, b; atol, rtol, maxit)
         for e in 1:B
             ws.ending[e] || continue
             if ws.estimate[e] ≤ ws.tol[e] || ws.breakdown[e]
-                if ws.check_residual && niter < maxit
+                if ws.check_residual
+                    # True residual at the next product; a solve stopped before it
+                    # reports the element unconverged, and a resumed one starts with it
                     ws.phase[e] = CHECK
                 else
                     ws.phase[e] = FROZEN
@@ -658,14 +682,29 @@ function gmresdr!(ws::GmresDRWorkspace, op, b; atol, rtol, maxit)
             end
         end
     end
+    # Stopped in the middle of cycles: x + V·y for them, the iterate at the start of
+    # the cycles kept in v for a resumed solve (the cycles themselves are not ended)
+    for e in 1:B
+        ws.pending[e] = ws.phase[e] == ARNOLDI && ws.j[e] > ws.k0[e]
+    end
+    if any(ws.pending)
+        copyto!(ws.v, x)
+        for e in 1:B
+            ws.ncols[e] = -1
+            ws.pending[e] && end_cycle!(ws, e)
+        end
+        element_combine!(ws, x)
+    end
     ws.stats.niter = niter
     ws.stats.solved = all(ws.converged)
     ws.stats
 end
 
+supports_resume(::GmresDRWorkspace) = true
+
 function krylov_solve!(solver::BidirectionalSolver{<:GmresDRWorkspace},
                        op::LinearOperator; atol = 0, rtol = default_rtol(solver),
-                       itmax = 0, kwargs...)
+                       itmax = 0, resume::Bool = false, kwargs...)
     gmresdr!(solver.workspace, op, getdata(solver.r); atol, rtol,
-             maxit = max_products(op, itmax))
+             maxit = max_products(op, itmax), resume)
 end

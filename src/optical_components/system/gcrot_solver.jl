@@ -18,6 +18,16 @@
 # Directions that the inner solves keep correcting along, typically the slow modes, are
 # then kept, whatever their age.
 #
+# Recycling (Parks, de Sturler, Mackey, Johnson, Maiti, SIAM J. Sci. Comput. 28, 2006).
+# The outer space is kept from one solve to the next. With recycle = true, a solve of a
+# new system A' x = b' (a nearby operator: optimization step, angle or wavelength sweep,
+# adjoint) starts from it: the images C = A'·U of the kept directions are recomputed (one
+# product each) and orthonormalized, U transformed alike so that A'·U = C, and the
+# first outer iteration projects the residual out of span(C), as in GCRO-DR. Any space
+# gives a correct solve; a space close to the slow modes of A' saves iterations, more
+# than the products of the recomputation when the solve needs many. Directions whose
+# image is nearly dependent on the previous ones are dropped.
+#
 # Each outer iteration starts from the true residual b - A x (one product), projected out
 # of span(C), so that rounding in a reduced storage of the vectors (`storage`) cannot
 # make the reported residual drift. Per outer iteration: at most inner + 1 products.
@@ -39,7 +49,9 @@
   working precision.
 
 The residual estimates of the inner iterations and the true residuals at the start of
-each outer iteration are in `residuals`.
+each outer iteration are in `residuals`. The outer space is kept after a solve:
+`gcrot!(ws, op, b; recycle = true, ...)` starts the next solve from it (see Recycling
+above); `recycled` gives the number of directions kept for that solve.
 """
 struct GcrotWorkspace{T, R, S, M, B}
     x::S                          # iterate, then solution
@@ -67,6 +79,9 @@ struct GcrotWorkspace{T, R, S, M, B}
     truncation::Symbol
     decay::Float64
     stats::IterativeStats
+    nc::Base.RefValue{Int}        # outer directions in use, kept between solves
+    slot::Base.RefValue{Int}      # next slot of the outer space
+    recycled::Base.RefValue{Int}  # directions recycled at the start of the last solve
 end
 
 function GcrotWorkspace(m, n, S::Type; inner = 30, outer = 30, truncation = :usage,
@@ -88,7 +103,8 @@ function GcrotWorkspace(m, n, S::Type; inner = 30, outer = 30, truncation = :usa
                    zeros(T, inner + 1, inner), zeros(T, inner + 1), zeros(T, inner),
                    zeros(T, inner + 1), zeros(T, outer), zeros(T, nw),
                    Vector{LinearAlgebra.Givens{T}}(undef, inner), fill(R(Inf), outer),
-                   R[], inner, outer, truncation, Float64(decay), IterativeStats())
+                   R[], inner, outer, truncation, Float64(decay), IterativeStats(),
+                   Ref(0), Ref(1), Ref(0))
 end
 
 Krylov.solution(ws::GcrotWorkspace) = ws.x
@@ -98,21 +114,56 @@ function GcrotSolver(system::BidirectionalSystem; inner = 30, outer = 30,
     FixedPointSolver(system, GcrotWorkspace; inner, outer, truncation, decay, storage)
 end
 
-"""Solve A x = b from x = 0 by GCROT; at most maxit products by A."""
-function gcrot!(ws::GcrotWorkspace, op, b; atol, rtol, maxit)
+"""
+Solve A x = b from x = 0 by GCROT; at most maxit products by A. With recycle = true,
+start from the outer space of the previous solve, its images recomputed with A (see
+Recycling).
+"""
+function gcrot!(ws::GcrotWorkspace, op, b; atol, rtol, maxit, recycle::Bool = false)
     x, w, v, V, C, U = ws.x, ws.w, ws.v, ws.V, ws.C, ws.U
     H, Bm, g, hh, buffers = ws.H, ws.Bm, ws.g, ws.hh, ws.buffers
     T = eltype(x)
+    R = real(T)
     m, k, s0 = ws.inner, ws.outer, ws.s0
+    score = ws.score
+    niter, nc, slot = 0, 0, 1                   # outer directions in use, next slot
+    if recycle && ws.nc[] > 0
+        # Images of the kept directions under the new operator, orthonormalized in
+        # order, each direction transformed like its image so that A·U = C
+        for i in 1:ws.nc[]
+            niter < maxit || break
+            load_stored!(v, U, i, ws.su[i])
+            mul!(w, op, v)
+            niter += 1
+            nw = norm(w)
+            r = view(ws.cy, 1:nc)
+            fill!(r, zero(T))
+            orthogonalize_window!(w, r, hh, buffers, C, s0, nc)    # w -= C·r
+            α = norm(w)
+            α > sqrt(eps(R)) * nw || continue   # image nearly dependent: dropped
+            if nc > 0                           # u -= U·r
+                view(hh, 1:nc) .= .-r ./ view(ws.su, 1:nc)
+                window_combine!(v, buffers, U, hh, nc)
+            end
+            w ./= α
+            v ./= α
+            nc += 1                             # nc ≤ i: columns not yet read
+            store_scaled!(C, nc, w, s0)
+            ws.su[nc] = storage_scale(U, v)
+            store_scaled!(U, nc, v, ws.su[nc])
+            score[nc] = score[i]
+        end
+        slot = nc < k ? nc + 1 : (ws.truncation == :oldest ? 1 : argmin(score))
+    else
+        fill!(score, Inf)
+    end
+    ws.recycled[] = nc
     fill!(x, zero(T))
     copyto!(w, b)                               # residual of x = 0, without a product
     rnorm = norm(w)
     tol = max(atol, rtol * norm(b))
     empty!(ws.residuals)
     push!(ws.residuals, rnorm)
-    niter, nc, slot = 0, 0, 1                   # outer directions in use, next slot
-    score = ws.score
-    fill!(score, Inf)
     estimate = rnorm
     converged = rnorm ≤ tol
     while !converged && niter < maxit
@@ -225,6 +276,7 @@ function gcrot!(ws::GcrotWorkspace, op, b; atol, rtol, maxit)
             converged = estimate ≤ tol
         end
     end
+    ws.nc[], ws.slot[] = nc, slot
     ws.stats.niter = niter
     ws.stats.solved = converged
     ws.stats
@@ -232,7 +284,7 @@ end
 
 function krylov_solve!(solver::BidirectionalSolver{<:GcrotWorkspace},
                        op::LinearOperator; atol = 0, rtol = default_rtol(solver),
-                       itmax = 0, kwargs...)
+                       itmax = 0, recycle::Bool = false, kwargs...)
     gcrot!(solver.workspace, op, getdata(solver.r); atol, rtol,
-           maxit = max_products(op, itmax))
+           maxit = max_products(op, itmax), recycle)
 end
