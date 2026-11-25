@@ -297,12 +297,37 @@ function fp_solve!(s::BidirectionalSystem, solver::BidirectionalSolver;
     s.fp_state
 end
 
-function fp_solve!(s::BidirectionalSystem; itmax = 20, kwargs...)
+"""
+    fp_solve!(s; itmax = 20, rtol = nothing, history = nothing)
+
+Plain fixed-point (Neumann) iterations x ← G·x + b from the current state, at most
+`itmax` of them. With `rtol`, stop as soon as the increment ‖x_k - x_{k-1}‖ falls below
+`rtol`·‖x_k‖ (from x = 0, the increment is the last term G^(k-1)·b of the series). With
+a vector `history`, push the increment of each iteration: its length is then the number
+of iterations made.
+"""
+function fp_solve!(s::BidirectionalSystem; itmax = 20, rtol = nothing, history = nothing,
+                   kwargs...)
     s_in, s_out = s.s_in, s.s_out
+    track = !isnothing(rtol) || !isnothing(history)
+    v = getdata(s.fp_state)
+    # tmp_state is free here: propagate fills it only after the solve
+    prev = track ? getdata(s.tmp_state) : nothing
     for i in 1:itmax
+        track && copyto!(prev, v)
         compute_roundtrip!(s, s_in, s_out, s.fp_state)
+        track && neumann_increment!(v, prev, rtol, history) && break
     end
     s.fp_state
+end
+
+# Increment of a fixed-point iteration (prev is overwritten with it): pushed to history,
+# and true when it is below rtol relative to the iterate
+function neumann_increment!(v, prev, rtol, history)
+    @. prev = v - prev
+    δ = norm(prev)
+    isnothing(history) || push!(history, Float64(δ))
+    !isnothing(rtol) && δ <= rtol * norm(v)
 end
 
 function fp_solve!(s::BidirectionalSystem, ::Nothing; kwargs...)
@@ -344,10 +369,16 @@ function fp_solve_adjoint!(s::BidirectionalSystem, solver::BidirectionalSolver;
     s.fp_state_adj
 end
 
-function fp_solve_adjoint!(s::BidirectionalSystem; itmax = 20, kwargs...)
+function fp_solve_adjoint!(s::BidirectionalSystem; itmax = 20, rtol = nothing,
+                           history = nothing, kwargs...)
     s_in, s_out = s.s_in_adj, s.s_out_adj
+    track = !isnothing(rtol) || !isnothing(history)
+    v = getdata(s.fp_state_adj)
+    prev = track ? similar(v) : nothing
     for i in 1:itmax
+        track && copyto!(prev, v)
         compute_roundtrip_adjoint!(s, s_in, s_out, s.fp_state_adj)
+        track && neumann_increment!(v, prev, rtol, history) && break
     end
     s.fp_state_adj
 end
