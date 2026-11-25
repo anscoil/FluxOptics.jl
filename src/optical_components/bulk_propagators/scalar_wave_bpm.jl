@@ -22,7 +22,7 @@ Functors.@functor ScalarWaveBPM (n_xyz,)
 """
     ScalarWaveBPM(u, thickness, n_xyz, n0; n_sub = 1, n0_loc = real(n0),
                   trainable = false, stateful = true, keep_evanescent = false,
-                  strang = false)
+                  strang = false, kmax = nothing, knotch = nothing)
 
 Bidirectional scalar split-step propagation through a layer of given thickness. A
 stateful BPM keeps the modes travelling against each pass in the fixed-point state; a
@@ -35,12 +35,16 @@ second order in dz instead of K, P in each slice (first order: the kicks at the 
 the slices move a layer dz/2 of reference medium from one end of the layer to the other).
 The half step at the start is one more modal step, with its own plane in the state
 (plane 1; slice k uses plane k + 1). It needs a stateful BPM with n_sub = 1.
+With `kmax`, the orders |k⊥| > kmax are removed at every modal step, with
+`knotch = (k1, k2)` the band k1 < |k⊥| < k2 (see order_mask).
 """
 function ScalarWaveBPM(u::ScalarWaveField, thickness::Real,
                        n_xyz::AbstractArray{<:Number, 3}, n0::Number;
                        n_sub::Integer = 1, n0_loc::Number = real(n0),
                        trainable::Bool = false, stateful::Bool = true,
-                       keep_evanescent::Bool = false, strang::Bool = false)
+                       keep_evanescent::Bool = false, strang::Bool = false,
+                       kmax::Union{Nothing, Real} = nothing,
+                       knotch::Union{Nothing, NTuple{2, Real}} = nothing)
     strang && !(stateful && n_sub == 1) && throw(ArgumentError(
         "strang = true needs stateful = true and n_sub = 1"))
     T = real(eltype(u.E))
@@ -55,14 +59,16 @@ function ScalarWaveBPM(u::ScalarWaveField, thickness::Real,
     p_f, _ = make_fft_plans(similar(u.E), (1, 2); normalize = false)
     medium = ScalarMediumModes(u, Complex{T}(n0))
     medium_loc = ScalarMediumModes(u, Complex{T}(n0_loc))
-    factors = propagation_factors.(medium.modes, dz)
-    factors_loc = propagation_factors.(medium_loc.modes, dz)
-    half_factors = propagation_factors.(medium.modes, dz / 2)
-    transports = stateful ? nothing : transport_factors.(medium.modes, dz; keep_evanescent)
+    keep = order_mask(u.E, ns, u.ds, kmax, knotch)
+    factors = cut_orders(propagation_factors.(medium.modes, dz), keep)
+    factors_loc = cut_orders(propagation_factors.(medium_loc.modes, dz), keep)
+    half_factors = cut_orders(propagation_factors.(medium.modes, dz / 2), keep)
+    transports = stateful ? nothing :
+        cut_orders(transport_factors.(medium.modes, dz; keep_evanescent), keep)
     # Sub-steps are short: with a state, their opposite modes are transported exactly
     keep_loc = stateful || keep_evanescent
     transports_loc = n_sub == 1 ? nothing :
-        transport_factors.(medium_loc.modes, dz; keep_evanescent = keep_loc)
+        cut_orders(transport_factors.(medium_loc.modes, dz; keep_evanescent = keep_loc), keep)
     M = trainable ? Trainable : Static
     ScalarWaveBPM(Val(M), n_xyz_buf, Complex{T}(n0), Complex{T}(n0_loc), dz, n_sub, p_f,
                   medium, medium_loc, factors, factors_loc, half_factors, transports,

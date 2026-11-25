@@ -69,6 +69,39 @@ function transport_factors(m::IsotropicModeBasis, z::Real; keep_evanescent::Bool
     SymmetricFactors(transport(m.kz, -real(typeof(m.kz))(z), keep_evanescent))
 end
 
+# Filter of the orders |k⊥| > kmax (kmax = nothing: no filter). The modal factors of the
+# filtered orders are set to zero, so that every modal step removes them: what a kick
+# puts there does not reach the next kick. With a reference medium in which an object of
+# higher index is evanescent for some orders (k_ref < |k⊥| < k_object), the kicks amplify
+# them slice after slice unless the whole fixed point is solved (truncations, Neumann
+# iterations); orders near the cutoff of a periodic window also make it resonate. kmax
+# below k_ref removes both, at the price of the light that the object sends there.
+#
+# knotch = (k1, k2) removes instead the band k1 < |k⊥| < k2 only: around the cutoff k_ref
+# of the reference medium, the orders with |kz| small, which make a periodic window
+# resonate (kicks weighted by 1/kz), while the evanescent orders beyond k2, where an object
+# of higher index carries light, are kept. Both filters can be combined.
+function order_mask(u::AbstractArray, ns::NTuple{2, Integer}, ds, kmax, knotch = nothing)
+    isnothing(kmax) && isnothing(knotch) && return nothing
+    T = real(eltype(u))
+    fx = T(2π) .* fftfreq(ns[1], 1 / ds[1])
+    fy = T(2π) .* fftfreq(ns[2], 1 / ds[2])
+    k2max = isnothing(kmax) ? T(Inf) : T(kmax)^2
+    k1², k2² = isnothing(knotch) ? (T(Inf), T(Inf)) : (T(knotch[1])^2, T(knotch[2])^2)
+    keep = similar(u, Bool, ns)
+    copyto!(keep, [(a^2 + b^2 <= k2max) && !(k1² < a^2 + b^2 < k2²) for a in fx, b in fy])
+    keep
+end
+
+cut_orders(factors, ::Nothing) = factors
+cut_orders(::Nothing, keep) = nothing
+cut_orders(::Nothing, ::Nothing) = nothing
+
+function cut_orders(factors::StructArray, keep::AbstractArray{Bool})
+    cut(c) = ifelse.(keep, c, Ref(zero(eltype(c))))
+    StructArray{eltype(factors)}(map(cut, StructArrays.components(factors)))
+end
+
 # Coefficients of the modal kernels: the transport factors only without a state
 modal_coefs(medium, factors, ::Nothing) = (medium.modes, factors)
 modal_coefs(medium, factors, transports) = (medium.modes, factors, transports)

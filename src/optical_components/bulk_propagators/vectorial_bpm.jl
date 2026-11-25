@@ -151,7 +151,7 @@ end
 
 """
     VectorialBPM(u, thickness, eps_xyz, eps_ref; step = 1, interaction = false,
-                 symmetric = false, strang = false, trainable = false)
+                 symmetric = false, strang = false, trainable = false, kmax = nothing, knotch = nothing)
 
 Bidirectional vectorial split-step propagation through a layer of given thickness.
 `eps_xyz` has shape (Nx, Ny, nz), one slice per z step, with Number (isotropic) or
@@ -164,12 +164,15 @@ free propagation phase removed, so that the interpolation is exact in homogeneou
 K, L (see Stages). With `strang = true`, the layer also starts and ends with a half modal
 step, which makes the scheme of second order in dz (Strang splitting of the whole slice
 sequence, sheets symmetric); it needs one more stored plane and no interaction picture.
+With `kmax`, the orders |k⊥| > kmax are removed at every modal step, with
+`knotch = (k1, k2)` the band k1 < |k⊥| < k2 (see order_mask).
 """
 function VectorialBPM(u::VectorialField, thickness::Real,
                       eps_xyz::AbstractArray{<:Permittivity, 3}, eps_ref::Number;
                       step::Integer = 1, interaction::Bool = false,
                       symmetric::Bool = false, strang::Bool = false,
-                      trainable::Bool = false)
+                      trainable::Bool = false, kmax::Union{Nothing, Real} = nothing,
+                      knotch::Union{Nothing, NTuple{2, Real}} = nothing)
     eltype(eps_xyz) <: Epsilon && throw(ArgumentError(
         "VectorialBPM handles isotropic and z-decoupled permittivities (ZDecEpsilon); " *
             "general tensors couple E⊥ and Ez and need the δ-variable scheme"))
@@ -193,8 +196,9 @@ function VectorialBPM(u::VectorialField, thickness::Real,
     p_f = (; field = first(make_fft_plans(similar(u.Ex), (1, 2); normalize = false)),
            pair = first(make_fft_plans(buffers.pair, (1, 2); normalize = false)))
     medium = VectorialMediumModes(u, ε_r)
-    factors = propagation_factors.(medium.modes, dz)
-    half_factors = propagation_factors.(medium.modes, dz / 2)
+    keep = order_mask(u.Ex, ns, u.ds, kmax, knotch)
+    factors = cut_orders(propagation_factors.(medium.modes, dz), keep)
+    half_factors = cut_orders(propagation_factors.(medium.modes, dz / 2), keep)
     fx = collect(T, T(2π) .* fftfreq(ns[1], 1 / u.ds[1]))
     fy = collect(T, T(2π) .* fftfreq(ns[2], 1 / u.ds[2]))
     kx, ky = similar(u.Ex, T, ns), similar(u.Ex, T, ns)
@@ -206,7 +210,8 @@ function VectorialBPM(u::VectorialField, thickness::Real,
     # Interaction picture: exp(-i·θ) per pixel, θ = Re(kz)·dz, and the phase factor
     # exp(-i·σ·k·θ) at the first slice of each pass: k = 1 (σ = 1), k = nz (σ = -1)
     phasors = if interaction
-        θ = map(m -> T(real(m.kz)) * dz, medium.modes)
+        # Broadcast on the kz component: map over a StructArray iterates on the host
+        θ = T.(real.(medium.modes.kz)) .* dz
         (; step = cis.(-θ), first_fwd = cis.(-θ), first_bwd = cis.(nz .* θ),
          current = similar(u.Ex, Complex{T}, ns))
     else
